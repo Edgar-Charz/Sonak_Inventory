@@ -68,7 +68,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                     <span></span>
                 </span>
             </a>
-
+ 
             <ul class="nav user-menu">
 
                 <li class="nav-item dropdown has-arrow main-drop">
