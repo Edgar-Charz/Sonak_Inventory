@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 27, 2025 at 10:16 AM
+-- Generation Time: Sep 02, 2025 at 04:47 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -129,6 +129,10 @@ CREATE TABLE `orders` (
   `totalProducts` int(11) NOT NULL,
   `subTotal` decimal(10,2) NOT NULL,
   `vat` int(11) NOT NULL,
+  `vatAmount` decimal(10,2) NOT NULL,
+  `discount` int(11) NOT NULL,
+  `discountAmount` decimal(10,2) NOT NULL,
+  `shippingAmount` decimal(10,2) NOT NULL,
   `total` decimal(10,2) NOT NULL,
   `paymentType` varchar(255) NOT NULL,
   `paid` decimal(10,2) NOT NULL,
@@ -142,17 +146,21 @@ CREATE TABLE `orders` (
 -- Dumping data for table `orders`
 --
 
-INSERT INTO `orders` (`orderUId`, `invoiceNumber`, `customerId`, `createdBy`, `updatedBy`, `orderDate`, `totalProducts`, `subTotal`, `vat`, `total`, `paymentType`, `paid`, `due`, `orderStatus`, `created_at`, `updated_at`) VALUES
-(21, '1212121233', 4, 10, 10, '2025-08-21', 3, 4500.00, 0, 4500.00, '', 0.00, 4500.00, 1, '2025-08-21 17:36:33', '2025-08-21 17:36:33'),
-(24, '12121212nn', 4, 10, 10, '2025-08-21', 6, 9000.00, 0, 9000.00, '', 0.00, 9000.00, 0, '2025-08-21 18:10:21', '2025-08-21 18:10:21'),
-(23, '12133', 4, 10, 10, '2025-08-21', 1, 2500.00, 0, 2500.00, '', 0.00, 2500.00, 1, '2025-08-21 18:08:24', '2025-08-21 18:08:24'),
-(16, 'ABCH3005', 7, 9, 9, '2025-08-21', 4, 6000.00, 17, 7020.00, 'Credit Card', 6000.00, 1020.00, 0, NULL, '2025-08-27 10:01:20'),
-(17, 'ABCH30051', 7, 9, 9, '2025-08-21', 10, 19000.00, 18, 22420.00, 'Cash', 10000.00, 12420.00, 0, '2025-08-20 10:08:58', '2025-08-20 10:08:58'),
-(14, 'ASSS12', 7, 9, 9, '2025-08-21', 1, 1500.00, 0, 1500.00, 'Cash', 0.00, 1500.00, 1, NULL, NULL),
-(27, 'SNK-S001', 6, 10, 10, '0000-00-00', 1, 1500.00, 0, 1500.00, '', 0.00, 1500.00, 0, '2025-08-21 18:50:26', '2025-08-21 18:50:26'),
-(28, 'SNK-S002', 4, 10, 10, '0000-00-00', 2, 3000.00, 0, 3000.00, '', 0.00, 3000.00, 0, '2025-08-21 19:17:53', '2025-08-21 19:17:53'),
-(30, 'SNK-S004', 4, 10, 10, '2025-08-22', 4, 6000.00, 0, 6000.00, '', 0.00, 6000.00, 0, '2025-08-21 19:21:57', '2025-08-21 19:21:57'),
-(33, 'SNK-S005', 4, 10, 10, '2025-08-26', 5, 7500.00, 0, 7500.00, 'Cash', 0.00, 7500.00, 1, '2025-08-26 11:53:50', '2025-08-26 11:53:50');
+INSERT INTO `orders` (`orderUId`, `invoiceNumber`, `customerId`, `createdBy`, `updatedBy`, `orderDate`, `totalProducts`, `subTotal`, `vat`, `vatAmount`, `discount`, `discountAmount`, `shippingAmount`, `total`, `paymentType`, `paid`, `due`, `orderStatus`, `created_at`, `updated_at`) VALUES
+(27, 'SNK-S001', 6, 10, 9, '2025-08-28', 7, 6114110.00, 18, 0.00, 0, 0.00, 0.00, 7214649.80, 'Cash', 3540.00, 7211109.80, 0, '2025-08-21 18:50:26', '2025-09-01 12:08:42'),
+(28, 'SNK-S002', 4, 10, 9, '2025-08-28', 3, 4500.00, 0, 0.00, 0, 0.00, 0.00, 4500.00, 'Cash', 4500.00, 0.00, 1, '2025-08-21 19:17:53', '2025-09-01 12:27:46'),
+(30, 'SNK-S004', 4, 10, 9, '2025-08-22', 4, 6000.00, 0, 0.00, 0, 0.00, 0.00, 6000.00, 'Cash', 6000.00, 0.00, 1, '2025-08-21 19:21:57', '2025-08-28 17:10:07'),
+(33, 'SNK-S005', 4, 10, 9, '2025-08-26', 5, 7500.00, 0, 0.00, 0, 0.00, 0.00, 7500.00, 'Cash', 7500.00, 0.00, 1, '2025-08-26 11:53:50', '2025-08-28 12:13:58'),
+(34, 'SNK-S006', 4, 9, 9, '2025-08-28', 2, 3000.00, 18, 0.00, 0, 0.00, 0.00, 3540.00, 'Cash', 3540.00, 0.00, 1, '2025-08-28 10:16:03', '2025-08-28 12:06:02'),
+(35, 'SNK-S007', 4, 9, 9, '2025-08-28', 5, 7500.00, 0, 0.00, 0, 0.00, 0.00, 7500.00, 'Credit Card', 6000.00, 1500.00, 2, '2025-08-28 13:30:44', '2025-09-01 12:11:37'),
+(36, 'SNK-S008', 8, 9, 9, '2025-08-28', 1, 1500.00, 18, 0.00, 0, 0.00, 0.00, 1770.00, 'Cash', 1770.00, 0.00, 1, '2025-08-28 16:16:10', '2025-08-28 16:16:10'),
+(37, 'SNK-S009', 8, 9, 9, '2025-08-28', 1, 1500.00, 18, 0.00, 0, 0.00, 0.00, 1770.00, 'Cash', 1770.00, 0.00, 1, '2025-08-28 16:17:45', '2025-08-28 17:17:56'),
+(38, 'SNK-S010', 8, 9, 9, '2025-08-28', 9, 4896388.00, 18, 0.00, 0, 0.00, 0.00, 5777737.84, 'Cash', 2887983.92, 2889753.92, 2, '2025-08-28 17:23:48', '2025-09-01 12:09:32'),
+(39, 'SNK-S011', 8, 9, 9, '2025-08-28', 6, 9000.00, 20, 0.00, 0, 0.00, 0.00, 10800.00, 'Cash', 1080.00, 9720.00, 0, '2025-08-28 18:56:43', '2025-08-31 16:21:47'),
+(40, 'SNK-S012', 9, 9, 9, '2025-08-29', 5, 7500.00, 18, 0.00, 0, 0.00, 0.00, 8850.00, 'Cash', 100.00, 8750.00, 2, '2025-08-29 14:00:11', '2025-08-29 14:02:12'),
+(42, 'SNK-S013', 7, 9, 9, '2025-09-02', 9, 81000.00, 18, 0.00, 0, 0.00, 0.00, 95580.00, 'Cash', 95580.00, 0.00, 1, '2025-09-02 13:27:06', '2025-09-02 13:41:48'),
+(43, 'SNK-S014', 6, 10, 10, '2025-09-02', 15, 240000.00, 18, 43200.00, 10, 24000.00, 15000.00, 259200.00, 'Cash', 0.00, 259200.00, 0, '2025-09-02 16:58:14', '2025-09-02 16:58:14'),
+(44, 'SNK-S015', 6, 10, 10, '2025-09-02', 23, 142500.00, 0, 0.00, 0, 0.00, 0.00, 142500.00, 'Cash', 0.00, 142500.00, 2, '2025-09-02 17:00:31', '2025-09-02 17:02:22');
 
 -- --------------------------------------------------------
 
@@ -167,7 +175,7 @@ CREATE TABLE `order_details` (
   `quantity` int(11) NOT NULL,
   `unitCost` decimal(10,2) NOT NULL,
   `totalCost` decimal(10,2) NOT NULL,
-  `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '1 = Paid, 0 = Unpaid',
+  `status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '1 = Paid, 0 = Unpaid',
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -177,15 +185,26 @@ CREATE TABLE `order_details` (
 --
 
 INSERT INTO `order_details` (`orderDetailsId`, `invoiceNumber`, `productId`, `quantity`, `unitCost`, `totalCost`, `status`, `created_at`, `updated_at`) VALUES
-(24, 'ABCH30051', 23, 6, 1500.00, 9000.00, 1, '2025-08-20 10:08:58', '2025-08-20 10:08:58'),
-(38, '1212121233', 23, 3, 1500.00, 4500.00, 1, '2025-08-21 17:36:33', '2025-08-21 17:36:33'),
-(41, '12121212nn', 23, 6, 1500.00, 9000.00, 1, '2025-08-21 18:10:21', '2025-08-21 18:10:21'),
-(44, 'SNK-S001', 23, 1, 1500.00, 1500.00, 1, '2025-08-21 18:50:26', '2025-08-21 18:50:26'),
-(45, 'SNK-S002', 23, 2, 1500.00, 3000.00, 1, '2025-08-21 19:17:53', '2025-08-21 19:17:53'),
-(47, 'SNK-S004', 23, 4, 1500.00, 6000.00, 1, '2025-08-21 19:21:57', '2025-08-21 19:21:57'),
 (52, 'SNK-S005', 23, 5, 1500.00, 7500.00, 1, '2025-08-26 11:53:50', '2025-08-26 11:53:50'),
-(55, 'ABCH3005', 23, 2, 1500.00, 3000.00, 1, '2025-08-27 10:01:20', '2025-08-27 10:01:20'),
-(56, 'ABCH3005', 23, 2, 1500.00, 3000.00, 1, '2025-08-27 10:01:20', '2025-08-27 10:01:20');
+(57, 'SNK-S006', 23, 2, 1500.00, 3000.00, 1, '2025-08-28 10:16:03', '2025-08-28 10:16:03'),
+(94, 'SNK-S008', 23, 1, 1500.00, 1500.00, 1, '2025-08-28 16:16:10', '2025-08-28 16:16:10'),
+(113, 'SNK-S004', 23, 4, 1500.00, 6000.00, 1, '2025-08-28 17:05:22', '2025-08-28 17:05:22'),
+(118, 'SNK-S009', 23, 1, 1500.00, 1500.00, 0, '2025-08-28 17:17:56', '2025-08-28 17:17:56'),
+(123, 'SNK-S011', 23, 6, 1500.00, 9000.00, 0, '2025-08-28 18:57:46', '2025-08-28 18:57:46'),
+(124, 'SNK-S012', 23, 5, 1500.00, 7500.00, 0, '2025-08-29 14:00:11', '2025-08-29 14:00:11'),
+(127, 'SNK-S010', 23, 4, 1500.00, 6000.00, 0, '2025-09-01 10:37:25', '2025-09-01 10:37:25'),
+(128, 'SNK-S010', 27, 4, 1222222.00, 4888888.00, 0, '2025-09-01 10:37:25', '2025-09-01 10:37:25'),
+(129, 'SNK-S010', 23, 1, 1500.00, 1500.00, 0, '2025-09-01 10:37:25', '2025-09-01 10:37:25'),
+(130, 'SNK-S001', 23, 2, 1500.00, 3000.00, 0, '2025-09-01 12:08:42', '2025-09-01 12:08:42'),
+(131, 'SNK-S001', 27, 5, 1222222.00, 6111110.00, 0, '2025-09-01 12:08:42', '2025-09-01 12:08:42'),
+(132, 'SNK-S002', 23, 3, 1500.00, 4500.00, 1, '2025-09-01 12:09:19', '2025-09-01 12:09:19'),
+(133, 'SNK-S007', 23, 5, 1500.00, 7500.00, 0, '2025-09-01 12:10:41', '2025-09-01 12:10:41'),
+(136, 'SNK-S013', 23, 4, 1500.00, 6000.00, 1, '2025-09-02 13:40:52', '2025-09-02 13:40:52'),
+(137, 'SNK-S013', 27, 5, 15000.00, 75000.00, 1, '2025-09-02 13:40:52', '2025-09-02 13:40:52'),
+(138, 'SNK-S014', 27, 15, 15000.00, 225000.00, 0, '2025-09-02 16:58:14', '2025-09-02 16:58:14'),
+(139, 'SNK-S015', 23, 10, 1500.00, 15000.00, 0, '2025-09-02 17:00:31', '2025-09-02 17:00:31'),
+(140, 'SNK-S015', 27, 8, 15000.00, 120000.00, 0, '2025-09-02 17:00:31', '2025-09-02 17:00:31'),
+(141, 'SNK-S015', 23, 5, 1500.00, 7500.00, 0, '2025-09-02 17:00:31', '2025-09-02 17:00:31');
 
 -- --------------------------------------------------------
 
@@ -215,7 +234,8 @@ CREATE TABLE `products` (
 --
 
 INSERT INTO `products` (`productId`, `categoryId`, `unitId`, `productName`, `productType`, `quantity`, `buyingPrice`, `sellingPrice`, `quantityAlert`, `tax`, `notes`, `productStatus`, `created_at`, `updated_at`) VALUES
-(23, 1, 2, 'Battery', 'Brand', 43, 1200.00, 1500.00, 2, 2, 'Battery', 1, '2025-08-19 11:43:10', '2025-08-27 10:01:20');
+(23, 1, 2, 'Battery', '0', 46, 1200.00, 1500.00, 2, 2, 'Battery', 1, '2025-08-19 11:43:10', '2025-09-02 17:02:22'),
+(27, 1, 1, 'Meter Battery', 'Samsung', 40, 12000.00, 15000.00, 12, 12, '', 1, '2025-08-28 10:01:31', '2025-09-02 17:02:22');
 
 -- --------------------------------------------------------
 
@@ -242,10 +262,14 @@ CREATE TABLE `purchases` (
 --
 
 INSERT INTO `purchases` (`purchaseUId`, `purchaseNumber`, `supplierId`, `createdBy`, `updatedBy`, `purchaseDate`, `totalProducts`, `totalAmount`, `purchaseStatus`, `created_at`, `updated_at`) VALUES
-(13, 'SNK-P001', 5, 10, 10, '2025-08-26', 10, 62500000.00, 1, '2025-08-26 11:11:47', '2025-08-26 11:11:47'),
-(14, 'SNK-P002', 5, 10, 10, '2025-08-26', 1, 1000000.00, 1, '2025-08-26 11:23:40', '2025-08-26 11:23:40'),
-(15, 'SNK-P003', 5, 10, 10, '2025-08-26', 1, 2200.00, 1, '2025-08-26 11:36:57', '2025-08-26 11:36:57'),
-(16, 'SNK-P004', 1004, 9, 9, '2025-08-27', 12, 60006000.00, 0, '2025-08-27 10:29:40', '2025-08-27 10:33:40');
+(13, 'SNK-P001', 5, 10, 10, '2025-08-26', 10, 62505000.00, 1, '2025-08-26 11:11:47', '2025-09-02 17:39:20'),
+(14, 'SNK-P002', 5, 10, 10, '2025-08-26', 1, 1000000.00, 1, '2025-08-26 11:23:40', '2025-09-02 17:42:37'),
+(15, 'SNK-P003', 5, 10, 9, '2025-08-26', 8, 10502200.00, 1, '2025-08-26 11:36:57', '2025-09-01 12:16:36'),
+(16, 'SNK-P004', 1004, 9, 9, '2025-08-27', 12, 60006000.00, 1, '2025-08-27 10:29:40', '2025-08-28 18:15:58'),
+(18, 'SNK-P005', 5, 9, 9, '2025-08-28', 12, 24000000.00, 1, '2025-08-28 18:43:09', '2025-08-28 18:43:55'),
+(19, 'SNK-P006', 5, 9, 9, '2025-08-28', 29, 29005000.00, 2, '2025-08-28 18:54:09', '2025-09-01 12:13:50'),
+(20, 'SNK-P007', 1005, 9, 9, '2025-09-01', 20, 35000000.00, 0, '2025-09-01 12:12:39', '2025-09-01 12:12:39'),
+(21, 'SNK-P008', 5, 9, 9, '2025-09-01', 25, 99999999.99, 0, '2025-09-01 12:31:40', '2025-09-01 12:32:20');
 
 -- --------------------------------------------------------
 
@@ -278,10 +302,19 @@ CREATE TABLE `purchase_details` (
 --
 
 INSERT INTO `purchase_details` (`purchaseDetailsId`, `purchaseNumber`, `productId`, `agentId`, `trackingNumber`, `productSize`, `quantity`, `unitCost`, `rate`, `totalCost`, `status`, `agentTransportationCost`, `dateToAgentAbroadWarehouse`, `dateReceivedByAgentInCountryWarehouse`, `dateReceivedByCompany`, `created_at`, `updated_at`) VALUES
-(36, 'SNK-P001', 23, NULL, '', NULL, 10, 2500.00, 2500, 62500000.00, 1, 0.00, NULL, NULL, NULL, '2025-08-26 11:11:47', '2025-08-26 11:11:47'),
-(37, 'SNK-P002', 23, 20, '', NULL, 1, 1000.00, 1000, 1000000.00, 1, 0.00, NULL, NULL, NULL, '2025-08-26 11:23:40', '2025-08-26 11:23:40'),
-(38, 'SNK-P003', 23, NULL, '', NULL, 1, 100.00, 22, 2200.00, 1, 0.00, NULL, NULL, NULL, '2025-08-26 11:36:57', '2025-08-26 11:36:57'),
-(40, 'SNK-P004', 23, 22, '20260827', NULL, 12, 2000.00, 2500, 60000000.00, 1, 6000.00, NULL, NULL, NULL, '2025-08-27 10:33:40', '2025-08-27 10:33:40');
+(40, 'SNK-P004', 23, 22, '20260827', NULL, 12, 2000.00, 2500, 60000000.00, 1, 6000.00, NULL, NULL, NULL, '2025-08-27 10:33:40', '2025-08-27 10:33:40'),
+(44, 'SNK-P005', 23, 24, '', NULL, 12, 2000.00, 1000, 24000000.00, 1, 0.00, NULL, NULL, NULL, '2025-08-28 18:43:09', '2025-08-28 18:43:55'),
+(58, 'SNK-P006', 23, 22, '2025082802', NULL, 14, 1000.00, 1000, 14000000.00, 2, 5000.00, NULL, NULL, NULL, '2025-09-01 10:03:39', '2025-09-01 12:13:50'),
+(59, 'SNK-P006', 27, 22, '2025082802', NULL, 14, 1000.00, 1000, 14000000.00, 2, 5000.00, NULL, NULL, NULL, '2025-09-01 10:03:39', '2025-09-01 12:13:50'),
+(60, 'SNK-P006', 23, 22, '2025082802', NULL, 1, 1000.00, 1000, 1000000.00, 2, 5000.00, NULL, NULL, NULL, '2025-09-01 10:03:39', '2025-09-01 12:13:50'),
+(61, 'SNK-P007', 23, 22, '', NULL, 10, 2000.00, 1000, 20000000.00, 1, 0.00, NULL, NULL, NULL, '2025-09-01 12:12:39', '2025-09-01 12:12:39'),
+(62, 'SNK-P007', 27, 22, '', NULL, 10, 1500.00, 1000, 15000000.00, 1, 0.00, NULL, NULL, NULL, '2025-09-01 12:12:39', '2025-09-01 12:12:39'),
+(63, 'SNK-P003', 23, 10, '', NULL, 1, 100.00, 22, 2200.00, 1, 0.00, NULL, NULL, NULL, '2025-09-01 12:16:36', '2025-09-01 12:16:36'),
+(64, 'SNK-P003', 27, 10, '', NULL, 7, 1500.00, 1000, 10500000.00, 1, 0.00, NULL, NULL, NULL, '2025-09-01 12:16:36', '2025-09-01 12:16:36'),
+(67, 'SNK-P008', 23, 10, '', NULL, 10, 3000.00, 2500, 75000000.00, 1, 0.00, '2025-09-01', '2025-09-01', '2025-09-01', '2025-09-01 12:32:20', '2025-09-01 12:32:20'),
+(68, 'SNK-P008', 27, 10, '', NULL, 15, 2500.00, 2500, 93750000.00, 1, 0.00, '2025-09-01', '2025-09-01', '2025-09-01', '2025-09-01 12:32:20', '2025-09-01 12:32:20'),
+(69, 'SNK-P001', 23, 10, '', '2', 10, 2500.00, 2500, 62500000.00, 1, 5000.00, NULL, NULL, NULL, '2025-09-02 17:39:20', '2025-09-02 17:39:20'),
+(70, 'SNK-P002', 23, 20, '2025082801', '', 1, 1000.00, 1000, 1000000.00, 1, 0.00, NULL, NULL, NULL, '2025-09-02 17:42:37', '2025-09-02 17:42:37');
 
 -- --------------------------------------------------------
 
@@ -305,7 +338,7 @@ CREATE TABLE `quotations` (
   `shippingAmount` decimal(10,2) NOT NULL,
   `totalAmount` decimal(10,2) NOT NULL,
   `note` text DEFAULT NULL,
-  `quotationStatus` tinyint(4) NOT NULL DEFAULT 0 COMMENT '0 = Pending, 1 = Completed, 2 = Cancelled',
+  `quotationStatus` tinyint(4) NOT NULL DEFAULT 0 COMMENT '0 = Sent, 1 = Approved, 2 = Cancelled',
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -315,7 +348,10 @@ CREATE TABLE `quotations` (
 --
 
 INSERT INTO `quotations` (`quotationUId`, `referenceNumber`, `customerId`, `createdBy`, `updatedBy`, `quotationDate`, `totalProducts`, `subTotal`, `taxPercentage`, `taxAmount`, `discountPercentage`, `discountAmount`, `shippingAmount`, `totalAmount`, `note`, `quotationStatus`, `created_at`, `updated_at`) VALUES
-(4, 'SNK-RF004', 7, 10, 10, '2025-08-22', 19, 37500.00, 18, 6750.00, 10, 3750.00, 10000.00, 50500.00, '', 1, '2025-08-22 18:47:53', '2025-08-22 18:47:53');
+(5, 'SNK-RF005', 6, 10, 10, '2025-08-29', 21, 18342330.00, 18, 3301619.40, 0, 0.00, 15000.00, 21658949.40, '', 1, '2025-08-29 10:14:01', '2025-09-02 16:58:14'),
+(7, 'SNK-RF007', 6, 10, 10, '2025-08-29', 13, 7343832.00, 18, 1321889.76, 2, 146876.64, 10000.00, 8528845.12, '', 0, '2025-08-29 11:07:32', '2025-09-01 11:03:34'),
+(8, 'SNK-RF008', 6, 10, 10, '2025-09-01', 23, 9800276.00, 0, 0.00, 0, 0.00, 0.00, 9800276.00, '', 1, '2025-09-01 10:19:48', '2025-09-02 17:00:31'),
+(9, 'SNK-RF009', 7, 9, 9, '2025-09-01', 4, 6000.00, 18, 1080.00, 2, 120.00, 1200.00, 8160.00, '', 1, '2025-09-01 12:35:05', '2025-09-02 13:27:06');
 
 -- --------------------------------------------------------
 
@@ -330,7 +366,7 @@ CREATE TABLE `quotation_details` (
   `quantity` int(11) NOT NULL,
   `unitPrice` decimal(10,2) NOT NULL,
   `subTotal` decimal(10,2) NOT NULL,
-  `status` tinyint(4) NOT NULL DEFAULT 1 COMMENT '1 = , 0 = ',
+  `status` tinyint(4) NOT NULL DEFAULT 0 COMMENT '0 = Sent, 1 = Approved, 2 = Cancelled ',
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -340,7 +376,12 @@ CREATE TABLE `quotation_details` (
 --
 
 INSERT INTO `quotation_details` (`quotationDetailsId`, `referenceNumber`, `productId`, `quantity`, `unitPrice`, `subTotal`, `status`, `created_at`, `updated_at`) VALUES
-(5, 'SNK-RF004', 23, 10, 1500.00, 15000.00, 1, '2025-08-22 18:47:53', '2025-08-22 18:47:53');
+(30, 'SNK-RF007', 27, 6, 1222222.00, 7333332.00, 0, '2025-09-01 10:14:40', '2025-09-01 11:03:34'),
+(31, 'SNK-RF005', 27, 15, 1222222.00, 18333330.00, 1, '2025-09-01 10:16:20', '2025-09-02 16:58:14'),
+(39, 'SNK-RF008', 23, 10, 1500.00, 15000.00, 1, '2025-09-01 10:33:45', '2025-09-02 17:00:31'),
+(40, 'SNK-RF008', 27, 8, 1222222.00, 9777776.00, 1, '2025-09-01 10:33:45', '2025-09-02 17:00:31'),
+(41, 'SNK-RF008', 23, 5, 1500.00, 7500.00, 1, '2025-09-01 10:33:45', '2025-09-02 17:00:31'),
+(42, 'SNK-RF009', 23, 4, 1500.00, 6000.00, 1, '2025-09-01 12:35:05', '2025-09-02 13:27:06');
 
 -- --------------------------------------------------------
 
@@ -427,7 +468,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`userId`, `username`, `userPhone`, `userEmail`, `userRole`, `userPassword`, `userPhoto`, `userStatus`, `created_at`, `updated_at`) VALUES
-(9, 'Edgar Mainda', '0679799406', 'edgarcharles360@gmail.com', 'Admin', '$2y$10$O4LJRq2mM9JW.3SDDlPo2OjraHo8XmTQYs8xeqUSMAteEvDUIBhq6', NULL, 1, '2025-08-12 09:35:09', '2025-08-26 10:10:55'),
+(9, 'Edgar Charles', '0679799407', 'edgarcharles360@gmail.com', 'Admin', '$2y$10$O4LJRq2mM9JW.3SDDlPo2OjraHo8XmTQYs8xeqUSMAteEvDUIBhq6', 'assets/img/profiles/1756742750_IMG_20240120_003917.jpg', 1, '2025-08-12 09:35:09', '2025-08-26 10:10:55'),
 (10, 'Asimwe Bitegeko', '0679799407', 'asimwe@gmail.com', 'Admin', '$2y$10$7J9aTT.bf5FvxQKzkZnLi.XDx7OHoaN.CRvlhjv4rYJpiQ2Ncq7wG', NULL, 1, '2025-08-12 09:35:33', '2025-08-20 15:28:45');
 
 --
@@ -559,43 +600,43 @@ ALTER TABLE `customers`
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `orderUId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `orderUId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
 
 --
 -- AUTO_INCREMENT for table `order_details`
 --
 ALTER TABLE `order_details`
-  MODIFY `orderDetailsId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
+  MODIFY `orderDetailsId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=142;
 
 --
 -- AUTO_INCREMENT for table `products`
 --
 ALTER TABLE `products`
-  MODIFY `productId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `productId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
 
 --
 -- AUTO_INCREMENT for table `purchases`
 --
 ALTER TABLE `purchases`
-  MODIFY `purchaseUId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `purchaseUId` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `purchase_details`
 --
 ALTER TABLE `purchase_details`
-  MODIFY `purchaseDetailsId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
+  MODIFY `purchaseDetailsId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=71;
 
 --
 -- AUTO_INCREMENT for table `quotations`
 --
 ALTER TABLE `quotations`
-  MODIFY `quotationUId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `quotationUId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `quotation_details`
 --
 ALTER TABLE `quotation_details`
-  MODIFY `quotationDetailsId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `quotationDetailsId` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
 
 --
 -- AUTO_INCREMENT for table `suppliers`

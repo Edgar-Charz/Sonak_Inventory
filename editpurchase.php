@@ -447,7 +447,7 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                     foreach ($products as $index => $product) {
                                     ?>
                                         <div class="row product-row align-items-end gy-2 mb-3">
-                                            <div class="col-lg-3 col-sm-6 col-12">
+                                            <div class="col-lg-2 col-sm-6 col-12">
                                                 <label class="form-label">Product</label>
                                                 <select name="products[<?= $index ?>][product_name]" class="form-control productSelect" required>
                                                     <option value="" disabled>Select Product</option>
@@ -463,6 +463,10 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                             <div class="col-lg-2 col-sm-6 col-12">
                                                 <label class="form-label">Quantity</label>
                                                 <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['quantity']); ?>" min="1" required>
+                                            </div>
+                                            <div class="col-lg-1 col-sm-6 col-12">
+                                                <label class="form-label">Size</label>
+                                                <input type="text" name="products[<?= $index ?>][size]" class="form-control size" value="<?= ($product['productSize']); ?>">
                                             </div>
                                             <div class="col-lg-2 col-sm-6 col-12">
                                                 <label class="form-label">Unit Cost</label>
@@ -585,6 +589,7 @@ if (isset($_POST['updatePurchaseBTN'])) {
                 document.querySelectorAll(".product-row").forEach(row => {
                     const productName = row.querySelector(".productSelect").options[row.querySelector(".productSelect").selectedIndex].text;
                     const quantity = row.querySelector(".quantity").value;
+                    const size = row.querySelector(".size").value;
                     const unitCost = parseFloat(row.querySelector(".unitCost").value).toFixed(2);
                     const rate = parseFloat(row.querySelector(".rate").value).toFixed(2);
                     const totalCost = parseFloat(row.querySelector(".totalCost").value).toFixed(2);
@@ -592,6 +597,7 @@ if (isset($_POST['updatePurchaseBTN'])) {
                     tr.innerHTML = `
                         <td>${productName}</td>
                         <td>${quantity}</td>
+                        <td>${size}</td>
                         <td>${unitCost}</td>
                         <td>${rate}</td>
                         <td>${totalCost}</td>
@@ -613,7 +619,7 @@ if (isset($_POST['updatePurchaseBTN'])) {
                 let row = document.createElement("div");
                 row.classList.add("row", "product-row", "align-items-end", "gy-2", "mb-3");
                 row.innerHTML = `
-                    <div class="col-lg-3 col-sm-6 col-12">
+                    <div class="col-lg-2 col-sm-6 col-12">
                         <label class="form-label">Product</label>
                         <select name="products[${index}][product_name]" class="form-control productSelect" required>
                             <option value="" disabled selected>Select Product</option>
@@ -628,6 +634,10 @@ if (isset($_POST['updatePurchaseBTN'])) {
                     <div class="col-lg-2 col-sm-6 col-12">
                         <label class="form-label">Quantity</label>
                         <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="1" min="1">
+                    </div>
+                    <div class="col-lg-1 col-sm-6 col-12">
+                        <label class="form-label">Size</label>
+                        <input type="text" name="products[${index}][size]" class="form-control size">
                     </div>
                     <div class="col-lg-2 col-sm-6 col-12">
                         <label class="form-label">Unit Cost</label>
