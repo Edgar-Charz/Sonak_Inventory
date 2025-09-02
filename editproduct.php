@@ -56,8 +56,8 @@ if (isset($_POST['updateProductBTN'])) {
         echo "<script>
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
+                        title: 'Info',
                         text: 'No changes were made to the product.',
-                        icon: 'info',
                         timer: 5000,
                         timerProgressBar: true
                     }).then(function() {
@@ -78,7 +78,7 @@ if (isset($_POST['updateProductBTN'])) {
                     document.addEventListener('DOMContentLoaded', function () {
                         Swal.fire({
                             text: 'Product name already exists for another product.',
-                            icon: 'error',
+                            title: 'Error',
                             timer: 5000,
                             timerProgressBar: true
                         }).then(function() {
@@ -98,7 +98,7 @@ if (isset($_POST['updateProductBTN'])) {
                             document.addEventListener('DOMContentLoaded', function() {
                                 Swal.fire({
                                     text: 'Product updated successfully.',
-                                    icon: 'success',
+                                    title: 'Success',
                                     timer: 5000,
                                     timerProgressBar: true
                                 }).then(function() {
@@ -111,7 +111,7 @@ if (isset($_POST['updateProductBTN'])) {
                             document.addEventListener('DOMContentLoaded', function() {
                                 Swal.fire({
                                     text: 'No changes were made to the product.',
-                                    icon: 'info',
+                                    title: 'Info',
                                     timer: 5000,
                                     timerProgressBar: true
                                 }).then(function() {
@@ -125,7 +125,7 @@ if (isset($_POST['updateProductBTN'])) {
                         document.addEventListener('DOMContentLoaded', function() {
                             Swal.fire({
                                 text: 'Error updating product: " . $conn->error . "',
-                                icon: 'error',
+                                title: 'Error',
                                 timer: 5000,
                                 timerProgressBar: true
                             });
@@ -219,7 +219,8 @@ if (isset($_POST['updateProductBTN'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -245,8 +246,6 @@ if (isset($_POST['updateProductBTN'])) {
                             <ul>
                                 <li><a href="productlist.php" class="active">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -282,7 +281,6 @@ if (isset($_POST['updateProductBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -400,13 +398,6 @@ if (isset($_POST['updateProductBTN'])) {
                                     </div>
                                 </div>
 
-                                <div class="col-lg-12">
-                                    <div class="form-group">
-                                        <label>Description</label>
-                                        <textarea class="form-control" name="product_description"><?= $product_row['notes']; ?></textarea>
-                                    </div>
-                                </div>
-
                                 <div class="col-lg-3 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Tax</label>
@@ -424,6 +415,14 @@ if (isset($_POST['updateProductBTN'])) {
                                         </select>
                                     </div>
                                 </div>
+
+                                <div class="col-lg-12">
+                                    <div class="form-group">
+                                        <label>Description</label>
+                                        <textarea class="form-control" name="product_description"><?= $product_row['notes']; ?></textarea>
+                                    </div>
+                                </div>
+
                                 <div class="col-lg-12">
                                     <div class="form-group">
                                         <button type="submit" name="updateProductBTN" class="btn btn-submit me-2">Update</button>

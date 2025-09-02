@@ -66,6 +66,7 @@ while ($row = $details_result->fetch_assoc()) {
 if (isset($_POST['updatePurchaseBTN'])) {
     $supplierId     = $_POST['supplier_name'];
     $purchaseDate   = DateTime::createFromFormat('d-m-Y', $_POST['purchase_date'])->format('Y-m-d');
+    $totalProducts  = $_POST['total_products'];
     $totalAmount    = $_POST['total_amount'];
     $purchaseStatus = $_POST['purchase_status'];
 
@@ -82,9 +83,10 @@ if (isset($_POST['updatePurchaseBTN'])) {
 
     // Update purchase
     $update_purchase_stmt = $conn->prepare(
-        "UPDATE purchases SET supplierId = ?, purchaseDate = ?, totalAmount = ?, purchaseStatus = ?, updatedBy = ?, updated_at = ? WHERE purchaseNumber = ?"
+        "UPDATE purchases SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, updatedBy = ?, updated_at = ? 
+        WHERE purchaseNumber = ?"
     );
-    $update_purchase_stmt->bind_param("sssssss", $supplierId, $purchaseDate, $totalAmount, $purchaseStatus, $updatedBy, $current_time, $purchaseNumber);
+    $update_purchase_stmt->bind_param("sssssss", $supplierId, $purchaseDate, $totalProducts, $totalAmount, $updatedBy, $current_time, $purchaseNumber);
 
     if ($update_purchase_stmt->execute()) {
         // Delete existing purchase details to avoid duplicates
@@ -262,8 +264,6 @@ if (isset($_POST['updatePurchaseBTN'])) {
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -299,7 +299,6 @@ if (isset($_POST['updatePurchaseBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>

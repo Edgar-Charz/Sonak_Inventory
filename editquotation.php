@@ -20,7 +20,7 @@ if (isset($_GET['referenceNumber'])) {
     $quotation = $quotation_result->fetch_assoc();
 
     // Fetch quotation details
-    $details_query = $conn->prepare("SELECT qd.*, p.productName 
+    $details_query = $conn->prepare("SELECT qd.*, p.productName, p.quantity AS availableQuantity 
                                     FROM quotation_details qd 
                                     JOIN products p ON qd.productId = p.productId 
                                     WHERE qd.referenceNumber = ?");
@@ -41,16 +41,15 @@ if (isset($_POST['updateQuotationBTN'])) {
     $shippingAmount = $_POST['shipping_amount'];
     $grandTotal     = $_POST['total_amount'];
     $note           = $_POST['note'];
-    $quotationStatus  = $_POST['quotation_status'];
     $totalProducts  = $_POST['total_products'];
     $products       = $_POST['products'];
 
     // Update quotation
     $update = $conn->prepare("UPDATE quotations 
-                             SET customerId = ?, updatedBy = ?, quotationDate = ?, totalProducts = ?, subTotal = ?, taxPercentage = ?, taxAmount = ?, discountPercentage = ?, discountAmount = ?, shippingAmount = ?, totalAmount = ?, note = ?, quotationStatus = ?, updated_at = ? 
+                             SET customerId = ?, updatedBy = ?, quotationDate = ?, totalProducts = ?, subTotal = ?, taxPercentage = ?, taxAmount = ?, discountPercentage = ?, discountAmount = ?, shippingAmount = ?, totalAmount = ?, note = ?, updated_at = ? 
                              WHERE referenceNumber = ?");
     $update->bind_param(
-        "iisidididddsiss",
+        "iisidididddsss",
         $customerId,
         $user_id,
         $quotationDate,
@@ -63,7 +62,6 @@ if (isset($_POST['updateQuotationBTN'])) {
         $shippingAmount,
         $grandTotal,
         $note,
-        $quotationStatus,
         $current_time,
         $referenceNumber
     );
@@ -133,20 +131,13 @@ function generateReferenceNumber($conn)
     <title>Sonak Inventory | Edit Quotation</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
-
     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
-
     <link rel="stylesheet" href="assets/css/bootstrap-datetimepicker.min.css">
-
     <link rel="stylesheet" href="assets/css/animate.css">
-
     <link rel="stylesheet" href="assets/plugins/select2/css/select2.min.css">
-
     <link rel="stylesheet" href="assets/css/dataTables.bootstrap4.min.css">
-
     <link rel="stylesheet" href="assets/plugins/fontawesome/css/fontawesome.min.css">
     <link rel="stylesheet" href="assets/plugins/fontawesome/css/all.min.css">
-
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 
@@ -156,7 +147,6 @@ function generateReferenceNumber($conn)
     </div>
 
     <div class="main-wrapper">
-
         <div class="header">
             <div class="header-left active">
                 <a href="index.php" class="logo">
@@ -167,7 +157,6 @@ function generateReferenceNumber($conn)
                 </a>
                 <a id="toggle_btn" href="javascript:void(0);"></a>
             </div>
-
             <a id="mobile_btn" class="mobile_btn" href="#sidebar">
                 <span class="bar-icon">
                     <span></span>
@@ -175,17 +164,13 @@ function generateReferenceNumber($conn)
                     <span></span>
                 </span>
             </a>
-
             <ul class="nav user-menu">
-
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
                         <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
                             <span class="status online"></span>
                         </span>
                     </a>
-
-                    <!-- User Profile -->
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
@@ -209,7 +194,8 @@ function generateReferenceNumber($conn)
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -235,8 +221,6 @@ function generateReferenceNumber($conn)
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -272,7 +256,6 @@ function generateReferenceNumber($conn)
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -283,8 +266,7 @@ function generateReferenceNumber($conn)
                         </li>
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/settings.svg" alt="img"><span> Settings</span> <span class="menu-arrow"></span></a>
-                            <ul>
-                            </ul>
+                            <ul></ul>
                         </li>
                     </ul>
                 </div>
@@ -302,11 +284,8 @@ function generateReferenceNumber($conn)
                         <a href="quotationlist.php" class="btn btn-added"><img src="assets/img/icons/card-list.svg" alt="image">&nbsp; Quotations List</a>
                     </div>
                 </div>
-                <!-- Edit Quotation -->
                 <div class="card">
                     <div class="card-body">
-
-                        <!-- Step Progress Indicator -->
                         <div class="container mb-4">
                             <div class="row justify-content-center">
                                 <div class="col-md-8">
@@ -333,7 +312,7 @@ function generateReferenceNumber($conn)
                         </div>
 
                         <form action="" method="POST" enctype="multipart/form-data" id="orderForm">
-                            <input type="hidden" name="reference_number" value="<?= htmlspecialchars($referenceNumber ?? '') ?>">
+                            <input type="hidden" name="reference_number" value="<?= ($referenceNumber ?? '') ?>">
 
                             <!-- STEP 1: Order Details -->
                             <div id="step1">
@@ -356,7 +335,7 @@ function generateReferenceNumber($conn)
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Reference Number</label>
-                                            <input type="text" name="reference_number" class="form-control" value="<?= htmlspecialchars($referenceNumber ?? '') ?>" readonly>
+                                            <input type="text" name="reference_number" class="form-control" value="<?= ($referenceNumber ?? '') ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-6 col-sm-6 col-12">
@@ -395,7 +374,7 @@ function generateReferenceNumber($conn)
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Available</label>
-                                                <input type="text" name="products[0][available_quantity]" class="form-control availableQuantity" value="<?= $detail['quantity'] ?>" readonly>
+                                                <input type="text" name="products[0][available_quantity]" class="form-control availableQuantity" readonly>
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Quantity</label>
@@ -431,6 +410,12 @@ function generateReferenceNumber($conn)
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
+                                            <label>Shipping Amount</label>
+                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="<?= $quotation['shippingAmount'] ?>">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
                                             <label>Subtotal</label>
                                             <input type="text" name="sub_total" id="subTotal" class="form-control" value="<?= $quotation['subTotal'] ?>" readonly>
                                         </div>
@@ -461,28 +446,11 @@ function generateReferenceNumber($conn)
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Shipping Amount</label>
-                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="<?= $quotation['shippingAmount'] ?>">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
                                             <label>Total</label>
                                             <input type="text" name="total_amount" id="grandTotal" class="form-control" value="<?= $quotation['totalAmount'] ?>" readonly>
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Quotation Status</label>
-                                            <select name="quotation_status" class="select" required>
-                                                <option value="" disabled>Select Quotation Status</option>
-                                                <option value="1" <?= $quotation['quotationStatus'] == 1 ? 'selected' : '' ?>>Paid</option>
-                                                <option value="0" <?= $quotation['quotationStatus'] == 0 ? 'selected' : '' ?>>Unpaid</option>
-                                            </select>
-                                        </div>
-                                    </div>
                                 </div>
-                                <!-- Summary Table -->
                                 <div class="table-responsive mb-3">
                                     <table class="table table-bordered" id="orderSummaryTable">
                                         <thead>
@@ -493,110 +461,281 @@ function generateReferenceNumber($conn)
                                                 <th>Total Cost</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
-                                            <!-- Rows will be dynamically inserted here -->
-                                        </tbody>
+                                        <tbody></tbody>
                                     </table>
                                 </div>
                                 <br>
-                                <!-- /Summary Table -->
                                 <div class="col-lg-12">
                                     <div class="form-group">
                                         <label>Description</label>
-                                        <textarea class="form-control" name="note"><?= htmlspecialchars($quotation['note'] ?? '') ?></textarea>
+                                        <textarea class="form-control" name="note"><?= ($quotation['note'] ?? '') ?></textarea>
                                     </div>
                                 </div>
-
                                 <div class="d-flex justify-content-end mt-3">
                                     <button type="button" class="btn btn-secondary me-2" id="backStep2">Back</button>
                                     <button type="submit" name="updateQuotationBTN" class="btn btn-success">Update</button>
                                 </div>
                             </div>
                         </form>
-
                     </div>
                 </div>
-                <!-- /Edit Quotation -->
             </div>
         </div>
-    </div>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            // Step navigation functions
-            function showStep(stepNumber) {
-                document.getElementById('step1').style.display = 'none';
-                document.getElementById('step2').style.display = 'none';
-                document.getElementById('step3').style.display = 'none';
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                // Step navigation functions
+                function showStep(stepNumber) {
+                    document.getElementById('step1').style.display = 'none';
+                    document.getElementById('step2').style.display = 'none';
+                    document.getElementById('step3').style.display = 'none';
+                    document.getElementById('step' + stepNumber).style.display = 'block';
+                    updateStepIndicators(stepNumber);
+                }
 
-                document.getElementById('step' + stepNumber).style.display = 'block';
-
-                updateStepIndicators(stepNumber);
-            }
-
-            function updateStepIndicators(currentStep) {
-                for (let i = 1; i <= 3; i++) {
-                    const indicator = document.getElementById('stepIndicator' + i);
-                    const circle = indicator.querySelector('.step-circle');
-
-                    if (i === currentStep) {
-                        circle.className = 'step-circle bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center';
-                    } else if (i < currentStep) {
-                        circle.className = 'step-circle bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center';
-                    } else {
-                        circle.className = 'step-circle bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center';
+                function updateStepIndicators(currentStep) {
+                    for (let i = 1; i <= 3; i++) {
+                        const indicator = document.getElementById('stepIndicator' + i);
+                        const circle = indicator.querySelector('.step-circle');
+                        if (i === currentStep) {
+                            circle.className = 'step-circle bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center';
+                        } else if (i < currentStep) {
+                            circle.className = 'step-circle bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center';
+                        } else {
+                            circle.className = 'step-circle bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center';
+                        }
                     }
                 }
-            }
 
-            // Step navigation event listeners
-            document.getElementById('goStep2').addEventListener('click', function() {
-                showStep(2);
-            });
-            document.getElementById('backStep1').addEventListener('click', function() {
-                showStep(1);
-            });
-            document.getElementById('goStep3').addEventListener('click', function() {
-                calculateSummary();
-                const summaryBody = document.querySelector("#orderSummaryTable tbody");
-                summaryBody.innerHTML = "";
+                // Step navigation event listeners
+                document.getElementById('goStep2').addEventListener('click', function() {
+                    let valid = true;
+                    let errorMsg = "";
+                    const requiredFields = ['customer_name', 'reference_number', 'quotation_date'];
+                    requiredFields.forEach(function(name) {
+                        const field = document.getElementsByName(name)[0];
+                        if (field && (field.value === '' || field.value === null)) {
+                            valid = false;
+                            errorMsg += `Please fill the ${name.replace('_', ' ')} field.<br>`;
+                        }
+                    });
+                    if (!valid) {
+                        Swal.fire({
+                            title: 'Validation Error!',
+                            html: errorMsg,
+                            confirmButtonText: 'OK'
+                        });
+                        return;
+                    }
+                    showStep(2);
+                });
 
-                document.querySelectorAll(".product-row").forEach(row => {
-                    let productSelect = row.querySelector(".productSelect");
-                    let productName = productSelect.options[productSelect.selectedIndex]?.text || "N/A";
-                    let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                    let unitCost = parseFloat(row.querySelector(".unitCost").value) || 0;
-                    let total = parseFloat(row.querySelector(".totalCost").value) || 0;
+                document.getElementById('backStep1').addEventListener('click', function() {
+                    showStep(1);
+                });
 
-                    let tr = document.createElement("tr");
-                    tr.innerHTML = `
+                document.getElementById('goStep3').addEventListener('click', function() {
+                    let valid = true;
+                    let errorMsg = "";
+                    const productRows = document.querySelectorAll('.product-row');
+                    if (productRows.length === 0) {
+                        valid = false;
+                        errorMsg += "Please add at least one product.<br>";
+                    } else {
+                        productRows.forEach(function(row, idx) {
+                            const productSelect = row.querySelector('.productSelect');
+                            const quantity = row.querySelector('.quantity');
+                            const unitCost = row.querySelector('.unitCost');
+                            if (!productSelect.value) {
+                                valid = false;
+                                errorMsg += `Product row ${idx+1}: Select a product.<br>`;
+                            }
+                            if (!quantity.value || quantity.value <= 0) {
+                                valid = false;
+                                errorMsg += `Product row ${idx+1}: Enter a valid quantity.<br>`;
+                            }
+                            if (!unitCost.value || unitCost.value < 0) {
+                                valid = false;
+                                errorMsg += `Product row ${idx+1}: Enter a valid unit cost.<br>`;
+                            }
+                        });
+                    }
+                    if (!valid) {
+                        Swal.fire({
+                            title: 'Validation Error!',
+                            html: errorMsg,
+                            confirmButtonText: 'OK'
+                        });
+                        return;
+                    }
+                    calculateSummary();
+                    const summaryBody = document.querySelector("#orderSummaryTable tbody");
+                    summaryBody.innerHTML = "";
+                    document.querySelectorAll(".product-row").forEach(row => {
+                        let productSelect = row.querySelector(".productSelect");
+                        let productName = productSelect.options[productSelect.selectedIndex]?.text || "N/A";
+                        let qty = parseFloat(row.querySelector(".quantity").value) || 0;
+                        let unitCost = parseFloat(row.querySelector(".unitCost").value) || 0;
+                        let total = parseFloat(row.querySelector(".totalCost").value) || 0;
+                        let tr = document.createElement("tr");
+                        tr.innerHTML = `
                         <td>${productName}</td>
                         <td>${qty}</td>
                         <td>${unitCost.toFixed(2)}</td>
                         <td>${total.toFixed(2)}</td>
                     `;
-                    summaryBody.appendChild(tr);
+                        summaryBody.appendChild(tr);
+                    });
+                    showStep(3);
                 });
-                showStep(3);
-            });
-            document.getElementById('backStep2').addEventListener('click', function() {
-                showStep(2);
-            });
 
-            // Products row container
-            const productsContainer = document.getElementById("productsContainer");
+                document.getElementById('backStep2').addEventListener('click', function() {
+                    showStep(2);
+                });
 
-            // Add product row
-            document.getElementById("addProductRow").onclick = function() {
-                let index = document.querySelectorAll(".product-row").length;
-                let row = document.createElement("div");
-                row.classList.add("row", "product-row", "align-items-end", "gy-2", "mb-3");
+                // Products row container
+                const productsContainer = document.getElementById("productsContainer");
 
-                row.innerHTML = `
+                // Function to update available quantities across all rows
+                function updateAvailableQuantities() {
+                    document.querySelectorAll(".product-row").forEach(row => {
+                        const productSelect = row.querySelector(".productSelect");
+                        const selectedOption = productSelect.options[productSelect.selectedIndex];
+                        if (selectedOption) {
+                            const originalAvailable = parseFloat(selectedOption.getAttribute("data-quantity")) || 0;
+                            row.querySelector(".availableQuantity").value = originalAvailable;
+                        }
+                    });
+
+                    const productQuantities = {};
+                    document.querySelectorAll(".product-row").forEach(row => {
+                        const productSelect = row.querySelector(".productSelect");
+                        const productId = productSelect.value;
+                        const qty = parseFloat(row.querySelector(".quantity").value) || 0;
+                        if (productId) {
+                            productQuantities[productId] = (productQuantities[productId] || 0) + qty;
+                        }
+                    });
+
+                    document.querySelectorAll(".product-row").forEach(row => {
+                        const productSelect = row.querySelector(".productSelect");
+                        const productId = productSelect.value;
+                        if (productId) {
+                            const originalAvailable = parseFloat(productSelect.options[productSelect.selectedIndex].getAttribute("data-quantity")) || 0;
+                            const usedQty = productQuantities[productId] || 0;
+                            const currentQty = parseFloat(row.querySelector(".quantity").value) || 0;
+                            const remaining = originalAvailable - (usedQty - currentQty);
+                            row.querySelector(".availableQuantity").value = remaining.toFixed(0);
+                        }
+                    });
+                }
+
+                // Function to update row total
+                function updateRowTotal(row) {
+                    const qty = parseFloat(row.querySelector(".quantity").value) || 0;
+                    const price = parseFloat(row.querySelector(".unitCost").value) || 0;
+                    const total = qty * price;
+                    row.querySelector(".totalCost").value = total.toFixed(2);
+                    updateAvailableQuantities();
+                    calculateSummary();
+                }
+
+                // Function to calculate summary
+                function calculateSummary() {
+                    let subTotal = 0;
+                    let totalProducts = 0;
+                    document.querySelectorAll(".product-row").forEach(row => {
+                        const qty = parseFloat(row.querySelector(".quantity").value) || 0;
+                        const cost = parseFloat(row.querySelector(".totalCost").value) || 0;
+                        subTotal += cost;
+                        totalProducts += qty;
+                    });
+
+                    // Add shipping Amount
+                    const shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
+                    subTotal += shippingAmount;
+
+                    document.getElementById("subTotal").value = subTotal.toFixed(2);
+                    document.getElementById("totalProducts").value = totalProducts;
+
+                    // VAT
+                    const vatPercent = parseFloat(document.getElementById("vat").value) || 0;
+                    const vatAmount = subTotal * (vatPercent / 100);
+                    document.getElementById("vatAmount").value = vatAmount.toFixed(2);
+
+                    // Discount
+                    const discountPercent = parseFloat(document.getElementById("discount").value) || 0;
+                    const discountAmount = subTotal * (discountPercent / 100);
+                    document.getElementById("discountAmount").value = discountAmount.toFixed(2);
+
+                    // Grand Total
+                    const grandTotal = subTotal - discountAmount + vatAmount;
+                    document.getElementById("grandTotal").value = grandTotal.toFixed(2);
+                }
+
+                // Initialize event listeners for existing rows
+                document.querySelectorAll(".product-row").forEach((row, index) => {
+                    const productSelect = row.querySelector(".productSelect");
+                    const quantityInput = row.querySelector(".quantity");
+
+                    // Update index for existing rows
+                    productSelect.name = `products[${index}][product_id]`;
+                    row.querySelector(".unitCost").name = `products[${index}][unit_cost]`;
+                    row.querySelector(".availableQuantity").name = `products[${index}][available_quantity]`;
+                    row.querySelector(".quantity").name = `products[${index}][quantity]`;
+                    row.querySelector(".totalCost").name = `products[${index}][total_cost]`;
+
+                    productSelect.addEventListener("change", function() {
+                        const price = parseFloat(this.options[this.selectedIndex].getAttribute("data-price")) || 0;
+                        row.querySelector(".unitCost").value = price.toFixed(2);
+                        updateRowTotal(row);
+                    });
+
+                    quantityInput.addEventListener("input", function() {
+                        let enteredQty = parseFloat(this.value) || 0;
+                        const originalAvailable = parseFloat(productSelect.options[productSelect.selectedIndex].getAttribute("data-quantity")) || 0;
+                        let totalUsedQty = 0;
+                        document.querySelectorAll(".product-row").forEach(r => {
+                            if (r !== row && r.querySelector(".productSelect").value === productSelect.value) {
+                                totalUsedQty += parseFloat(r.querySelector(".quantity").value) || 0;
+                            }
+                        });
+                        if (enteredQty + totalUsedQty > originalAvailable) {
+                            enteredQty = originalAvailable - totalUsedQty;
+                            this.value = enteredQty;
+                            Swal.fire({
+                                title: 'Warning',
+                                text: 'Quantity cannot exceed available stock!',
+                                timer: 3000
+                            });
+                        }
+                        updateRowTotal(row);
+                    });
+
+                    row.querySelector(".removeProduct").addEventListener("click", function() {
+                        row.remove();
+                        document.querySelectorAll(".product-row").forEach((r, i) => {
+                            r.querySelector(".productSelect").name = `products[${i}][product_id]`;
+                            r.querySelector(".unitCost").name = `products[${i}][unit_cost]`;
+                            r.querySelector(".availableQuantity").name = `products[${i}][available_quantity]`;
+                            r.querySelector(".quantity").name = `products[${i}][quantity]`;
+                            r.querySelector(".totalCost").name = `products[${i}][total_cost]`;
+                        });
+                        updateAvailableQuantities();
+                        calculateSummary();
+                    });
+                });
+
+                // Add product row
+                document.getElementById("addProductRow").onclick = function() {
+                    const index = document.querySelectorAll(".product-row").length;
+                    const row = document.createElement("div");
+                    row.classList.add("row", "product-row", "align-items-end", "gy-2", "mb-3");
+                    row.innerHTML = `
                     <div class="col-lg-3">
                         <label class="form-label">Product</label>
                         <select name="products[${index}][product_id]" class="form-control productSelect" required>
-                            <option value="" disabled>Select Product</option>
+                            <option value="" disabled selected>Select Product</option>
                             <?php
                             $products_query = $conn->query("SELECT * FROM products");
                             while ($p = $products_query->fetch_assoc()) {
@@ -626,106 +765,85 @@ function generateReferenceNumber($conn)
                         <button type="button" class="btn btn-danger removeProduct">X</button>
                     </div>
                 `;
-                productsContainer.appendChild(row);
+                    productsContainer.appendChild(row);
 
-                row.querySelector(".productSelect").addEventListener("change", function() {
-                    let price = this.options[this.selectedIndex].getAttribute("data-price");
-                    let available = this.options[this.selectedIndex].getAttribute("data-quantity");
-                    row.querySelector(".unitCost").value = price;
-                    row.querySelector(".availableQuantity").value = available;
-                    updateRowTotal(row);
-                });
+                    const productSelect = row.querySelector(".productSelect");
+                    const quantityInput = row.querySelector(".quantity");
 
-                row.querySelector(".quantity").addEventListener("input", function() {
-                    let enteredQty = parseFloat(this.value) || 0;
-                    let originalAvailable = parseFloat(row.querySelector(".productSelect")
-                        .options[row.querySelector(".productSelect").selectedIndex]
-                        .getAttribute("data-quantity")) || 0;
+                    productSelect.addEventListener("change", function() {
+                        const price = parseFloat(this.options[this.selectedIndex].getAttribute("data-price")) || 0;
+                        row.querySelector(".unitCost").value = price.toFixed(2);
+                        updateRowTotal(row);
+                    });
 
-                    if (enteredQty > originalAvailable) {
-                        this.value = originalAvailable;
-                        enteredQty = originalAvailable;
-                        Swal.fire({
-                            title: 'Warning',
-                            text: 'Quantity cannot exceed available stock!',
-                            timer: 3000
+                    quantityInput.addEventListener("input", function() {
+                        let enteredQty = parseFloat(this.value) || 0;
+                        const originalAvailable = parseFloat(productSelect.options[productSelect.selectedIndex].getAttribute("data-quantity")) || 0;
+                        let totalUsedQty = 0;
+                        document.querySelectorAll(".product-row").forEach(r => {
+                            if (r !== row && r.querySelector(".productSelect").value === productSelect.value) {
+                                totalUsedQty += parseFloat(r.querySelector(".quantity").value) || 0;
+                            }
                         });
-                    }
+                        if (enteredQty + totalUsedQty > originalAvailable) {
+                            enteredQty = originalAvailable - totalUsedQty;
+                            this.value = enteredQty;
+                            Swal.fire({
+                                title: 'Warning',
+                                text: 'Quantity cannot exceed available stock!',
+                                timer: 3000
+                            });
+                        }
+                        updateRowTotal(row);
+                    });
 
-                    let remaining = originalAvailable - enteredQty;
-                    row.querySelector(".availableQuantity").value = remaining;
-                    updateRowTotal(row);
-                });
 
-                row.querySelector(".removeProduct").onclick = function() {
-                    row.remove();
-                    calculateSummary();
+                    row.querySelector(".removeProduct").addEventListener("click", function() {
+                        row.remove();
+                        document.querySelectorAll(".product-row").forEach((r, i) => {
+                            r.querySelector(".productSelect").name = `products[${i}][product_id]`;
+                            r.querySelector(".unitCost").name = `products[${i}][unit_cost]`;
+                            r.querySelector(".availableQuantity").name = `products[${i}][available_quantity]`;
+                            r.querySelector(".quantity").name = `products[${i}][quantity]`;
+                            r.querySelector(".totalCost").name = `products[${i}][total_cost]`;
+                        });
+                        updateAvailableQuantities();
+                        calculateSummary();
+                    });
                 };
-            };
 
-            function updateRowTotal(row) {
-                let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                let price = parseFloat(row.querySelector(".unitCost").value) || 0;
-                let total = qty * price;
-                row.querySelector(".totalCost").value = total.toFixed(2);
-                calculateSummary();
-            }
-
-            function calculateSummary() {
-                let subTotal = 0;
-                let totalProducts = 0;
-
-                document.querySelectorAll(".product-row").forEach(row => {
-                    let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                    let cost = parseFloat(row.querySelector(".totalCost").value) || 0;
-                    subTotal += cost;
-                    totalProducts += qty;
+                // Event listeners for VAT, discount, and shipping
+                document.getElementById("vat").addEventListener("input", function() {
+                    if (this.value < 0) this.value = 0;
+                    calculateSummary();
+                });
+                document.getElementById("discount").addEventListener("input", function() {
+                    if (this.value < 0) this.value = 0;
+                    calculateSummary();
+                });
+                document.getElementById("shippingAmount").addEventListener("input", function() {
+                    if (this.value < 0) this.value = 0;
+                    calculateSummary();
                 });
 
-                document.getElementById("subTotal").value = subTotal.toFixed(2);
-                document.getElementById("totalProducts").value = totalProducts;
-
-                let vatPercent = parseFloat(document.getElementById("vat").value) || 0;
-                let vatAmount = subTotal * vatPercent / 100;
-                document.getElementById("vatAmount").value = vatAmount.toFixed(2);
-
-                let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
-                let discountAmount = subTotal * discountPercent / 100;
-                document.getElementById("discountAmount").value = discountAmount.toFixed(2);
-
-                let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
-                let grandTotal = subTotal - discountAmount + vatAmount + shippingAmount;
-                document.getElementById("grandTotal").value = grandTotal.toFixed(2);
-            }
-
-            document.getElementById("vat").addEventListener("input", calculateSummary);
-            document.getElementById("discount").addEventListener("input", calculateSummary);
-            document.getElementById("shippingAmount").addEventListener("input", calculateSummary);
-
-            // Initialize with step 1
-            showStep(1);
-        });
-    </script>
-    <script src="assets/js/jquery-3.6.0.min.js"></script>
-
-    <script src="assets/js/feather.min.js"></script>
-
-    <script src="assets/js/jquery.slimscroll.min.js"></script>
-
-    <script src="assets/js/jquery.dataTables.min.js"></script>
-    <script src="assets/js/dataTables.bootstrap4.min.js"></script>
-
-    <script src="assets/js/bootstrap.bundle.min.js"></script>
-
-    <script src="assets/plugins/select2/js/select2.min.js"></script>
-
-    <script src="assets/js/moment.min.js"></script>
-    <script src="assets/js/bootstrap-datetimepicker.min.js"></script>
-
-    <script src="assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
-    <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
-
-    <script src="assets/js/script.js"></script>
+                // Initialize calculations
+                updateAvailableQuantities();
+                calculateSummary();
+                showStep(1);
+            });
+        </script>
+        <script src="assets/js/jquery-3.6.0.min.js"></script>
+        <script src="assets/js/feather.min.js"></script>
+        <script src="assets/js/jquery.slimscroll.min.js"></script>
+        <script src="assets/js/jquery.dataTables.min.js"></script>
+        <script src="assets/js/dataTables.bootstrap4.min.js"></script>
+        <script src="assets/js/bootstrap.bundle.min.js"></script>
+        <script src="assets/plugins/select2/js/select2.min.js"></script>
+        <script src="assets/js/moment.min.js"></script>
+        <script src="assets/js/bootstrap-datetimepicker.min.js"></script>
+        <script src="assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
+        <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
+        <script src="assets/js/script.js"></script>
 </body>
 
 </html>

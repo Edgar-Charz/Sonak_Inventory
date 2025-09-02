@@ -101,7 +101,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -127,8 +128,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -164,7 +163,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -213,225 +211,236 @@ $current_time = $time->format("Y-m-d H:i:s");
                                 </li>
                             </ul>
                         </div>
-                        <div class="invoice-box table-height" style="max-width: 1600px;width:100%;overflow: auto;margin:15px auto;padding: 0;font-size: 14px;line-height: 24px;color: #555;">
-                            <table cellpadding="0" cellspacing="0" style="width: 100%;line-height: inherit;text-align: left;">
 
-                                <!-- Order details table -->
-                                <tbody>
-                                    <?php
-                                    // Get order 
-                                    $order_query = $conn->query("SELECT 
-                                                                            orders.*, 
-                                                                            customers.*, 
-                                                                            u1.username AS biller,
-                                                                            u2.username AS updater
-                                                                        FROM orders
-                                                                        JOIN customers ON orders.customerId = customers.customerId
-                                                                        JOIN users AS u1 ON orders.createdBy = u1.userId
-                                                                        JOIN users AS u2 ON orders.updatedBy = u2.userId
-                                                                        WHERE orders.invoiceNumber = '$invoice_number'
-                                                                        ");
-                                    if ($order_query->num_rows > 0) {
-                                        $order_row = $order_query->fetch_assoc();
-                                    ?>
-                                        <tr class="top">
-                                            <td colspan="6" style="padding: 5px;vertical-align: top;">
-                                                <table style="width: 100%;line-height: inherit;text-align: left;">
-                                                    <tbody>
+                        <!-- First Table: Order Details -->
+                        <div class="row">
+                            <!-- Customer Information Table -->
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title">Customer Information</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table mb-0">
+                                                <tbody>
+                                                    <?php
+                                                    // Get order 
+                                                    $order_query = $conn->prepare("SELECT 
+                                                                orders.*, 
+                                                                customers.*, 
+                                                                u1.username AS biller,
+                                                                u2.username AS updater
+                                                            FROM orders
+                                                            JOIN customers ON orders.customerId = customers.customerId
+                                                            JOIN users AS u1 ON orders.createdBy = u1.userId
+                                                            JOIN users AS u2 ON orders.updatedBy = u2.userId
+                                                            WHERE orders.invoiceNumber = ?");
+                                                    $order_query->bind_param("s", $invoice_number);
+                                                    $order_query->execute();
+                                                    $order_result = $order_query->get_result();
+                                                    if ($order_result->num_rows > 0) {
+                                                        $order_row = $order_result->fetch_assoc();
+                                                    ?>
                                                         <tr>
-                                                            <!-- Customer Info -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Customer Info</h6>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Name:</strong> <?= $order_row['customerName']; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Email:</strong>
-                                                                    <a href="mailto:<?= $order_row['customerEmail']; ?>">
-                                                                        <?= $order_row['customerEmail']; ?>
-                                                                    </a>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Phone:</strong>
-                                                                    <a href="tel:<?= $order_row['customerPhone']; ?>">
-                                                                        <?= $order_row['customerPhone']; ?>
-                                                                    </a>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Address:</strong> <?= $order_row['customerAddress']; ?>
-                                                                </p>
-                                                            </td>
-
-                                                            <!-- Order Info -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Order Info</h6>
-                                                                <p style="font-size:14px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Biller:</strong> <?= $order_row['biller']; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>UpdatedBy:</strong> <?= $order_row['updater']; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Order Date:</strong>
-                                                                    <?= $order_row['orderDate']; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Created At:</strong>
-                                                                    <?= $order_row['created_at']; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Updated At:</strong>
-                                                                    <?= $order_row['updated_at']; ?>
-                                                                </p>
-                                                            </td>
-
-                                                            <!-- Payment Info -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Payment Info</h6>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Invoice Number:</strong>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Payment Type:</strong>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Status:</strong>
-                                                                </p>
-                                                            </td>
-
-                                                            <!-- Invoice Values -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:right;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">&nbsp;</h6>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <?= $order_row['invoiceNumber']; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#2E7D32;font-weight:400;margin:0;">
-                                                                    <?= $order_row['paymentType']; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#2E7D32;font-weight:400;margin:0;">
-                                                                    <?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : 'Cancelled'); ?>
-                                                                </p>
+                                                            <td><strong>Name:</strong></td>
+                                                            <td><?= $order_row['customerName']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Email:</strong></td>
+                                                            <td>
+                                                                <a href="mailto:<?= $order_row['customerEmail']; ?>">
+                                                                    <?= $order_row['customerEmail']; ?>
+                                                                </a>
                                                             </td>
                                                         </tr>
+                                                        <tr>
+                                                            <td><strong>Phone:</strong></td>
+                                                            <td>
+                                                                <a href="tel:<?= $order_row['customerPhone']; ?>">
+                                                                    <?= $order_row['customerPhone']; ?>
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Address:</strong></td>
+                                                            <td><?= $order_row['customerAddress']; ?></td>
+                                                        </tr>
+                                                    <?php
+                                                    }
+                                                    $order_query->close();
+                                                    ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                        <tr class="heading " style="background: #F3F2F7;">
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                S/N
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                Product Name
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                Quantity
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                Unit Cost
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                Total Cost
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                Discount
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                TAX
-                                            </td>
-                                        </tr>
-
-                                        <?php
-                                        // Get order details and products
-                                        $details_query = $conn->query("SELECT 
-                                                                                    order_details.*, 
-                                                                                    products.productName, 
-                                                                                    products.tax
-                                                                                FROM order_details
-                                                                                JOIN products ON order_details.productId = products.productId
-                                                                                WHERE order_details.invoiceNumber = '$invoice_number'
-                                                                                ORDER BY order_details.orderDetailsId ASC");
-                                        $sn = 1;
-                                        while ($detail = $details_query->fetch_assoc()) {
-                                        ?>
-                                            <tr class="details" style="border-bottom:1px solid #E9ECEF ;">
-                                                <td style="padding: 10px;vertical-align: top; ">
-                                                    <?= $sn++; ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top; display: flex;align-items: center;">
-                                                    <?= $detail['productName']; ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= $detail['quantity']; ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= $detail['unitCost']; ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= $detail['totalCost']; ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= $detail['discount'] ?? '-'; ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= $detail['tax']; ?>%
-                                                </td>
-                                            </tr>
-                                    <?php
-                                        }
-                                    }
-                                    ?>
-                                </tbody>
-                                <!-- /Order details table -->
-
-                            </table>
+                            <!-- Order Statistics Table -->
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title">Order Statistics</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped mb-0">
+                                                <tbody>
+                                                    <?php
+                                                    if (isset($order_row)) {
+                                                    ?>
+                                                        <tr>
+                                                            <td><strong>Biller:</strong></td>
+                                                            <td><?= $order_row['biller']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Updated By:</strong></td>
+                                                            <td><?= $order_row['updater']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Order Date:</strong></td>
+                                                            <td><?= $order_row['orderDate']; ?></td>
+                                                        </tr>
+                                                        <!-- <tr>
+                                                            <td><strong>Created At:</strong></td>
+                                                            <td><?= $order_row['created_at']; ?></td>
+                                                        </tr> -->
+                                                        <tr>
+                                                            <td><strong>Updated At:</strong></td>
+                                                            <td><?= $order_row['updated_at']; ?></td>
+                                                        </tr>
+                                                        <!-- <tr>
+                                                            <td><strong>Invoice Number:</strong></td>
+                                                            <td><?= $order_row['invoiceNumber']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Payment Type:</strong></td>
+                                                            <td><?= $order_row['paymentType']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Status:</strong></td>
+                                                            <td><?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : 'Cancelled'); ?></td>
+                                                        </tr> -->
+                                                    <?php
+                                                    }
+                                                    ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Financial Summary Table -->
+                        <div class="row mt-4">
+                            <div class="col-lg-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title">Financial Summary</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Total Products</th>
+                                                        <th>SubTotal</th>
+                                                        <th>Order VAT(%)</th>
+                                                        <th>Total</th>
+                                                        <th>Paid</th>
+                                                        <th>Due</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php
+                                                    if (isset($order_row)) {
+                                                    ?>
+                                                        <tr>
+                                                            <td><?= $order_row['totalProducts']; ?></td>
+                                                            <td class="text-primary"><strong>Tsh: <?= number_format($order_row['subTotal'], 2); ?></strong></td>
+                                                            <td><?= $order_row['vat']; ?>%</td>
+                                                            <td class="text-primary"><strong>Tsh: <?= number_format($order_row['total'], 2); ?></strong></td>
+                                                            <td class="text-success"><strong>Tsh: <?= number_format($order_row['paid'], 2); ?></strong></td>
+                                                            <td class="text-danger"><strong>Tsh: <?= number_format($order_row['due'], 2); ?></strong></td>
+                                                            <td> <?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : 'Cancelled'); ?> </td>
+                                                        </tr>
+                                                    <?php
+                                                    }
+                                                    ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Second Table: Product Details and Summary -->
                         <div class="row">
-                            <div class="col-lg-3 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label>Total Products</label>
-                                    <input type="text" value="<?= $order_row['totalProducts']; ?>" readonly>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label>SubTotal</label>
-                                    <input type="text" value="<?= $order_row['subTotal']; ?>" readonly>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label>Order VAT(%)</label>
-                                    <input type="text" value="<?= $order_row['vat']; ?>" readonly>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label>Total</label>
-                                    <input type="text" value="<?= $order_row['total']; ?>" readonly>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label>Paid</label>
-                                    <input type="text" value="<?= $order_row['paid']; ?>" readonly>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label>Due</label>
-                                    <input type="text" value="<?= $order_row['due']; ?>" readonly>
-                                </div>
-                            </div>
-                            <div class="col-lg-3 col-sm-6 col-12">
-                                <div class="form-group">
-                                    <label>Status</label>
-                                    <select class="select" aria-readonly="true">
-                                        <option value="0" <?= $order_row['orderStatus'] == 0 ? 'selected' : ''; ?>>Pending</option>
-                                        <option value="1" <?= $order_row['orderStatus'] == 1 ? 'selected' : ''; ?>>Completed</option>
-                                        <option value="2" <?= $order_row['orderStatus'] == 2 ? 'selected' : ''; ?>>Cancelled</option>
-                                    </select>
+                            <div class="col-lg-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title">Product Details</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>S/N</th>
+                                                        <th>Product Name</th>
+                                                        <th>Quantity</th>
+                                                        <th>Unit Cost</th>
+                                                        <th>Total Cost</th>
+                                                        <th>Discount</th>
+                                                        <th>TAX</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php
+                                                    // Get order details and products
+                                                    $details_query = $conn->query("SELECT 
+                                                                        order_details.*, 
+                                                                        products.productName, 
+                                                                        products.tax
+                                                                    FROM order_details
+                                                                    JOIN products ON order_details.productId = products.productId
+                                                                    WHERE order_details.invoiceNumber = '$invoice_number'
+                                                                    ORDER BY order_details.orderDetailsId ASC");
+                                                    $sn = 1;
+                                                    while ($detail = $details_query->fetch_assoc()) {
+                                                    ?>
+                                                        <tr>
+                                                            <td style="padding: 10px;vertical-align: top;"><?= $sn++; ?></td>
+                                                            <td style="padding: 10px;vertical-align: top; display: flex;align-items: center;">
+                                                                <?= $detail['productName']; ?>
+                                                            </td>
+                                                            <td style="padding: 10px;vertical-align: top;">
+                                                                <?= $detail['quantity']; ?>
+                                                            </td>
+                                                            <td style="padding: 10px;vertical-align: top;">
+                                                                <?= $detail['unitCost']; ?>
+                                                            </td>
+                                                            <td style="padding: 10px;vertical-align: top;">
+                                                                <?= $detail['totalCost']; ?>
+                                                            </td>
+                                                            <td style="padding: 10px;vertical-align: top;">
+                                                                <?= $detail['discount'] ?? '-'; ?>
+                                                            </td>
+                                                            <td style="padding: 10px;vertical-align: top;">
+                                                                <?= $detail['tax']; ?>%
+                                                            </td>
+                                                        </tr>
+                                                    <?php
+                                                    }
+                                                    ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

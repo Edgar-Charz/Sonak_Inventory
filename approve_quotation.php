@@ -1,73 +1,67 @@
-﻿<?php
+<?php
 include 'includes/db_connection.php';
 include 'includes/session.php';
 
 // Get user id from session
-$user_id = $_SESSION['id'];
+$user_id = $_SESSION['id'] ?? null;
+if (!$user_id) {
+    header("Location: signin.php?timeout=true");
+    exit();
+}
 
 // Time zone setting
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
+$today = $time->format("d-m-Y");
 
-// Get invoiceNumber
-$invoiceNumber = isset($_GET['invoiceNumber']) ? $_GET['invoiceNumber'] : '';
-
-if (empty($invoiceNumber)) {
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                title: 'Error!',
-                text: 'Invalid invoice number!',
-                timer: 5000,
-                timerProgressBar: true
-            }).then(function(){
-                window.location.href = 'saleslist.php';
-            });
-        });
-    </script>";
-    exit;
+// Get quotationUId
+if (isset($_GET['id'])) {
+    $quotationUId = $_GET['id'];
 }
 
-// Fetch order details
-$order_stmt = $conn->prepare("SELECT * FROM orders WHERE invoiceNumber = ?");
-$order_stmt->bind_param("s", $invoiceNumber);
-$order_stmt->execute();
-$order_result = $order_stmt->get_result();
-
-if ($order_result->num_rows == 0) {
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                title: 'Error!',
-                text: 'Order not found!',
-                timer: 5000,
-                timerProgressBar: true
-            }).then(function(){
-                window.location.href = 'saleslist.php';
-            });
-        });
-    </script>";
-    exit;
+if ($quotationUId <= 0) {
+    header("Location: quotationlist.php?message=invalid");
+    exit();
 }
 
-$order = $order_result->fetch_assoc();
+// Fetch quotation details
+$quotation_stmt = $conn->prepare("SELECT * FROM quotations WHERE quotationUId = ?");
+$quotation_stmt->bind_param("i", $quotationUId);
+$quotation_stmt->execute();
+$quotation_result = $quotation_stmt->get_result();
 
-// Fetch order details (products)
-$details_stmt = $conn->prepare("SELECT od.*, p.quantity AS current_stock, p.sellingPrice, p.productName FROM order_details od JOIN products p ON od.productId = p.productId WHERE od.invoiceNumber = ?");
-$details_stmt->bind_param("s", $invoiceNumber);
+if ($quotation_result->num_rows == 0) {
+    header("Location: quotationlist.php?message=notfound");
+    exit();
+}
+
+$quotation = $quotation_result->fetch_assoc();
+$referenceNumber = $quotation['referenceNumber'];
+
+// Fetch quotation details (products)
+$details_stmt = $conn->prepare("SELECT qd.*, p.quantity AS current_stock, p.sellingPrice, p.productName 
+                                FROM quotation_details qd 
+                                JOIN products p ON qd.productId = p.productId 
+                                WHERE qd.referenceNumber = ?");
+$details_stmt->bind_param("s", $referenceNumber);
 $details_stmt->execute();
 $details_result = $details_stmt->get_result();
-$order_products = [];
+$quotation_products = [];
 while ($row = $details_result->fetch_assoc()) {
-    $order_products[] = $row;
+    $quotation_products[] = $row;
 }
 
-// Handle form submission for updating order
-if (isset($_POST['updateSaleBTN'])) {
+// Handle form submission for creating order
+if (isset($_POST['createOrderBTN'])) {
+    $invoiceNumber  = $_POST['invoice_number'];
     $customerId     = $_POST['customer_name'];
     $orderDate      = !empty($_POST['order_date']) ? date("Y-m-d", strtotime($_POST['order_date'])) : null;
     $subTotal       = $_POST['sub_total'];
     $vat            = $_POST['vat'];
+    $vatAmount      = $_POST['vat_amount'];
+    $discount       = $_POST['discount'];
+    $discountAmount = $_POST['discount_amount'];
+    $shippingAmount = $_POST['shipping_amount'];
     $grandTotal     = $_POST['total'];
     $paymentType    = $_POST['payment_type'];
     $pay            = $_POST['pay'];
@@ -75,29 +69,43 @@ if (isset($_POST['updateSaleBTN'])) {
     $totalProducts  = $_POST['total_products'];
     $products       = $_POST['products'];
 
-    // 1. Restore original quantities to stock
-    foreach ($order_products as $old_product) {
-        $update_product_stmt = $conn->prepare("UPDATE products SET quantity = quantity + ?, updated_at = ? WHERE productId = ?");
-        $update_product_stmt->bind_param("iss", $old_product['quantity'], $current_time, $old_product['productId']);
-        $update_product_stmt->execute();
-        $update_product_stmt->close();
+    // Begin transaction
+    $conn->begin_transaction();
+
+    // Insert new order
+    $insert_order_stmt = $conn->prepare("INSERT INTO orders 
+        (invoiceNumber, customerId, createdBy, updatedBy, orderDate, totalProducts, subTotal, vat, vatAmount, discount, discountAmount, shippingAmount, total, paymentType, paid, due, created_at, updated_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $insert_order_stmt->bind_param(
+        "siiisidididddsddss",
+        $invoiceNumber,
+        $customerId,
+        $user_id,
+        $user_id,
+        $orderDate,
+        $totalProducts,
+        $subTotal,
+        $vat,
+        $vatAmount,
+        $discount,
+        $discountAmount,
+        $shippingAmount,
+        $grandTotal,
+        $paymentType,
+        $pay,
+        $due,
+        $current_time,
+        $current_time
+    );
+
+    if (!$insert_order_stmt->execute()) {
+        $conn->rollback();
+        header("Location: quotationlist.php?message=error");
+        exit();
     }
+    $insert_order_stmt->close();
 
-    // 2. Delete old order details
-    $delete_details_stmt = $conn->prepare("DELETE FROM order_details WHERE invoiceNumber = ?");
-    $delete_details_stmt->bind_param("s", $invoiceNumber);
-    $delete_details_stmt->execute();
-    $delete_details_stmt->close();
-
-    // 3. Update order
-    $update_order_stmt = $conn->prepare("UPDATE orders 
-        SET customerId = ?, orderDate = ?, subTotal = ?, vat = ?, total = ?, paymentType = ?, paid = ?, due = ?, totalProducts = ?, updated_at = ? 
-        WHERE invoiceNumber = ?");
-    $update_order_stmt->bind_param("isdidsddiss", $customerId, $orderDate, $subTotal, $vat, $grandTotal, $paymentType, $pay, $due, $totalProducts, $current_time, $invoiceNumber);
-    $update_order_stmt->execute();
-    $update_order_stmt->close();
-
-    // 4. Insert new order details and subtract new quantities from stock
+    // Insert order details and update stock
     foreach ($products as $p) {
         $productId   = $p['product_id'];
         $unitPrice   = $p['unit_cost'];
@@ -106,58 +114,99 @@ if (isset($_POST['updateSaleBTN'])) {
 
         // Validate stock
         $stock_stmt = $conn->prepare("SELECT quantity FROM products WHERE productId = ?");
-        $stock_stmt->bind_param("s", $productId);
+        $stock_stmt->bind_param("i", $productId);
         $stock_stmt->execute();
         $stock_result = $stock_stmt->get_result();
         $stock = $stock_result->fetch_assoc();
         $stock_stmt->close();
 
         if ($quantity > $stock['quantity']) {
-            // Rollback if insufficient stock
             $conn->rollback();
-            echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: 'Insufficient stock for product ID: $productId',
-                        timer: 5000,
-                        timerProgressBar: true
-                    });
-                });
-            </script>";
-            exit;
+            header("Location: quotationlist.php?message=stockerror");
+            exit();
         }
 
-        // Insert new detail
+        // Insert order detail
         $insert_detail_stmt = $conn->prepare("INSERT INTO order_details 
             (invoiceNumber, productId, unitCost, quantity, totalCost, created_at, updated_at) 
             VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $insert_detail_stmt->bind_param("ssdidss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
-        $insert_detail_stmt->execute();
+        $insert_detail_stmt->bind_param("sidiiss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
+
+        if (!$insert_detail_stmt->execute()) {
+            $conn->rollback();
+            header("Location: quotationlist.php?message=error");
+            exit();
+        }
         $insert_detail_stmt->close();
 
         // Subtract from stock
         $update_product_stmt = $conn->prepare("UPDATE products SET quantity = quantity - ?, updated_at = ? WHERE productId = ?");
-        $update_product_stmt->bind_param("iss", $quantity, $current_time, $productId);
-        $update_product_stmt->execute();
+        $update_product_stmt->bind_param("isi", $quantity, $current_time, $productId);
+
+        if (!$update_product_stmt->execute()) {
+            $conn->rollback();
+            header("Location: quotationlist.php?message=error");
+            exit();
+        }
         $update_product_stmt->close();
     }
 
+    // Update quotation status to Completed (1)
+    $update_quotation_stmt = $conn->prepare("UPDATE quotations SET quotationStatus = 1, updatedBy = ?, updated_at = ? WHERE quotationUId = ?");
+    $update_quotation_stmt->bind_param("isi", $user_id, $current_time, $quotationUId);
 
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                title: 'Success',
-                text: 'Order updated successfully',
-                timer: 5000
-            }).then(function() {
-                window.location.href = 'saleslist.php';
-            });
-        });
-    </script>";
+    if (!$update_quotation_stmt->execute()) {
+        $conn->rollback();
+        header("Location: quotationlist.php?message=error");
+        exit();
+    }
+    $update_quotation_stmt->close();
+
+    // Update quotation details status to Approved (1)
+    $details_stmt = $conn->prepare("UPDATE quotation_details SET status = 1, updated_at = ? WHERE referenceNumber = ?");
+    $details_stmt->bind_param("ss", $current_time, $referenceNumber);
+
+    if (!$details_stmt->execute()) {
+        $details_stmt->close();
+        $conn->rollback();
+        header("Location: quotationlist.php?message=error");
+        exit();
+    }
+    $details_stmt->close();
+
+    // Commit if everything was successful
+    $conn->commit();
+    header("Location: quotationlist.php?message=approved");
+    exit();
+}
+
+function generateInvoiceNumber($conn)
+{
+    $query = "SELECT invoiceNumber 
+                FROM orders 
+                WHERE invoiceNumber 
+                LIKE 'SNK-S%' 
+                ORDER BY invoiceNumber 
+                DESC LIMIT 1";
+    $result = $conn->query($query);
+
+    if ($result && $result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $lastNumber = intval(substr($row['invoiceNumber'], 6)); // Extract numeric part after 'SNK-P'
+        $nextNumber = $lastNumber + 1;
+    } else {
+        $nextNumber = 1; // Start from 1 if no previous entry
+    }
+
+    // Pad with leading zeros to ensure 3 digits
+    $formatted = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+
+    return 'SNK-S' . $formatted;
 }
 
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -165,8 +214,7 @@ if (isset($_POST['updateSaleBTN'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <title>Sonak Inventory | Edit Sales</title>
-
+    <title>Sonak Inventory | Approve Quotation</title>
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/css/bootstrap-datetimepicker.min.css">
@@ -176,6 +224,7 @@ if (isset($_POST['updateSaleBTN'])) {
     <link rel="stylesheet" href="assets/plugins/fontawesome/css/fontawesome.min.css">
     <link rel="stylesheet" href="assets/plugins/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/plugins/sweetalert/sweetalert2.all.min.css">
 </head>
 
 <body>
@@ -184,6 +233,7 @@ if (isset($_POST['updateSaleBTN'])) {
     </div>
 
     <div class="main-wrapper">
+        <!-- Header -->
         <div class="header">
             <div class="header-left active">
                 <a href="index.php" class="logo">
@@ -194,7 +244,6 @@ if (isset($_POST['updateSaleBTN'])) {
                 </a>
                 <a id="toggle_btn" href="javascript:void(0);"></a>
             </div>
-
             <a id="mobile_btn" class="mobile_btn" href="#sidebar">
                 <span class="bar-icon">
                     <span></span>
@@ -202,40 +251,32 @@ if (isset($_POST['updateSaleBTN'])) {
                     <span></span>
                 </span>
             </a>
-
             <ul class="nav user-menu">
-
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= ($_SESSION['userPhoto'] ?? 'assets/img/profiles/avator.jpg') ?>" alt="Profile">
                             <span class="status online"></span>
                         </span>
                     </a>
-
-                    <!-- User Profile -->
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= ($_SESSION['userPhoto'] ?? 'assets/img/profiles/avator.jpg') ?>" alt="Profile">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
-                                    <?php if (isset($_SESSION['username']) && isset($_SESSION['userRole'])) { ?>
-                                        <h6><?= $_SESSION['username']; ?></h6>
-                                        <h5><?= $_SESSION['userRole']; ?></h5>
-                                    <?php } else { ?>
-                                        <h6>Guest</h6>
-                                        <h5>Visitor</h5>
-                                    <?php } ?>
+                                    <h6><?= ($_SESSION['username'] ?? 'Guest') ?></h6>
+                                    <h5><?= ($_SESSION['userRole'] ?? 'User') ?></h5>
                                 </div>
                             </div>
                             <hr class="m-0">
-                            <a class="dropdown-item" href="profile.php"> <i class="me-2" data-feather="user"></i> My Profile</a>
+                            <a class="dropdown-item" href="profile.php"><i class="me-2" data-feather="user"></i> My Profile</a>
                             <a class="dropdown-item" href="#"><i class="me-2" data-feather="settings"></i>Settings</a>
                             <hr class="m-0">
                             <a class="dropdown-item logout pb-0" href="signout.php">
-                                <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
-                                Logout
+                                <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">Logout
                             </a>
                         </div>
                     </div>
@@ -246,18 +287,17 @@ if (isset($_POST['updateSaleBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
 
+        <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-inner slimscroll">
                 <div id="sidebar-menu" class="sidebar-menu">
                     <ul>
-                        <li>
-                            <a href="index.php"><img src="assets/img/icons/dashboard.svg" alt="img"><span> Dashboard</span></a>
-                        </li>
+                        <li><a href="index.php"><img src="assets/img/icons/dashboard.svg" alt="img"><span> Dashboard</span></a></li>
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/product.svg" alt="img"><span> Product</span> <span class="menu-arrow"></span></a>
                             <ul>
@@ -268,7 +308,7 @@ if (isset($_POST['updateSaleBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="saleslist.php" class="active">Sales List</a></li>
+                                <li><a href="saleslist.php">Sales List</a></li>
                                 <li><a href="add-sales.php">Add Sales</a></li>
                             </ul>
                         </li>
@@ -282,7 +322,7 @@ if (isset($_POST['updateSaleBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/quotation1.svg" alt="img"><span> Quotation</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="quotationList.php">Quotation List</a></li>
+                                <li><a href="quotationList.php" class="active">Quotation List</a></li>
                                 <li><a href="addquotation.php">Add Quotation</a></li>
                             </ul>
                         </li>
@@ -308,26 +348,26 @@ if (isset($_POST['updateSaleBTN'])) {
                         </li>
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/settings.svg" alt="img"><span> Settings</span> <span class="menu-arrow"></span></a>
-                            <ul>
-                            </ul>
+                            <ul></ul>
                         </li>
                     </ul>
                 </div>
             </div>
         </div>
 
+        <!-- Page Content -->
         <div class="page-wrapper">
             <div class="content">
                 <div class="page-header">
                     <div class="page-title">
-                        <h4>Edit Sale</h4>
-                        <h6>Update your sale</h6>
+                        <h4>Approve Quotation</h4>
+                        <h6>Create order from quotation</h6>
                     </div>
                     <div class="page-btn">
-                        <a href="saleslist.php" class="btn btn-added"><img src="assets/img/icons/card-list.svg" alt="image">&nbsp; Orders List</a>
+                        <a href="quotationList.php" class="btn btn-added"><img src="assets/img/icons/card-list.svg" alt="image">&nbsp; Quotation List</a>
                     </div>
                 </div>
-                <!-- Edit Sale -->
+
                 <div class="card">
                     <div class="card-body">
                         <!-- Step Progress Indicator -->
@@ -363,12 +403,12 @@ if (isset($_POST['updateSaleBTN'])) {
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Customer</label>
-                                            <select class="select" name="customer_name" required>
+                                            <select class="select" name="customer_name" required aria-readonly>
                                                 <option value="" disabled>Select Customer</option>
                                                 <?php
                                                 $customers_query = $conn->query("SELECT * FROM customers");
                                                 while ($customers = $customers_query->fetch_assoc()) {
-                                                    $selected = ($customers['customerId'] == $order['customerId']) ? 'selected' : '';
+                                                    $selected = ($customers['customerId'] == $quotation['customerId']) ? 'selected' : '';
                                                     echo '<option value="' . $customers['customerId'] . '" ' . $selected . '>' . $customers['customerName'] . '</option>';
                                                 }
                                                 ?>
@@ -377,23 +417,29 @@ if (isset($_POST['updateSaleBTN'])) {
                                     </div>
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
+                                            <label>Reference Number</label>
+                                            <input type="text" name="reference_number" class="form-control" value="<?= ($quotation['referenceNumber']) ?>" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-6 col-sm-6 col-12">
+                                        <div class="form-group">
                                             <label>Invoice Number</label>
-                                            <input type="text" name="invoice_number" class="form-control" value="<?= ($order['invoiceNumber']); ?>" readonly>
+                                            <input type="text" name="invoice_number" class="form-control" value="<?= generateInvoiceNumber($conn); ?>" required>
                                         </div>
                                     </div>
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Order Date</label>
-                                            <input type="date" name="order_date" class="form-control" value="<?= ($order['orderDate']); ?>" required>
+                                            <input type="text" name="order_date" class="form-control datetimepicker" placeholder="DD-MM-YYYY" value="<?= $today; ?>" required>
                                         </div>
                                     </div>
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Payment Type</label>
                                             <select name="payment_type" class="select" required>
-                                                <option value="" disabled>Payment Type</option>
-                                                <option value="Cash" <?= ($order['paymentType'] == 'Cash') ? 'selected' : ''; ?>>Cash</option>
-                                                <option value="Credit Card" <?= ($order['paymentType'] == 'Credit Card') ? 'selected' : ''; ?>>Credit Card</option>
+                                                <option value="" disabled>Select Payment Type</option>
+                                                <option>Cash</option>
+                                                <option>Credit Card</option>
                                             </select>
                                         </div>
                                     </div>
@@ -406,7 +452,7 @@ if (isset($_POST['updateSaleBTN'])) {
                             <!-- STEP 2: Add Products -->
                             <div id="step2" style="display:none;">
                                 <div id="productsContainer">
-                                    <?php foreach ($order_products as $index => $product): ?>
+                                    <?php foreach ($quotation_products as $index => $product): ?>
                                         <div class="row product-row align-items-end gy-2 mb-3">
                                             <div class="col-lg-3">
                                                 <label class="form-label">Product</label>
@@ -418,7 +464,7 @@ if (isset($_POST['updateSaleBTN'])) {
                                                         $selected = ($p['productId'] == $product['productId']) ? 'selected' : '';
                                                         echo '<option value="' . $p['productId'] . '" 
                                                             data-price="' . $p['sellingPrice'] . '"
-                                                            data-quantity="' . ($p['quantity'] + $product['quantity']) . '" ' . $selected . '>'
+                                                            data-quantity="' . $p['quantity'] . '" ' . $selected . '>'
                                                             . $p['productName'] . '</option>';
                                                     }
                                                     ?>
@@ -426,19 +472,19 @@ if (isset($_POST['updateSaleBTN'])) {
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Unit Cost</label>
-                                                <input type="text" name="products[<?= $index ?>][unit_cost]" class="form-control unitCost" value="<?= ($product['unitCost']); ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][unit_cost]" class="form-control unitCost" value="<?= ($product['unitPrice']) ?>" readonly>
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Available</label>
-                                                <input type="text" name="products[<?= $index ?>][available_quantity]" class="form-control availableQuantity" value="<?= $product['current_stock'] + $product['quantity']; ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][available_quantity]" class="form-control availableQuantity" value="<?= ($product['current_stock']) ?>" readonly>
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Quantity</label>
-                                                <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['quantity']); ?>" min="0">
+                                                <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['quantity']) ?>" min="0">
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Total Cost</label>
-                                                <input type="text" name="products[<?= $index ?>][total_cost]" class="form-control totalCost" value="<?= ($product['totalCost']); ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][total_cost]" class="form-control totalCost" value="<?= ($product['subTotal']) ?>" readonly>
                                             </div>
                                             <div class="col-lg-1 text-end">
                                                 <label class="form-label d-block">&nbsp;</label>
@@ -457,62 +503,69 @@ if (isset($_POST['updateSaleBTN'])) {
 
                             <!-- STEP 3: Summary & Totals -->
                             <div id="step3" style="display:none;">
-
                                 <div class="row">
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Total Products</label>
-                                            <input type="text" name="total_products" id="totalProducts" class="form-control" value="<?= ($order['totalProducts']); ?>" readonly>
+                                            <input type="text" name="total_products" id="totalProducts" class="form-control" value="<?= ($quotation['totalProducts']) ?>" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Shipping Amount</label>
+                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="<?= ($quotation['shippingAmount']) ?>">
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Subtotal</label>
-                                            <input type="text" name="sub_total" id="subTotal" class="form-control" value="<?= ($order['subTotal']); ?>" readonly>
+                                            <input type="text" name="sub_total" id="subTotal" class="form-control" value="<?= ($quotation['subTotal']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>VAT (%)</label>
-                                            <input type="number" name="vat" id="vat" class="form-control" value="<?= ($order['vat']); ?>">
+                                            <input type="number" name="vat" id="vat" class="form-control" value="<?= ($quotation['taxPercentage']) ?>">
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>VAT Amount</label>
-                                            <input type="text" name="vat_amount" id="vatAmount" class="form-control" readonly>
+                                            <input type="text" name="vat_amount" id="vatAmount" class="form-control" value="<?= ($quotation['taxAmount']) ?>" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount (%)</label>
+                                            <input type="number" name="discount" id="discount" class="form-control" value="<?= ($quotation['discountPercentage']) ?>">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount Amount</label>
+                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" value="<?= ($quotation['discountAmount']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Total</label>
-                                            <input type="text" name="total" id="grandTotal" class="form-control" value="<?= ($order['total']); ?>" readonly>
+                                            <input type="text" name="total" id="grandTotal" class="form-control" value="<?= ($quotation['totalAmount']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Paid Amount</label>
-                                            <input type="number" name="pay" id="pay" class="form-control" value="<?= ($order['paid']); ?>">
+                                            <input type="number" name="pay" id="pay" class="form-control" value="0.00">
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Due</label>
-                                            <input type="text" name="due" id="due" class="form-control" value="<?= ($order['due']); ?>" readonly>
+                                            <input type="text" name="due" id="due" class="form-control" value="<?= ($quotation['totalAmount']) ?>" readonly>
                                         </div>
                                     </div>
-                                    <!-- <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Payment Status</label>
-                                            <select name="payment_status" class="select" required>
-                                                <option value="" disabled>Select Payment Status</option>
-                                                <option value="1" <?= ($order['orderStatus'] == 1) ? 'selected' : ''; ?>>Paid</option>
-                                                <option value="0" <?= ($order['orderStatus'] == 0) ? 'selected' : ''; ?>>Unpaid</option>
-                                            </select>
-                                        </div>
-                                    </div> -->
                                 </div>
-                                <!--Summary Table -->
+                                <!-- Summary Table -->
                                 <div class="table-responsive mb-3">
                                     <table class="table table-bordered" id="orderSummaryTable">
                                         <thead>
@@ -527,19 +580,28 @@ if (isset($_POST['updateSaleBTN'])) {
                                     </table>
                                 </div>
                                 <!-- /Summary Table -->
-
                                 <div class="d-flex justify-content-end mt-3">
                                     <button type="button" class="btn btn-secondary me-2" id="backStep2">Back</button>
-                                    <button type="submit" name="updateSaleBTN" class="btn btn-success">Update Order</button>
+                                    <button type="submit" name="createOrderBTN" class="btn btn-success">Create Order</button>
                                 </div>
                             </div>
                         </form>
                     </div>
                 </div>
-                <!-- /Edit Sale -->
             </div>
         </div>
 
+        <script src="assets/js/jquery-3.6.0.min.js"></script>
+        <script src="assets/js/feather.min.js"></script>
+        <script src="assets/js/jquery.slimscroll.min.js"></script>
+        <script src="assets/js/jquery.dataTables.min.js"></script>
+        <script src="assets/js/dataTables.bootstrap4.min.js"></script>
+        <script src="assets/js/bootstrap.bundle.min.js"></script>
+        <script src="assets/plugins/select2/js/select2.min.js"></script>
+        <script src="assets/js/moment.min.js"></script>
+        <script src="assets/js/bootstrap-datetimepicker.min.js"></script>
+        <script src="assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
+        <script src="assets/js/script.js"></script>
         <script>
             document.addEventListener("DOMContentLoaded", function() {
                 // Step navigation
@@ -594,43 +656,44 @@ if (isset($_POST['updateSaleBTN'])) {
                     let index = document.querySelectorAll(".product-row").length;
                     let row = document.createElement("div");
                     row.classList.add("row", "product-row", "align-items-end", "gy-2", "mb-3");
+
                     row.innerHTML = `
-                        <div class="col-lg-3">
-                            <label class="form-label">Product</label>
-                            <select name="products[${index}][product_id]" class="form-control productSelect" required>
-                                <option value="" disabled selected>Select Product</option>
-                                <?php
-                                $products_query = $conn->query("SELECT * FROM products");
-                                while ($p = $products_query->fetch_assoc()) {
-                                    echo '<option value="' . $p['productId'] . '" 
-                                        data-price="' . $p['sellingPrice'] . '"
-                                        data-quantity="' . $p['quantity'] . '">'
-                                        . $p['productName'] . '</option>';
-                                }
-                                ?>
-                            </select>
-                        </div>
-                        <div class="col-lg-2">
-                            <label class="form-label">Unit Cost</label>
-                            <input type="text" name="products[${index}][unit_cost]" class="form-control unitCost" readonly>
-                        </div>
-                        <div class="col-lg-2">
-                            <label class="form-label">Available</label>
-                            <input type="text" name="products[${index}][available_quantity]" class="form-control availableQuantity" readonly>
-                        </div>
-                        <div class="col-lg-2">
-                            <label class="form-label">Quantity</label>
-                            <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="0" min="0">
-                        </div>
-                        <div class="col-lg-2">
-                            <label class="form-label">Total Cost</label>
-                            <input type="text" name="products[${index}][total_cost]" class="form-control totalCost" readonly>
-                        </div>
-                        <div class="col-lg-1 text-end">
-                            <label class="form-label d-block">&nbsp;</label>
-                            <button type="button" class="btn btn-danger removeProduct">X</button>
-                        </div>
-                    `;
+                    <div class="col-lg-3">
+                        <label class="form-label">Product</label>
+                        <select name="products[${index}][product_id]" class="form-control productSelect" required>
+                            <option value="" disabled selected>Select Product</option>
+                            <?php
+                            $products_query = $conn->query("SELECT * FROM products");
+                            while ($p = $products_query->fetch_assoc()) {
+                                echo '<option value="' . $p['productId'] . '" 
+                                    data-price="' . $p['sellingPrice'] . '"
+                                    data-quantity="' . $p['quantity'] . '">'
+                                    . $p['productName'] . '</option>';
+                            }
+                            ?>
+                        </select>
+                    </div>
+                    <div class="col-lg-2">
+                        <label class="form-label">Unit Cost</label>
+                        <input type="text" name="products[${index}][unit_cost]" class="form-control unitCost" readonly>
+                    </div>
+                    <div class="col-lg-2">
+                        <label class="form-label">Available</label>
+                        <input type="text" name="products[${index}][available_quantity]" class="form-control availableQuantity" readonly>
+                    </div>
+                    <div class="col-lg-2">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="0" min="1">
+                    </div>
+                    <div class="col-lg-2">
+                        <label class="form-label">Total Cost</label>
+                        <input type="text" name="products[${index}][total_cost]" class="form-control totalCost" readonly>
+                    </div>
+                    <div class="col-lg-1 text-end">
+                        <label class="form-label d-block">&nbsp;</label>
+                        <button type="button" class="btn btn-danger removeProduct">X</button>
+                    </div>
+                `;
                     productsContainer.appendChild(row);
                     attachRowEvents(row);
                 };
@@ -659,6 +722,7 @@ if (isset($_POST['updateSaleBTN'])) {
                             Swal.fire({
                                 title: 'Warning',
                                 text: 'Quantity cannot exceed available stock!',
+                                icon: 'warning',
                                 timer: 3000
                             });
                         }
@@ -699,28 +763,31 @@ if (isset($_POST['updateSaleBTN'])) {
                         totalProducts += qty;
                     });
 
-                    // SubTotal & Total Products
+                    // Add shipping Amount
+                     let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
+                    subTotal += shippingAmount;
+
                     document.getElementById("subTotal").value = subTotal.toFixed(2);
                     document.getElementById("totalProducts").value = totalProducts;
 
-                    // VAT and VAT Amount
                     let vatPercent = parseFloat(document.getElementById("vat").value) || 0;
+                    let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
+                   
                     let vatAmount = subTotal * vatPercent / 100;
-                    document.getElementById("vatAmount").value = vatAmount.toFixed(2);
+                    let discountAmount = subTotal * discountPercent / 100;
+                    let grandTotal = subTotal + vatAmount - discountAmount;
 
-                    // Grand Total
-                    let grandTotal = subTotal + vatAmount;
+                    document.getElementById("vatAmount").value = vatAmount.toFixed(2);
+                    document.getElementById("discountAmount").value = discountAmount.toFixed(2);
                     document.getElementById("grandTotal").value = grandTotal.toFixed(2);
 
                     let pay = parseFloat(document.getElementById("pay").value) || 0;
                     document.getElementById("due").value = (grandTotal - pay).toFixed(2);
                 }
 
-                // Event listeners for VAT and Pay inputs
                 document.getElementById("vat").addEventListener("input", calculateSummary);
-                document.getElementById("pay").addEventListener("input", calculateSummary);
-
-                // Restrict pay input to not exceed grand total
+                document.getElementById("discount").addEventListener("input", calculateSummary);
+                document.getElementById("shippingAmount").addEventListener("input", calculateSummary);
                 document.getElementById("pay").addEventListener("input", function() {
                     let grandTotal = parseFloat(document.getElementById("grandTotal").value) || 0;
                     let payInput = this;
@@ -730,14 +797,15 @@ if (isset($_POST['updateSaleBTN'])) {
                         Swal.fire({
                             title: 'Warning',
                             text: 'Pay amount cannot exceed the grand total!',
+                            icon: 'warning',
                             timer: 3000
                         });
                     } else if (enteredPay < 0) {
                         payInput.value = 0;
-                        enteredPay = 0;
                         Swal.fire({
                             title: 'Warning',
                             text: 'Pay amount cannot be negative!',
+                            icon: 'warning',
                             timer: 3000
                         });
                     }
@@ -751,19 +819,6 @@ if (isset($_POST['updateSaleBTN'])) {
                 calculateSummary();
             });
         </script>
-
-        <script src="assets/js/jquery-3.6.0.min.js"></script>
-        <script src="assets/js/feather.min.js"></script>
-        <script src="assets/js/jquery.slimscroll.min.js"></script>
-        <script src="assets/js/jquery.dataTables.min.js"></script>
-        <script src="assets/js/dataTables.bootstrap4.min.js"></script>
-        <script src="assets/js/bootstrap.bundle.min.js"></script>
-        <script src="assets/plugins/select2/js/select2.min.js"></script>
-        <script src="assets/js/moment.min.js"></script>
-        <script src="assets/js/bootstrap-datetimepicker.min.js"></script>
-        <script src="assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
-        <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
-        <script src="assets/js/script.js"></script>
     </div>
 </body>
 

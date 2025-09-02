@@ -20,7 +20,7 @@ if (isset($_GET['referenceNumber'])) {
     $stmt->execute();
     $result = $stmt->get_result();
     $quotation = $result->fetch_assoc();
-
+ 
     if ($quotation) {
         $pdf = new FPDF();
         $pdf->AddPage('P', 'A4');
@@ -114,7 +114,7 @@ if (isset($_GET['referenceNumber'])) {
                                         p.productName 
                                       FROM quotation_details qd 
                                       JOIN products p ON qd.productId = p.productId 
-                                      WHERE qd.referenceNumber = ? AND qd.status = 1");
+                                      WHERE qd.referenceNumber = ?");
         $item_query->bind_param("s", $referenceNumber);
         $item_query->execute();
         $item_result = $item_query->get_result();

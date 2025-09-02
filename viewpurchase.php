@@ -68,7 +68,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                     <span></span>
                 </span>
             </a>
- 
+
             <ul class="nav user-menu">
 
                 <li class="nav-item dropdown has-arrow main-drop">
@@ -129,8 +129,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -166,7 +164,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -215,291 +212,310 @@ $current_time = $time->format("Y-m-d H:i:s");
                                 </li>
                             </ul>
                         </div>
-                        <div class="invoice-box table-height" style="max-width: 1600px;width:100%;overflow: auto;margin:15px auto;padding: 0;font-size: 14px;line-height: 24px;color: #555;">
-                            <table cellpadding="0" cellspacing="0" style="width: 100%;line-height: inherit;text-align: left;">
 
-                                <!-- Purchase details table -->
-                                <tbody>
-                                    <?php
-                                    // Get purchase details
-                                    $purchase_query = $conn->prepare("SELECT 
-                                                        purchases.*, 
-                                                        suppliers.*, 
-                                                        u1.username AS purchaser,
-                                                        u2.username AS updater
-                                                    FROM purchases
-                                                    JOIN suppliers ON purchases.supplierId = suppliers.supplierId
-                                                    JOIN users AS u1 ON purchases.createdBy = u1.userId
-                                                    JOIN users AS u2 ON purchases.updatedBy = u2.userId
-                                                    WHERE purchases.purchaseNumber = ?
-                                                    ");
-                                    $purchase_query->bind_param("s", $purchase_number);
-                                    $purchase_query->execute();
-                                    $purchase_result = $purchase_query->get_result();
 
-                                    if ($purchase_result->num_rows > 0) {
-                                        $purchase_row = $purchase_result->fetch_assoc();
-                                    ?>
-                                        <tr class="top">
-                                            <td colspan="7" style="padding: 5px;vertical-align: top;">
-                                                <table style="width: 100%;line-height: inherit;text-align: left;">
+
+                        <?php
+                        // Get purchase details
+                        $purchase_query = $conn->prepare("SELECT 
+                                                purchases.*, 
+                                                suppliers.*, 
+                                                u1.username AS purchaser,
+                                                u2.username AS updater
+                                            FROM purchases
+                                            JOIN suppliers ON purchases.supplierId = suppliers.supplierId
+                                            JOIN users AS u1 ON purchases.createdBy = u1.userId
+                                            JOIN users AS u2 ON purchases.updatedBy = u2.userId
+                                            WHERE purchases.purchaseNumber = ?");
+                        $purchase_query->bind_param("s", $purchase_number);
+                        $purchase_query->execute();
+                        $purchase_result = $purchase_query->get_result();
+
+                        if ($purchase_result->num_rows > 0) {
+                            $purchase_row = $purchase_result->fetch_assoc();
+                        ?>
+                            <!-- Supplier Information Table -->
+                            <div class="row">
+                                <div class="col-lg-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Supplier Information</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table mb-0">
                                                     <tbody>
                                                         <tr>
-                                                            <!-- Supplier Info -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Supplier Info</h6>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Name:</strong> <?= ($purchase_row['supplierName']); ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Email:</strong>
-                                                                    <a href="mailto:<?= ($purchase_row['supplierEmail']); ?>">
-                                                                        <?= ($purchase_row['supplierEmail']); ?>
-                                                                    </a>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Phone:</strong>
-                                                                    <a href="tel:<?= ($purchase_row['supplierPhone']); ?>">
-                                                                        <?= ($purchase_row['supplierPhone']); ?>
-                                                                    </a>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Acc. No:</strong>
-                                                                    <?= !empty($purchase_row['supplierAccountNumber']) ? ($purchase_row['supplierAccountNumber']) : 'N/A'; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Acc. Name:</strong>
-                                                                    <?= !empty($purchase_row['supplierAccountHolder']) ? ($purchase_row['supplierAccountHolder']) : 'N/A'; ?>
-                                                                </p>
-                                                            </td>
-
-                                                            <!-- Purchase Info -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Purchase Info</h6>
-                                                                <p style="font-size:14px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Purchaser:</strong> <?= ($purchase_row['purchaser']); ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Updated By:</strong> <?= ($purchase_row['updater']); ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Purchase Date:</strong>
-                                                                    <?= date('d/m/Y', strtotime($purchase_row['purchaseDate'])); ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Created At:</strong>
-                                                                    <?= $purchase_row['created_at']; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Updated At:</strong>
-                                                                    <?= $purchase_row['updated_at']; ?>
-                                                                </p>
-                                                            </td>
-
-                                                            <!-- Agent Info -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Agent Info</h6>
-                                                                <?php
-                                                                // Get agent information from purchase details
-                                                                $agent_query = $conn->prepare("SELECT DISTINCT 
-                                                                                    a.agentName, 
-                                                                                    a.agentEmail, 
-                                                                                    a.agentPhone,
-                                                                                    pd.trackingNumber,
-                                                                                    pd.agentTransportationCost
-                                                                                FROM purchase_details pd 
-                                                                                LEFT JOIN agents a ON pd.agentId = a.agentId 
-                                                                                WHERE pd.purchaseNumber = ? AND pd.agentId IS NOT NULL 
-                                                                                LIMIT 1");
-                                                                $agent_query->bind_param("s", $purchase_number);
-                                                                $agent_query->execute();
-                                                                $agent_result = $agent_query->get_result();
-                                                                $agent_info = $agent_result->fetch_assoc();
-                                                                ?>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Agent Name:</strong> <?= !empty($agent_info['agentName']) ? ($agent_info['agentName']) : 'N/A'; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Agent Email:</strong>
-                                                                    <?php if (!empty($agent_info['agentEmail'])): ?>
-                                                                        <a href="mailto:<?= ($agent_info['agentEmail']); ?>">
-                                                                            <?= ($agent_info['agentEmail']); ?>
-                                                                        </a>
-                                                                    <?php else: ?>
-                                                                        N/A
-                                                                    <?php endif; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Agent Phone:</strong>
-                                                                    <?php if (!empty($agent_info['agentPhone'])): ?>
-                                                                        <a href="tel:<?= ($agent_info['agentPhone']); ?>">
-                                                                            <?= ($agent_info['agentPhone']); ?>
-                                                                        </a>
-                                                                    <?php else: ?>
-                                                                        N/A
-                                                                    <?php endif; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Tracking Number:</strong> <?= !empty($agent_info['trackingNumber']) ? ($agent_info['trackingNumber']) : 'N/A'; ?>
-                                                                </p>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Transportation Cost:</strong> <?= !empty($agent_info['agentTransportationCost']) ? number_format($agent_info['agentTransportationCost'], 2) : 'N/A'; ?>
-                                                                </p>
+                                                            <td><strong>Name:</strong></td>
+                                                            <td><?= $purchase_row['supplierName']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Email:</strong></td>
+                                                            <td>
+                                                                <a href="mailto:<?= $purchase_row['supplierEmail']; ?>">
+                                                                    <?= $purchase_row['supplierEmail']; ?>
+                                                                </a>
                                                             </td>
                                                         </tr>
-
+                                                        <tr>
+                                                            <td><strong>Phone:</strong></td>
+                                                            <td>
+                                                                <a href="tel:<?= $purchase_row['supplierPhone']; ?>">
+                                                                    <?= $purchase_row['supplierPhone']; ?>
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Acc. No:</strong></td>
+                                                            <td><?= !empty($purchase_row['supplierAccountNumber']) ? $purchase_row['supplierAccountNumber'] : 'N/A'; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Acc. Name:</strong></td>
+                                                            <td><?= !empty($purchase_row['supplierAccountHolder']) ? $purchase_row['supplierAccountHolder'] : 'N/A'; ?></td>
+                                                        </tr>
                                                     </tbody>
                                                 </table>
-                                            </td>
-                                        </tr>
-                                        <tr class="heading" style="background: #F3F2F7;">
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                S/N
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Product Name
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Size
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Quantity
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Unit Cost
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Rate
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Total Cost
-                                            </td>
-                                        </tr>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                        <?php
-                                        // Get purchase details and products using prepared statement
-                                        $details_query = $conn->prepare("SELECT 
-                                                            pd.*, 
-                                                            p.productName,
-                                                            a.agentName
-                                                        FROM purchase_details pd
-                                                        JOIN products p ON pd.productId = p.productId
-                                                        LEFT JOIN agents a ON pd.agentId = a.agentId
-                                                        WHERE pd.purchaseNumber = ?
-                                                        ORDER BY pd.purchaseDetailsId ASC");
+                                <!-- Purchase Statistics Table -->
+                                <div class="col-lg-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Purchase Statistics</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-striped mb-0">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td><strong>Purchaser:</strong></td>
+                                                            <td><?= $purchase_row['purchaser']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Updated By:</strong></td>
+                                                            <td><?= $purchase_row['updater']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Purchase Date:</strong></td>
+                                                            <td><?= date('d/m/Y', strtotime($purchase_row['purchaseDate'])); ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Created At:</strong></td>
+                                                            <td><?= $purchase_row['created_at']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Updated At:</strong></td>
+                                                            <td><?= $purchase_row['updated_at']; ?></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                        $details_query->bind_param("s", $purchase_number);
-                                        $details_query->execute();
-                                        $details_result = $details_query->get_result();
 
-                                        if ($details_result && $details_result->num_rows > 0) {
-                                            $sn = 1;
-                                            while ($detail = $details_result->fetch_assoc()) {
-                                        ?>
-                                                <tr class="details" style="border-bottom:1px solid #E9ECEF;">
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= $sn++; ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top; display: flex;align-items: center;">
-                                                        <?= ($detail['productName']); ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= !empty($detail['productSize']) ? ($detail['productSize']) : 'N/A'; ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= number_format($detail['quantity']); ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= number_format($detail['unitCost'], 2); ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= number_format($detail['rate']); ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= number_format($detail['totalCost'], 2); ?>
-                                                    </td>
-                                                </tr>
-                                        <?php
-                                            }
-                                        } else {
-                                            echo "<tr><td colspan='7' style='text-align: center; padding: 20px;'>No purchase details found.</td></tr>";
-                                        }
-                                        ?>
-                                    <?php
-                                    } else {
-                                        echo "<tr><td colspan='7' style='text-align: center; padding: 20px;'>Purchase not found.</td></tr>";
-                                    }
-                                    ?>
-                                </tbody>
-                                <!-- /Purchase details table -->
+                                <!-- Agent Information Table -->
 
-                            </table>
-                        </div>
-
-                        <?php if (isset($purchase_row)): ?>
-                            <div class="row">
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Total Products</label>
-                                        <input type="text" value="<?= number_format($purchase_row['totalProducts']); ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Total Amount</label>
-                                        <input type="text" value="<?= number_format($purchase_row['totalAmount'], 2); ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Purchase Date</label>
-                                        <input type="text" value="<?= date('d/m/Y', strtotime($purchase_row['purchaseDate'])); ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Supplier</label>
-                                        <input type="text" value="<?= ($purchase_row['supplierName']); ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Account Number</label>
-                                        <input type="text" value="<?= !empty($purchase_row['supplierAccountNumber']) ? ($purchase_row['supplierAccountNumber']) : 'N/A'; ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Agent Transportation Cost</label>
-                                        <?php
-                                        // Calculate total agent transportation cost
-                                        $transport_query = $conn->prepare("SELECT SUM(agentTransportationCost) as totalTransportCost FROM purchase_details WHERE purchaseNumber = ?");
-                                        $transport_query->bind_param("s", $purchase_number);
-                                        $transport_query->execute();
-                                        $transport_result = $transport_query->get_result();
-                                        $transport_row = $transport_result->fetch_assoc();
-                                        ?>
-                                        <input type="text" value="<?= number_format($transport_row['totalTransportCost'] ?? 0, 2); ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Bank Name</label>
-                                        <input type="text" value="<?= !empty($purchase_row['bankName']) ? ($purchase_row['bankName']) : 'N/A'; ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Status</label>
-                                        <select class="select" aria-readonly="true" disabled>
-                                            <option value="0" <?= $purchase_row['purchaseStatus'] == 0 ? 'selected' : ''; ?>>Pending</option>
-                                            <option value="1" <?= $purchase_row['purchaseStatus'] == 1 ? 'selected' : ''; ?>>Completed</option>
-                                            <option value="2" <?= $purchase_row['purchaseStatus'] == 2 ? 'selected' : ''; ?>>Cancelled</option>
-                                        </select>
+                                <div class="col-lg-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Agent Information</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-striped mb-0">
+                                                    <tbody>
+                                                        <?php
+                                                        // Get agent information from purchase details
+                                                        $agent_query = $conn->prepare("SELECT DISTINCT 
+                                                                            a.agentName, 
+                                                                            a.agentEmail, 
+                                                                            a.agentPhone,
+                                                                            pd.trackingNumber,
+                                                                            pd.agentTransportationCost
+                                                                        FROM purchase_details pd 
+                                                                        LEFT JOIN agents a ON pd.agentId = a.agentId 
+                                                                        WHERE pd.purchaseNumber = ? AND pd.agentId IS NOT NULL 
+                                                                        LIMIT 1");
+                                                        $agent_query->bind_param("s", $purchase_number);
+                                                        $agent_query->execute();
+                                                        $agent_result = $agent_query->get_result();
+                                                        $agent_info = $agent_result->fetch_assoc();
+                                                        ?>
+                                                        <tr>
+                                                            <td><strong>Agent Name:</strong></td>
+                                                            <td><?= !empty($agent_info['agentName']) ? $agent_info['agentName'] : 'N/A'; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Agent Email:</strong></td>
+                                                            <td>
+                                                                <?php if (!empty($agent_info['agentEmail'])): ?>
+                                                                    <a href="mailto:<?= $agent_info['agentEmail']; ?>">
+                                                                        <?= $agent_info['agentEmail']; ?>
+                                                                    </a>
+                                                                <?php else: ?>
+                                                                    N/A
+                                                                <?php endif; ?>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Agent Phone:</strong></td>
+                                                            <td>
+                                                                <?php if (!empty($agent_info['agentPhone'])): ?>
+                                                                    <a href="tel:<?= $agent_info['agentPhone']; ?>">
+                                                                        <?= $agent_info['agentPhone']; ?>
+                                                                    </a>
+                                                                <?php else: ?>
+                                                                    N/A
+                                                                <?php endif; ?>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Tracking Number:</strong></td>
+                                                            <td><?= !empty($agent_info['trackingNumber']) ? $agent_info['trackingNumber'] : 'N/A'; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Transportation Cost:</strong></td>
+                                                            <td><?= !empty($agent_info['agentTransportationCost']) ? number_format($agent_info['agentTransportationCost'], 2) : 'N/A'; ?></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        <?php endif; ?>
+
+                            <!-- Financial Summary Table -->
+                            <div class="row mt-4">
+                                <div class="col-lg-12">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Financial Summary</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-striped mb-0">
+                                                    <tbody>
+                                                        <thead>
+                                                            <th>Total Products</th>
+                                                            <th>Total Amount</th>
+                                                            <th>Agent Transportation Cost</th>
+                                                            <th>Account No.</th>
+                                                            <th>Bank</th>
+                                                            <th>Status</th>
+                                                        </thead>
+                                                        <tr>
+                                                            <td><?= number_format($purchase_row['totalProducts']); ?></td>
+                                                            <td class="text-primary"><strong><?= number_format($purchase_row['totalAmount'], 2); ?></strong></td>
+                                                            <td>
+                                                                <?php
+                                                                $transport_query = $conn->prepare("SELECT SUM(agentTransportationCost) as totalTransportCost FROM purchase_details WHERE purchaseNumber = ?");
+                                                                $transport_query->bind_param("s", $purchase_number);
+                                                                $transport_query->execute();
+                                                                $transport_result = $transport_query->get_result();
+                                                                $transport_row = $transport_result->fetch_assoc();
+                                                                ?>
+                                                                <strong>Tsh: <?= number_format($transport_row['totalTransportCost'] ?? 0, 2); ?></strong>
+                                                            </td>
+                                                            <td><?= !empty($purchase_row['supplierAccountNumber']) ? $purchase_row['supplierAccountNumber'] : 'N/A'; ?></td>
+                                                            <td><?= !empty($purchase_row['bankName']) ? $purchase_row['bankName'] : 'N/A'; ?></td>
+                                                            <td><?= $purchase_row['purchaseStatus'] == 0 ? 'Pending' : ($purchase_row['purchaseStatus'] == 1 ? 'Completed' : 'Cancelled'); ?></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Purchase Details Table -->
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Purchase Details</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-striped mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>S/N</th>
+                                                            <th>Product Name</th>
+                                                            <th>Size</th>
+                                                            <th>Quantity</th>
+                                                            <th>Unit Cost</th>
+                                                            <th>Rate</th>
+                                                            <th>Total Cost</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php
+                                                        // Get purchase details and products using prepared statement
+                                                        $details_query = $conn->prepare("SELECT 
+                                                                        pd.*, 
+                                                                        p.productName,
+                                                                        a.agentName
+                                                                    FROM purchase_details pd
+                                                                    JOIN products p ON pd.productId = p.productId
+                                                                    LEFT JOIN agents a ON pd.agentId = a.agentId
+                                                                    WHERE pd.purchaseNumber = ?
+                                                                    ORDER BY pd.purchaseDetailsId ASC");
+                                                        $details_query->bind_param("s", $purchase_number);
+                                                        $details_query->execute();
+                                                        $details_result = $details_query->get_result();
+
+                                                        if ($details_result && $details_result->num_rows > 0) {
+                                                            $sn = 1;
+                                                            while ($detail = $details_result->fetch_assoc()) {
+                                                        ?>
+                                                                <tr>
+                                                                    <td style="padding: 10px;vertical-align: top;"><?= $sn++; ?></td>
+                                                                    <td style="padding: 10px;vertical-align: top; display: flex;align-items: center;">
+                                                                        <?= $detail['productName']; ?>
+                                                                    </td>
+                                                                    <td style="padding: 10px;vertical-align: top;">
+                                                                        <?= !empty($detail['productSize']) ? $detail['productSize'] : 'N/A'; ?>
+                                                                    </td>
+                                                                    <td style="padding: 10px;vertical-align: top;">
+                                                                        <?= number_format($detail['quantity']); ?>
+                                                                    </td>
+                                                                    <td style="padding: 10px;vertical-align: top;">
+                                                                        <?= number_format($detail['unitCost'], 2); ?>
+                                                                    </td>
+                                                                    <td style="padding: 10px;vertical-align: top;">
+                                                                        <?= number_format($detail['rate']); ?>
+                                                                    </td>
+                                                                    <td style="padding: 10px;vertical-align: top;">
+                                                                        <?= number_format($detail['totalCost'], 2); ?>
+                                                                    </td>
+                                                                </tr>
+                                                        <?php
+                                                            }
+                                                        } else {
+                                                            echo "<tr><td colspan='7' style='text-align: center; padding: 20px;'>No purchase details found.</td></tr>";
+                                                        }
+                                                        ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        <?php
+                        } else {
+                            echo "<p>No purchase found with the provided purchase number.</p>";
+                        }
+                        ?>
+
                     </div>
                 </div>
             </div>

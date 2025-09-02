@@ -5,7 +5,7 @@ if (isset($_POST['updateCategory'])) {
     $type = $_POST['categoryType'];
 
     // DB connection here
-include 'includes/db_connection.php';
+    include 'includes/db_connection.php';
 
     $sql = "UPDATE categories SET categoryName=?, categoryType=? WHERE categoryId=?";
     $stmt = $conn->prepare($sql);
@@ -17,4 +17,3 @@ include 'includes/db_connection.php';
         header("Location: categorylist.php?error=1");
     }
 }
-?>

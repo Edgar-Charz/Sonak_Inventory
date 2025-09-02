@@ -9,6 +9,79 @@ $user_id = $_SESSION['id'];
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
+if (isset($_POST['paymentBTN'])) {
+    $invoiceNumber = $_POST['invoiceNumber'];
+    $payingAmount  = floatval($_POST['payingAmount']);
+    $paymentType   = $_POST['paymentType'];
+    $updatedBy     = $user_id;
+
+    // Fetch current paid & due
+    $stmt = $conn->prepare("SELECT paid, due FROM orders WHERE invoiceNumber = ?");
+    $stmt->bind_param("s", $invoiceNumber);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $order = $result->fetch_assoc();
+    $stmt->close();
+
+    if ($order) {
+        $currentPay = floatval($order['paid']);
+        $currentDue = floatval($order['due']);
+
+        // Prevent overpayment
+        if ($payingAmount > $currentDue) {
+            $payingAmount = $currentDue;
+        }
+
+        // New values
+        $newPay = $currentPay + $payingAmount;
+        $newDue = $currentDue - $payingAmount;
+
+        // Update query
+        $update = $conn->prepare("UPDATE orders 
+                                  SET paid = ?, due = ?, paymentType = ?, updatedBy = ?, updated_at = NOW()
+                                  WHERE invoiceNumber = ?");
+        $update->bind_param("ddsds", $newPay, $newDue, $paymentType, $updatedBy, $invoiceNumber);
+
+        if ($update->execute()) {
+            // If fully paid, set orderStatus=1 in order_details
+            if ($newDue == 0) {
+                $updateDetails = $conn->prepare("UPDATE order_details SET status = 1 WHERE invoiceNumber = ?");
+                $updateDetails->bind_param("s", $invoiceNumber);
+                $updateDetails->execute();
+                $updateDetails->close();
+            }
+
+            // If successfully
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    Swal.fire({
+                        title: 'Success',
+                        text: 'Payment updated successfully',
+                        timer: 5000
+                    }).then(function() {
+                        window.location.href = 'saleslist.php';
+                    })
+            });
+            </script>";
+        } else {
+            // If failed
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Failed to update payment',
+                        timer: 5000,
+                        timerProgressBar: true
+                    });
+                });
+            </script>";
+        }
+
+        $update->close();
+    } else {
+        echo "Order not found.";
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -95,7 +168,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -121,8 +195,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -158,7 +230,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -297,20 +368,41 @@ $current_time = $time->format("Y-m-d H:i:s");
                                     if ($orders_query->num_rows > 0) {
                                         while ($order_row = $orders_query->fetch_assoc()) {
                                             $order_uid = $order_row["orderUId"];
-                                            $invoice_number = $order_row["invoiceNumber"]
+                                            $invoice_number = $order_row["invoiceNumber"];
+                                            $currentStatus = $order_row["orderStatus"];
+                                            $due_amount = $order_row["due"];
+
+                                            if ($currentStatus != 2) {
+                                                $newStatus = $currentStatus;
+
+                                                if ($due_amount == 0) {
+                                                    $newStatus = 1;
+                                                } else {
+                                                    $newStatus = 0;
+                                                }
+
+                                                if ($newStatus != $currentStatus) {
+                                                    $update_query = $conn->prepare("UPDATE orders SET orderStatus = ? WHERE invoiceNumber = ?");
+                                                    $update_query->bind_param("is", $newStatus, $invoice_number);
+                                                    $update_query->execute();
+                                                    $update_query->close();
+
+                                                    $order_row["orderStatus"] = $newStatus;
+                                                }
+                                            }
                                     ?>
                                             <tr>
                                                 <td> <?= $order_row["orderUId"]; ?> </td>
                                                 <td> <?= $order_row["invoiceNumber"]; ?> </td>
                                                 <td> <?= $order_row["customerName"]; ?> </td>
-                                                <td> <?= $order_row["orderDate"]; ?> </td>
+                                                <td> <?= date('d-m-Y', strtotime($order_row["orderDate"])); ?> </td>
                                                 <td> <?= $order_row["biller"]; ?> </td>
                                                 <td> <?= $order_row["updater"]; ?> </td>
                                                 <td> <?= $order_row["paymentType"]; ?> </td>
                                                 <td> <?= $order_row["vat"]; ?>% </td>
-                                                <td> <?= number_format($order_row["total"],2 ); ?> </td>
-                                                <td class="text-success"> <?= number_format($order_row["paid"],2); ?> </td>
-                                                <td class="text-danger"> <?= number_format($order_row["due"],2); ?> </td>
+                                                <td> <?= number_format($order_row["total"], 2); ?> </td>
+                                                <td class="text-success"> <?= number_format($order_row["paid"], 2); ?> </td>
+                                                <td class="text-danger"> <?= number_format($order_row["due"], 2); ?> </td>
                                                 <td>
                                                     <?php if ($order_row["orderStatus"] == "0") : ?>
                                                         <span class="badges bg-lightyellow">Pending</span>
@@ -329,21 +421,13 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <li>
                                                             <a href="sales-details.php?invoiceNumber=<?= $invoice_number; ?>" class="dropdown-item">
                                                                 <img src="assets/img/icons/eye1.svg" class="me-2" alt="img">
-                                                                Sale Detail
+                                                                Order Detail
                                                             </a>
                                                         </li>
-                                                        <!-- <li>
-                                                            <button type="button" class="dropdown-item"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#invoiceModal<?= $order_row['invoiceNumber']; ?>">
-                                                                <img src="assets/img/icons/eye1.svg" class="me-2" alt="img">
-                                                                View Invoice
-                                                            </button>
-                                                        </li> -->
                                                         <li>
                                                             <a href="edit-sales.php?invoiceNumber=<?= $invoice_number; ?>" class="dropdown-item">
                                                                 <img src="assets/img/icons/edit.svg" class="me-2" alt="img">
-                                                                Edit Sale
+                                                                Edit Order
                                                             </a>
                                                         </li>
                                                         <li>
@@ -353,9 +437,9 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                             </button>
                                                         </li>
                                                         <li>
-                                                            <a href="javascript:void(0);" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createpayment">
+                                                            <a href="javascript:void(0);" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createPayment<?= $order_row['invoiceNumber']; ?>">
                                                                 <img src="assets/img/icons/plus-circle.svg" class="me-2" alt="img">
-                                                                Create Payment
+                                                                Update Payment
                                                             </a>
                                                         </li>
                                                         <li>
@@ -364,12 +448,32 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                 Download PDF
                                                             </a>
                                                         </li>
+
+                                                        <?php if ($order_row['orderStatus'] == 0): ?>
+                                                            <li>
+                                                                <button type="button" class="dropdown-item" onclick="confirmCancelOrder(<?= $order_uid; ?>)">
+                                                                    <img src="assets/img/icons/cancel.svg" class="me-2" alt="img">
+                                                                    Cancel Order
+                                                                </button>
+                                                            </li>
+
+                                                        <?php elseif ($order_row['orderStatus'] == 2): ?>
+                                                            <li>
+                                                                <button type="button" class="dropdown-item" onclick="confirmReactivateOrder(<?= $order_uid; ?>)">
+                                                                    <img src="assets/img/icons/refresh.svg" class="me-2" alt="img">
+                                                                    Reactivate Order
+                                                                </button>
+                                                            </li>
+
+                                                        <?php endif; ?>
+
                                                         <li>
                                                             <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $order_uid; ?>)">
                                                                 <img src="assets/img/icons/delete1.svg" class="me-2" alt="img">
-                                                                Delete Sale
+                                                                Delete Order
                                                             </button>
                                                         </li>
+
                                                     </ul>
                                                 </td>
                                             </tr>
@@ -437,6 +541,76 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                 </div>
                                             </div>
                                             <!-- /View Payment Modal -->
+
+                                            <!-- Create Payment Modal -->
+                                            <div class="modal fade" id="createPayment<?= $invoice_number; ?>" tabindex="-1" aria-labelledby="createPaymentModal" aria-hidden="true">
+                                                <div class="modal-dialog modal-lg modal-dialog-centered">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="createPaymentModal<?= $invoice_number; ?>">Create Payment</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+                                                        </div>
+                                                        <form method="POST" action="" id="paymentForm<?= $invoice_number; ?>">
+                                                            <div class="modal-body">
+                                                                <div class="row">
+                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                        <div class="form-group">
+                                                                            <label>Customer</label>
+                                                                            <input type="text" class="form-control" value="<?= ($order_row['customerName']); ?>" readonly>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                        <div class="form-group">
+                                                                            <label>Invoice Number</label>
+                                                                            <input type="text" class="form-control" value="<?= $order_row['invoiceNumber']; ?>" readonly>
+                                                                            <input type="hidden" name="invoiceNumber" value="<?= $order_row['invoiceNumber']; ?>">
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-lg-4 col-sm-6 col-12">
+                                                                        <div class="form-group">
+                                                                            <label>Total Amount</label>
+                                                                            <input type="text" class="form-control" id="totalAmount<?= $order_row['invoiceNumber']; ?>" value="<?= number_format($order_row['total'], 2); ?>" readonly>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-lg-4 col-sm-6 col-12">
+                                                                        <div class="form-group">
+                                                                            <label>Already Paid</label>
+                                                                            <input type="text" class="form-control" id="alreadyPaid<?= $order_row['invoiceNumber']; ?>" value="<?= number_format($order_row['paid'], 2); ?>" readonly>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-lg-4 col-sm-6 col-12">
+                                                                        <div class="form-group">
+                                                                            <label>Remaining (Due)</label>
+                                                                            <input type="text" class="form-control" id="remainingDue<?= $order_row['invoiceNumber']; ?>" value="<?= number_format($order_row['due'], 2); ?>" readonly>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                        <div class="form-group">
+                                                                            <label>Paying Amount</label>
+                                                                            <input type="number" step="0.01" min="0" max="<?= $order_row['due']; ?>" class="form-control" name="payingAmount" id="payingAmount<?= $order_row['invoiceNumber']; ?>" value="" required>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                        <div class="form-group">
+                                                                            <label>Payment Type</label>
+                                                                            <select class="form-control" name="paymentType" required>
+                                                                                <option>Cash</option>
+                                                                                <option>Credit Card</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="submit" name="paymentBTN" class="btn btn-submit">Submit</button>
+                                                                <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Close</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- / Create Payment Modal -->
+
                                     <?php
                                         }
                                     }
@@ -448,312 +622,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                     </div>
                 </div>
 
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="invoiceModal<?= $order_row['invoiceNumber']; ?>" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Invoice <?= $order_row['invoiceNumber']; ?></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">X</button>
-                </div>
-                <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
-
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="invoice-box table-height" style="max-width: 1600px;width:100%;overflow: auto;margin:15px auto;padding: 0;font-size: 14px;line-height: 24px;color: #555;">
-                                <table cellpadding="0" cellspacing="0" style="width: 100%;line-height: inherit;text-align: left;">
-
-                                    <!-- Order details table -->
-                                    <tbody>
-                                        <?php
-                                        // Get order 
-                                        $invoice_number = $order_row['invoiceNumber'];
-                                        $order_query = $conn->query("SELECT 
-                                                                            orders.*, 
-                                                                            customers.*, 
-                                                                            u1.username AS biller,
-                                                                            u2.username AS updater
-                                                                        FROM orders
-                                                                        JOIN customers ON orders.customerId = customers.customerId
-                                                                        JOIN users AS u1 ON orders.createdBy = u1.userId
-                                                                        JOIN users AS u2 ON orders.updatedBy = u2.userId
-                                                                        WHERE orders.invoiceNumber = '$invoice_number'
-                                                                        LIMIT 1");
-                                        if ($order_query->num_rows > 0) {
-                                            $order_row = $order_query->fetch_assoc();
-                                        ?>
-                                            <tr class="top">
-                                                <td colspan="6" style="padding: 5px;vertical-align: top;">
-                                                    <table style="width: 100%;line-height: inherit;text-align: left;">
-                                                        <tbody>
-                                                            <tr>
-                                                                <!-- Customer Info -->
-                                                                <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                    <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Customer Info</h6>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Name:</strong> <?= $order_row['customerName']; ?>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Email:</strong>
-                                                                        <a href="mailto:<?= $order_row['customerEmail']; ?>">
-                                                                            <?= $order_row['customerEmail']; ?>
-                                                                        </a>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Phone:</strong>
-                                                                        <a href="tel:<?= $order_row['customerPhone']; ?>">
-                                                                            <?= $order_row['customerPhone']; ?>
-                                                                        </a>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Address:</strong> <?= $order_row['customerAddress']; ?>
-                                                                    </p>
-                                                                </td>
-
-                                                                <!-- Order Info -->
-                                                                <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                    <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Order Info</h6>
-                                                                    <p style="font-size:14px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Biller:</strong> <?= $order_row['biller']; ?>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>UpdatedBy:</strong> <?= $order_row['updater']; ?>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Order Date:</strong>
-                                                                        <?= $order_row['orderDate']; ?>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Created At:</strong>
-                                                                        <?= $order_row['created_at']; ?>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Updated At:</strong>
-                                                                        <?= $order_row['updated_at']; ?>
-                                                                    </p>
-                                                                </td>
-
-                                                                <!-- Payment Info -->
-                                                                <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                    <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Payment Info</h6>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Invoice Number:</strong>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Payment Type:</strong>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Order Status:</strong>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <strong>Status:</strong>
-                                                                    </p>
-                                                                </td>
-
-                                                                <!-- Invoice Values -->
-                                                                <td style="padding:5px;vertical-align:top;text-align:right;padding-bottom:20px">
-                                                                    <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">&nbsp;</h6>
-                                                                    <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                        <?= $order_row['invoiceNumber']; ?>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#2E7D32;font-weight:400;margin:0;">
-                                                                        <?= $order_row['paymentType']; ?>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#2E7D32;font-weight:400;margin:0;">
-                                                                        <?= $order_row['paymentType']; ?>
-                                                                    </p>
-                                                                    <p style="font-size:15px;color:#2E7D32;font-weight:400;margin:0;">
-                                                                        <?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : 'Cancelled'); ?>
-                                                                    </p>
-                                                                </td>
-                                                            </tr>
-
-                                                        </tbody>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                            <tr class="heading " style="background: #F3F2F7;">
-                                                <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                    S/N
-                                                </td>
-                                                <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                    Product Name
-                                                </td>
-                                                <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                    Quantity
-                                                </td>
-                                                <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                    Unit Cost
-                                                </td>
-                                                <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                    Total Cost
-                                                </td>
-                                                <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                    Discount
-                                                </td>
-                                                <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px; ">
-                                                    TAX
-                                                </td>
-                                            </tr>
-
-                                            <?php
-                                            // Get order details and products
-                                            $invoice_number = $order_row['invoiceNumber'];
-                                            $details_query = $conn->query("SELECT 
-                                                                                    order_details.*, 
-                                                                                    products.productName, 
-                                                                                    products.tax
-                                                                                FROM order_details
-                                                                                JOIN products ON order_details.productId = products.productId
-                                                                                WHERE order_details.invoiceNumber = '$invoice_number'
-                                                                                ORDER BY order_details.orderDetailsId ASC");
-                                            $sn = 1;
-                                            while ($detail = $details_query->fetch_assoc()) {
-                                            ?>
-                                                <tr class="details" style="border-bottom:1px solid #E9ECEF ;">
-                                                    <td style="padding: 10px;vertical-align: top; ">
-                                                        <?= $sn++; ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top; display: flex;align-items: center;">
-                                                        <?= $detail['productName']; ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= $detail['quantity']; ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= $detail['unitCost']; ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= $detail['totalCost']; ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= $detail['discount'] ?? '-'; ?>
-                                                    </td>
-                                                    <td style="padding: 10px;vertical-align: top;">
-                                                        <?= $detail['tax']; ?>%
-                                                    </td>
-                                                </tr>
-                                        <?php
-                                            }
-                                        }
-                                        ?>
-                                    </tbody>
-                                    <!-- /Order details table -->
-
-                                </table>
-                            </div>
-                            <div class="row">
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Total Products</label>
-                                        <input type="text" value="<?= $order_row['totalProducts']; ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>SubTotal</label>
-                                        <input type="text" value="<?= $order_row['subTotal']; ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Order VAT(%)</label>
-                                        <input type="text" value="<?= $order_row['vat']; ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Total</label>
-                                        <input type="text" value="<?= $order_row['total']; ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Paid</label>
-                                        <input type="text" value="<?= $order_row['paid']; ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Due</label>
-                                        <input type="text" value="<?= $order_row['due']; ?>" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-lg-3 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Status</label>
-                                        <select class="select" aria-readonly="true">
-                                            <option value="0" <?= $order_row['orderStatus'] == 0 ? 'selected' : ''; ?>>Pending</option>
-                                            <option value="1" <?= $order_row['orderStatus'] == 1 ? 'selected' : ''; ?>>Completed</option>
-                                            <option value="2" <?= $order_row['orderStatus'] == 2 ? 'selected' : ''; ?>>Cancelled</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="createpayment" tabindex="-1" aria-labelledby="createpayment" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Create Payment</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Customer</label>
-                                <div class="input-groupicon">
-                                    <input type="text" value="2022-03-07" class="datetimepicker">
-                                    <div class="addonset">
-                                        <img src="assets/img/icons/calendars.svg" alt="img">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Reference</label>
-                                <input type="text" value="INV/SL0101">
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Received Amount</label>
-                                <input type="text" value="0.00">
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Paying Amount</label>
-                                <input type="text" value="0.00">
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Payment type</label>
-                                <select class="select">
-                                    <option>Cash</option>
-                                    <option>Online</option>
-                                    <option>Inprogress</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-submit">Submit</button>
-                    <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Close</button>
-                </div>
             </div>
         </div>
     </div>
@@ -824,7 +692,7 @@ $current_time = $time->format("Y-m-d H:i:s");
     </div>
 
     <script>
-        // Function to confirm sale deletion
+        // Function to confirm order deletion
         function confirmDelete(orderUId) {
             Swal.fire({
                 title: 'Are you sure?',
@@ -841,35 +709,98 @@ $current_time = $time->format("Y-m-d H:i:s");
             });
         };
 
-        // Trigger SweetAlert messages after redirect
+        // Function to confirm order cancellation
+        function confirmCancelOrder(orderUId) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "This action cannot be undone.",
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, cancel!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = 'cancelsale.php?id=' + orderUId;
+                };
+            });
+        };
+
+        // Function to reactivate order
+        function confirmReactivateOrder(orderUId) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "This action cannot be undone.",
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, reactivate!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = 'reactivate-sale.php?id=' + orderUId;
+                };
+            });
+        };
+
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const status = urlParams.get('status');
 
-            if (status === 'success') {
-                Swal.fire({
+            // Sweetalerts for delete and cancel
+            const alerts = [{
+                    param: 'status',
+                    value: 'success',
                     title: 'Deleted!',
-                    text: 'Order has been deleted successfully.',
-                    timer: 3000,
-                    showConfirmButton: true
-                }).then(() => {
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('status');
-                    window.history.replaceState({}, document.title, url.pathname + url.search);
-                });
-            }
-            if (status === 'error') {
-                Swal.fire({
+                    text: 'Order has been deleted successfully.'
+                },
+                {
+                    param: 'status',
+                    value: 'error',
                     title: 'Error!',
-                    text: 'Failed to delete the Order',
-                    timer: 3000,
-                    showConfirmButton: true
-                }).then(() => {
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('status');
-                    window.history.replaceState({}, document.title, url.pathname + url.search);
-                });
-            }
+                    text: 'Failed to delete the Order'
+                },
+                {
+                    param: 'message',
+                    value: 'cancelled',
+                    title: 'Cancelled!',
+                    text: 'Order has been cancelled successfully.'
+                },
+                {
+                    param: 'message',
+                    value: 'error',
+                    title: 'Error!',
+                    text: 'Failed to cancel the Order'
+                },
+                {
+                    param: 'response',
+                    value: 'reactivated',
+                    title: 'Reactivated!',
+                    text: 'Order has been reactivated successfully.'
+                },
+                {
+                    param: 'response',
+                    value: 'error',
+                    title: 'Error!',
+                    text: 'Failed to reactivate the Order'
+                }
+            ];
+
+            alerts.forEach(alert => {
+                const paramValue = urlParams.get(alert.param);
+                if (paramValue === alert.value) {
+                    Swal.fire({
+                        title: alert.title,
+                        text: alert.text,
+                        timer: 3000,
+                        showConfirmButton: true
+                    }).then(() => {
+                        // Remove the URL param after showing alert
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete(alert.param);
+                        window.history.replaceState({}, document.title, url.pathname + url.search);
+                    });
+                }
+            });
         });
     </script>
 
@@ -893,6 +824,59 @@ $current_time = $time->format("Y-m-d H:i:s");
     <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
 
     <script src="assets/js/script.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // For every payment form on the page
+            document.querySelectorAll("form[id^='paymentForm']").forEach(function(form) {
+                let invoiceNumber = form.id.replace("paymentForm", "");
+
+                let payingInput = document.getElementById("payingAmount" + invoiceNumber);
+                let alreadyPaidEl = document.getElementById("alreadyPaid" + invoiceNumber);
+                let remainingEl = document.getElementById("remainingDue" + invoiceNumber);
+
+                // Store initial values
+                let initialPaid = parseFloat(alreadyPaidEl.value.replace(/,/g, "")) || 0;
+                let initialDue = parseFloat(remainingEl.value.replace(/,/g, "")) || 0;
+
+                payingInput.addEventListener("input", function() {
+                    let payingAmount = parseFloat(payingInput.value) || 0;
+
+                    // Prevent overpayment
+                    if (payingAmount > initialDue) {
+                        payingAmount = initialDue;
+                        payingInput.value = payingAmount.toFixed(2);
+                        Swal.fire({
+                            title: 'Warning',
+                            text: 'Overpayment not allowed!',
+                            timer: 3000
+                        });
+                    } else if (payingAmount < 0) {
+                        payingAmount = 0;
+                        payingInput.value = payingAmount.toFixed(2);
+                        Swal.fire({
+                            title: 'Warning',
+                            text: 'Pay amount cannot be negative!',
+                            timer: 3000
+                        });
+                    }
+
+                    // Calculate new values
+                    let newPaid = initialPaid + payingAmount;
+                    let newDue = initialDue - payingAmount;
+
+                    // Update fields (formatted to 2 decimals)
+                    alreadyPaidEl.value = newPaid.toFixed(2);
+                    remainingEl.value = newDue.toFixed(2);
+                });
+
+                // Reset values if form is closed
+                form.addEventListener("reset", function() {
+                    alreadyPaidEl.value = initialPaid.toFixed(2);
+                    remainingEl.value = initialDue.toFixed(2);
+                });
+            });
+        });
+    </script>
 
     <!-- Orders Table  -->
     <script>

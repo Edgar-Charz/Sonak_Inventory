@@ -13,21 +13,21 @@ if (isset($_GET['referenceNumber'])) {
     $referenceNumber = $_GET['referenceNumber'];
 
     // Fetch quotation data
-    $quotation_query = $conn->prepare("SELECT q.*, c.customerName 
-                                     FROM quotations q 
-                                     LEFT JOIN customers c ON q.customerId = c.customerId 
-                                     WHERE q.referenceNumber = ? LIMIT 1");
+    $quotation_query = $conn->prepare("SELECT quotations.*, customers.*
+                                     FROM quotations 
+                                     LEFT JOIN customers ON quotations.customerId = customers.customerId 
+                                     WHERE quotations.referenceNumber = ? LIMIT 1");
     $quotation_query->bind_param("s", $referenceNumber);
     $quotation_query->execute();
     $quotation_result = $quotation_query->get_result();
     $quotation = $quotation_result->fetch_assoc();
 
     // Fetch quotation details
-    $details_query = $conn->prepare("SELECT qd.*, p.productName 
-                                   FROM quotation_details qd 
-                                   JOIN products p ON qd.productId = p.productId 
-                                   WHERE qd.referenceNumber = ? 
-                                   ORDER BY qd.quotationDetailsId ASC");
+    $details_query = $conn->prepare("SELECT quotation_details.*, products.productName 
+                                   FROM quotation_details 
+                                   JOIN products ON quotation_details.productId = products.productId 
+                                   WHERE quotation_details.referenceNumber = ? 
+                                   ORDER BY quotation_details.quotationDetailsId ASC");
     $details_query->bind_param("s", $referenceNumber);
     $details_query->execute();
     $details_result = $details_query->get_result();
@@ -115,7 +115,8 @@ if (isset($_GET['referenceNumber'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -141,8 +142,6 @@ if (isset($_GET['referenceNumber'])) {
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -178,7 +177,6 @@ if (isset($_GET['referenceNumber'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -227,110 +225,165 @@ if (isset($_GET['referenceNumber'])) {
                                 </li>
                             </ul>
                         </div>
-                        <div class="invoice-box table-height" style="max-width: 1600px;width:100%;overflow: auto;margin:15px auto;padding: 0;font-size: 14px;line-height: 24px;color: #555;">
-                            <table cellpadding="0" cellspacing="0" style="width: 100%;line-height: inherit;text-align: left;">
-                                <tbody>
-                                    <?php if ($quotation) { ?>
-                                        <tr class="top">
-                                            <td colspan="7" style="padding: 5px;vertical-align: top;">
-                                                <table style="width: 100%;line-height: inherit;text-align: left;">
+                        <?php if ($quotation) { ?>
+                            <!-- Customer Information Table -->
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Customer Information</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table mb-0">
                                                     <tbody>
                                                         <tr>
-                                                            <!-- Customer Info -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Customer Info</h6>
-                                                                <p style="font-size:15px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Name:</strong> <?= ($quotation['customerName'] ?? 'N/A') ?>
-                                                                </p>
-                                                            </td>
-                                                            <!-- Quotation Info -->
-                                                            <td style="padding:5px;vertical-align:top;text-align:left;padding-bottom:20px">
-                                                                <h6 style="color:#7367F0;font-weight:600;line-height:35px;margin-bottom:10px;">Quotation Info</h6>
-                                                                <p style="font-size:14px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Reference Number:</strong> <?= ($quotation['referenceNumber']) ?>
-                                                                </p>
-                                                                <p style="font-size:14px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Total Amount:</strong> <?= number_format($quotation['totalAmount'], 2) ?>
-                                                                </p>
-                                                                <p style="font-size:14px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Quotation Date:</strong> <?= date('d/m/Y', strtotime($quotation['quotationDate'])) ?>
-                                                                </p>
-                                                                <p style="font-size:14px;color:#000;font-weight:400;margin:0;">
-                                                                    <strong>Status:</strong> <?= ($quotation['quotationStatus'] == 1) ? 'Paid' : 'Unpaid' ?>
-                                                                </p>
-                                                            </td>
+                                                            <td><strong>Name:</strong></td>
+                                                            <td><?= $quotation['customerName'] ?? 'N/A'; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Phone:</strong></td>
+                                                            <td><?= $quotation['customerPhone'] ?? 'N/A'; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Email:</strong></td>
+                                                            <td><?= $quotation['customerEmail'] ?? 'N/A'; ?></td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
-                                            </td>
-                                        </tr>
-                                        <tr class="heading" style="background: #F3F2F7;">
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                S/N
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Product Name
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Quantity
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Unit Price
-                                            </td>
-                                            <td style="padding: 5px;vertical-align: middle;font-weight: 600;color: #5E5873;font-size: 14px;padding: 10px;">
-                                                Total Cost
-                                            </td>
-                                        </tr>
-                                        <?php
-                                        $sn = 1;
-                                        while ($detail = $details_result->fetch_assoc()) {
-                                        ?>
-                                            <tr class="details" style="border-bottom:1px solid #E9ECEF ;">
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= $sn++ ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= ($detail['productName']) ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= $detail['quantity'] ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= number_format($detail['unitPrice'], 2) ?>
-                                                </td>
-                                                <td style="padding: 10px;vertical-align: top;">
-                                                    <?= number_format($detail['subTotal'], 2) ?>
-                                                </td>
-                                            </tr>
-                                        <?php
-                                        }
-                                        ?>
-                                        <tr>
-                                            <td colspan="4" style="padding: 10px; text-align: right; font-weight: bold;">Subtotal:</td>
-                                            <td style="padding: 10px;"><?= number_format($quotation['subTotal'], 2) ?></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="4" style="padding: 10px; text-align: right; font-weight: bold;">VAT (<?= $quotation['taxPercentage'] ?>%):</td>
-                                            <td style="padding: 10px;"><?= number_format($quotation['taxAmount'], 2) ?></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="4" style="padding: 10px; text-align: right; font-weight: bold;">Discount (<?= $quotation['discountPercentage'] ?>%):</td>
-                                            <td style="padding: 10px;">-<?= number_format($quotation['discountAmount'], 2) ?></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="4" style="padding: 10px; text-align: right; font-weight: bold;">Shipping:</td>
-                                            <td style="padding: 10px;"><?= number_format($quotation['shippingAmount'], 2) ?></td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="4" style="padding: 10px; text-align: right; font-weight: bold;">Grand Total:</td>
-                                            <td style="padding: 10px;"><?= number_format($quotation['totalAmount'], 2) ?></td>
-                                        </tr>
-                                    <?php } else { ?>
-                                        <tr><td colspan="5">No quotation details found.</td></tr>
-                                    <?php } ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Quotation Statistics Table -->
+                                <div class="col-lg-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Quotation Statistics</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-striped mb-0">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td><strong>Reference Number:</strong></td>
+                                                            <td><?= $quotation['referenceNumber']; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Total Amount:</strong></td>
+                                                            <td><?= number_format($quotation['totalAmount'], 2); ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Quotation Date:</strong></td>
+                                                            <td><?= date('d/m/Y', strtotime($quotation['quotationDate'])); ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Status:</strong></td>
+                                                            <td><?= $quotation['quotationStatus'] == 0 ? 'Sent' : ($quotation['quotationStatus'] == 1 ? 'Approved' : 'Cancelled'); ?></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quotation Details Table -->
+                            <div class="row mt-4">
+                                <div class="col-lg-12">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Quotation Details</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-striped mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>S/N</th>
+                                                            <th>Product Name</th>
+                                                            <th>Quantity</th>
+                                                            <th>Unit Price</th>
+                                                            <th>Total Cost</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php
+                                                        $sn = 1;
+                                                        while ($detail = $details_result->fetch_assoc()) {
+                                                        ?>
+                                                            <tr>
+                                                                <td style="padding: 10px;vertical-align: top;"><?= $sn++; ?></td>
+                                                                <td style="padding: 10px;vertical-align: top;">
+                                                                    <?= $detail['productName']; ?>
+                                                                </td>
+                                                                <td style="padding: 10px;vertical-align: top;">
+                                                                    <?= $detail['quantity']; ?>
+                                                                </td>
+                                                                <td style="padding: 10px;vertical-align: top;">
+                                                                    <?= number_format($detail['unitPrice'], 2); ?>
+                                                                </td>
+                                                                <td style="padding: 10px;vertical-align: top;">
+                                                                    <?= number_format($detail['subTotal'], 2); ?>
+                                                                </td>
+                                                            </tr>
+                                                        <?php
+                                                        }
+                                                        ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Financial Summary Table -->
+                            <div class="row mt-4">
+                                <div class="col-lg-6 offset-lg-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5 class="card-title">Financial Summary</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-borderless mb-0">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td class="text-end fw-bold w-50">Subtotal:</td>
+                                                            <td class="text-center"><?= number_format($quotation['subTotal'], 2); ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold">VAT (<?= $quotation['taxPercentage']; ?>%):</td>
+                                                            <td class="text-center"><?= number_format($quotation['taxAmount'], 2); ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold">Discount (<?= $quotation['discountPercentage']; ?>%):</td>
+                                                            <td class="text-center text-danger">-<?= number_format($quotation['discountAmount'], 2); ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold">Shipping:</td>
+                                                            <td class="text-center"><?= number_format($quotation['shippingAmount'], 2); ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold">Grand Total:</td>
+                                                            <td class="text-center text-success"><?= number_format($quotation['totalAmount'], 2); ?></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        <?php } else { ?>
+                            <tr>
+                                <td colspan="5">No quotation details found.</td>
+                            </tr>
+                        <?php } ?>
                         <div class="row">
                             <div class="col-lg-12">
                                 <div class="form-group">

@@ -16,7 +16,7 @@ if (isset($_POST['addPurchaseBTN'])) {
     $purchaseDate   = DateTime::createFromFormat('d-m-Y', $_POST['purchase_date'])->format('Y-m-d');
     $totalProducts = $_POST['total_products'];
     $totalAmount    = $_POST['total_amount'];
-    $purchaseStatus = $_POST['purchase_status'];
+    // $purchaseStatus = $_POST['purchase_status'];
 
     $agentId        = $_POST['agent_name'] ?? null;
     $trackingNo     = $_POST['tracking_number'] ?? null;
@@ -42,19 +42,19 @@ if (isset($_POST['addPurchaseBTN'])) {
         $newTotalProducts = $row["totalProducts"] + $totalProducts;
 
         $update_purchase_stmt = $conn->prepare("UPDATE purchases
-                                                SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, purchaseStatus = ?, updatedBy = ?, updated_at = ?
+                                                SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, updatedBy = ?, updated_at = ?
                                                 WHERE purchaseNumber = ?");
-        $update_purchase_stmt->bind_param("isidsiss", $supplierId, $purchaseDate, $newTotalProducts, $newTotal, $purchaseStatus, $updatedBy, $current_time, $purchaseNumber);
+        $update_purchase_stmt->bind_param("isidsss", $supplierId, $purchaseDate, $newTotalProducts, $newTotal, $updatedBy, $current_time, $purchaseNumber);
 
         $update_purchase_stmt->execute();
         $update_purchase_stmt->close();
     } else {
         // Insert into purchases
         $insert_purchase_stmt = $conn->prepare(
-            "INSERT INTO purchases(purchaseNumber, supplierId, createdBy, updatedBy, purchaseDate, totalProducts, totalAmount, purchaseStatus, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO purchases(purchaseNumber, supplierId, createdBy, updatedBy, purchaseDate, totalProducts, totalAmount, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?,  ?)"
         );
-        $insert_purchase_stmt->bind_param("ssssssssss", $purchaseNumber, $supplierId, $createdBy, $updatedBy, $purchaseDate, $totalProducts, $totalAmount, $purchaseStatus, $current_time, $current_time);
+        $insert_purchase_stmt->bind_param("sssssssss", $purchaseNumber, $supplierId, $createdBy, $updatedBy, $purchaseDate, $totalProducts, $totalAmount, $current_time, $current_time);
 
         if ($insert_purchase_stmt->execute()) {
 
@@ -283,8 +283,6 @@ function generatePurchaseNumber($conn)
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -320,7 +318,6 @@ function generatePurchaseNumber($conn)
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -492,7 +489,7 @@ function generatePurchaseNumber($conn)
                                             <input type="text" id="totalAmount" name="total_amount" class="form-control" readonly>
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
+                                    <!-- <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Purchase Status</label>
                                             <select class="select" name="purchase_status" id="" required>
@@ -502,7 +499,7 @@ function generatePurchaseNumber($conn)
                                                 <option value="2">Cancelled</option>
                                             </select>
                                         </div>
-                                    </div>
+                                    </div> -->
 
                                 </div>
 

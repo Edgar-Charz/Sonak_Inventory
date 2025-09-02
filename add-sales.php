@@ -19,7 +19,7 @@ if (isset($_POST['addSaleBTN'])) {
     $grandTotal     = $_POST['total'];
     $pay            = $_POST['pay'];
     $due            = $_POST['due'];
-    $paymentStatus  = $_POST['payment_status'];
+    // $paymentStatus  = $_POST['payment_status'];
     $totalProducts  = $_POST['total_products'];
     $products       = $_POST['products'];
 
@@ -55,13 +55,20 @@ if (isset($_POST['addSaleBTN'])) {
 
         $update->execute();
         $update->close();
+        // If fully paid, set orderStatus=1 in order_details
+        if ($newTotal == ($row['paid'] + $pay)) {
+            $updateDetails = $conn->prepare("UPDATE order_details SET orderStatus = 1 WHERE invoiceNumber = ?");
+            $updateDetails->bind_param("s", $invoiceNumber);
+            $updateDetails->execute();
+            $updateDetails->close();
+        }
     } else {
         // Invoice does not exist → insert new order
         $insertOrder = $conn->prepare("INSERT INTO orders 
-            (invoiceNumber, customerId, createdBy, updatedBy, orderDate, subTotal, vat, total, paymentType, paid, due, orderStatus, totalProducts, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            (invoiceNumber, customerId, createdBy, updatedBy, orderDate, subTotal, vat, total, paymentType, paid, due, totalProducts, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $insertOrder->bind_param(
-            "siiisdidsddsiss",
+            "siiisdidsddiss",
             $invoiceNumber,
             $customerId,
             $user_id,
@@ -73,13 +80,20 @@ if (isset($_POST['addSaleBTN'])) {
             $paymentType,
             $pay,
             $due,
-            $paymentStatus,
             $totalProducts,
             $current_time,
             $current_time
         );
         $insertOrder->execute();
         $insertOrder->close();
+
+        // If fully paid, set orderStatus=1 in order_details
+        if ($grandTotal == $pay) {
+            $updateDetails = $conn->prepare("UPDATE order_details SET status = 1 WHERE invoiceNumber = ?");
+            $updateDetails->bind_param("s", $invoiceNumber);
+            $updateDetails->execute();
+            $updateDetails->close();
+        }
     }
 
     $check->close();
@@ -147,14 +161,14 @@ if (isset($_POST['addSaleBTN'])) {
 }
 
 function generateInvoiceNumber($conn)
-{
+{ 
     $query = "SELECT invoiceNumber 
                 FROM orders 
                 WHERE invoiceNumber 
                 LIKE 'SNK-S%' 
                 ORDER BY invoiceNumber 
                 DESC LIMIT 1";
-    $result = $conn->query($query);
+    $result = $conn->query($query); 
 
     if ($result && $result->num_rows > 0) {
         $row = $result->fetch_assoc();
@@ -284,8 +298,6 @@ function generateInvoiceNumber($conn)
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -321,7 +333,6 @@ function generateInvoiceNumber($conn)
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -483,7 +494,7 @@ function generateInvoiceNumber($conn)
                                             <input type="text" name="due" id="due" class="form-control" readonly>
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
+                                    <!-- <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Payment Status</label>
                                             <select name="payment_status" class="select" required>
@@ -492,7 +503,7 @@ function generateInvoiceNumber($conn)
                                                 <option value="0">Unpaid</option>
                                             </select>
                                         </div>
-                                    </div>
+                                    </div> -->
                                 </div>
                                 <!-- Summary Table -->
                                 <div class="table-responsive mb-3">
@@ -760,7 +771,7 @@ function generateInvoiceNumber($conn)
                     row.querySelector(".availableQuantity").value = remaining;
 
                     updateRowTotal(row);
-                });
+                }); 
 
                 row.querySelector(".removeProduct").onclick = function() {
                     row.remove();
@@ -787,22 +798,51 @@ function generateInvoiceNumber($conn)
                     totalProducts += qty;
                 });
 
+                // Subtotal and Total Products
                 document.getElementById("subTotal").value = subTotal.toFixed(2);
                 document.getElementById("totalProducts").value = totalProducts;
 
+                // VAT and VAT Amount
                 let vatPercent = parseFloat(document.getElementById("vat").value) || 0;
                 let vatAmount = subTotal * vatPercent / 100;
                 document.getElementById("vatAmount").value = vatAmount.toFixed(2);
 
+                // Grand Total
                 let grandTotal = subTotal + (subTotal * vatPercent / 100);
                 document.getElementById("grandTotal").value = grandTotal.toFixed(2);
 
+                // Pay Amount
                 let pay = parseFloat(document.getElementById("pay").value) || 0;
                 document.getElementById("due").value = (grandTotal - pay).toFixed(2);
             }
 
+            // Event listeners
             document.getElementById("vat").addEventListener("input", calculateSummary);
             document.getElementById("pay").addEventListener("input", calculateSummary);
+
+            // Restrict pay input to not exceed grand total
+            document.getElementById("pay").addEventListener("input", function() {
+                let grandTotal = parseFloat(document.getElementById("grandTotal").value) || 0;
+                let payInput = this;
+                let enteredPay = parseFloat(payInput.value) || 0;
+                if (enteredPay > grandTotal) {
+                    payInput.value = grandTotal;
+                    Swal.fire({
+                        title: 'Warning',
+                        text: 'Pay amount cannot exceed the grand total!',
+                        timer: 3000
+                    });
+                } else if (enteredPay < 0) {
+                    payInput.value = 0;
+                    enteredPay = 0;
+                    Swal.fire({
+                        title: 'Warning',
+                        text: 'Pay amount cannot be negative!',
+                        timer: 3000
+                    });
+                }
+                calculateSummary();
+            });
         });
     </script>
     <script src="assets/js/jquery-3.6.0.min.js"></script>

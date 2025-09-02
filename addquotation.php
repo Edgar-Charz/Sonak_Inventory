@@ -10,18 +10,18 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
 if (isset($_POST['addQuotationBTN'])) {
-    $referenceNumber  = $_POST['reference_number'];
-    $customerId     = $_POST['customer_name'];
-    $quotationDate  = DateTime::createFromFormat('d-m-Y', $_POST['quotation_date'])->format('Y-m-d');
-    $subTotal       = $_POST['sub_total'];
-    $vat            = $_POST['vat'];
-    $vatAmount      = $_POST['vat_amount'];
-    $discount       = $_POST['discount'];
-    $discountAmount = $_POST['discount_amount'];
-    $shippingAmount = $_POST['shipping_amount'];
-    $grandTotal     = $_POST['total_amount'];
-    $note           = $_POST['note'];
-    $quotationStatus  = $_POST['quotation_status'];
+    $referenceNumber    = $_POST['reference_number'];
+    $customerId         = $_POST['customer_name'];
+    $quotationDate      = DateTime::createFromFormat('d-m-Y', $_POST['quotation_date'])->format('Y-m-d');
+    $subTotal           = $_POST['sub_total'];
+    $vat                = $_POST['vat'];
+    $vatAmount          = $_POST['vat_amount'];
+    $discount           = $_POST['discount'];
+    $discountAmount     = $_POST['discount_amount'];
+    $shippingAmount     = $_POST['shipping_amount'];
+    $grandTotal         = $_POST['total_amount'];
+    $note               = $_POST['note'];
+    // $quotationStatus    = $_POST['quotation_status'];
     $totalProducts  = $_POST['total_products'];
     $products       = $_POST['products'];
 
@@ -40,10 +40,10 @@ if (isset($_POST['addQuotationBTN'])) {
         $newTotalProducts = $row['totalProducts'] + $totalProducts;
 
         $update = $conn->prepare("UPDATE quotations
-                                            SET customerId = ?, updatedBy = ?, totalProducts = totalProducts + ?, subTotal = subTotal + ?, taxPercentage = ?, taxAmount = taxAmount + ?, discountPercentage = ?, discountAmount = discountAmount + ?, shippingAmount = ?, totalAmount = ?, note = ?, quotationStatus = ?, updated_at = ?
+                                            SET customerId = ?, updatedBy = ?, totalProducts = totalProducts + ?, subTotal = subTotal + ?, taxPercentage = ?, taxAmount = taxAmount + ?, discountPercentage = ?, discountAmount = discountAmount + ?, shippingAmount = ?, totalAmount = ?, note = ?, updated_at = ?
                                             WHERE referenceNumber = ?");
         $update->bind_param(
-            "iiidididddsiss",
+            "iiidididddsss",
             $customerId,
             $user_id,
             $newTotalProducts,
@@ -55,7 +55,6 @@ if (isset($_POST['addQuotationBTN'])) {
             $shippingAmount,
             $newTotal,
             $note,
-            $quotationStatus,
             $current_time,
             $referenceNumber
         );
@@ -64,10 +63,10 @@ if (isset($_POST['addQuotationBTN'])) {
     } else {
         // Invoice does not exist → insert new order
         $insertQuotation = $conn->prepare("INSERT INTO quotations 
-            (referenceNumber, customerId, createdBy, updatedBy, quotationDate, totalProducts, subTotal, taxPercentage, taxAmount, discountPercentage, discountAmount, shippingAmount, totalAmount, note, quotationStatus, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            (referenceNumber, customerId, createdBy, updatedBy, quotationDate, totalProducts, subTotal, taxPercentage, taxAmount, discountPercentage, discountAmount, shippingAmount, totalAmount, note, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $insertQuotation->bind_param(
-            "siiisidididddsiss",
+            "siiisidididddsss",
             $referenceNumber,
             $customerId,
             $user_id,
@@ -82,7 +81,6 @@ if (isset($_POST['addQuotationBTN'])) {
             $shippingAmount,
             $grandTotal,
             $note,
-            $quotationStatus,
             $current_time,
             $current_time
         );
@@ -265,7 +263,8 @@ function generateReferenceNumber($conn)
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -291,8 +290,6 @@ function generateReferenceNumber($conn)
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -328,7 +325,6 @@ function generateReferenceNumber($conn)
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -447,7 +443,13 @@ function generateReferenceNumber($conn)
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Subtotal</label>
+                                            <label>Shipping Amount</label>
+                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>SubTotal</label>
                                             <input type="text" name="sub_total" id="subTotal" class="form-control" readonly>
                                         </div>
                                     </div>
@@ -477,26 +479,21 @@ function generateReferenceNumber($conn)
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Shipping Amount</label>
-                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="0">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
                                             <label>Total</label>
                                             <input type="text" name="total_amount" id="grandTotal" class="form-control" readonly>
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
+                                    <!-- <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Quotation Status</label>
                                             <select name="quotation_status" class="select" required>
                                                 <option value="" disabled selected>Quotation Status</option>
-                                                <option value="1">Paid</option>
-                                                <option value="0">Unpaid</option>
+                                                <option value="0">Sent</option>
+                                                <option value="1">Approved</option>
+                                                <option value="2">Cancelled</option>
                                             </select>
                                         </div>
-                                    </div>
+                                    </div> -->
                                 </div>
                                 <!-- Summary Table -->
                                 <div class="table-responsive mb-3">
@@ -800,6 +797,10 @@ function generateReferenceNumber($conn)
                     totalProducts += qty;
                 });
 
+                // Add Shipping Amount
+                let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
+                subTotal += shippingAmount;
+
                 document.getElementById("subTotal").value = subTotal.toFixed(2);
                 document.getElementById("totalProducts").value = totalProducts;
 
@@ -813,11 +814,9 @@ function generateReferenceNumber($conn)
                 let discountAmount = subTotal * discountPercent / 100;
                 document.getElementById("discountAmount").value = discountAmount.toFixed(2);
 
-                // Shipping
-                let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
 
-                // Grand Total = Subtotal - Discount + VAT + Shipping
-                let grandTotal = subTotal - discountAmount + vatAmount + shippingAmount;
+                // Grand Total = Subtotal - Discount + VAT
+                let grandTotal = subTotal - discountAmount + vatAmount;
                 document.getElementById("grandTotal").value = grandTotal.toFixed(2);
 
             }

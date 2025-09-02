@@ -171,7 +171,8 @@ if (isset($_POST['addCustomerBTN'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -197,8 +198,6 @@ if (isset($_POST['addCustomerBTN'])) {
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -234,7 +233,6 @@ if (isset($_POST['addCustomerBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -496,19 +494,25 @@ if (isset($_POST['addCustomerBTN'])) {
                                                         <input type="text" name="customer_phone" required>
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-4 col-sm-6 col-12">
+                                                <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Region</label>
                                                         <input type="text" id="region" oninput="updateAddress(); capitalizeFirstLetter(this);">
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-4 col-sm-6 col-12">
+                                                <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>District</label>
                                                         <input type="text" id="district" oninput="updateAddress(); capitalizeFirstLetter(this);">
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-4 col-12">
+                                                <div class="col-lg-3 col-sm-6 col-12">
+                                                    <div class="form-group">
+                                                        <label>Ward</label>
+                                                        <input type="text" id="ward" oninput="updateAddress(); capitalizeFirstLetter(this);">
+                                                    </div>
+                                                </div>
+                                                <div class="col-lg-3 col-12">
                                                     <div class="form-group">
                                                         <label>Address</label>
                                                         <input type="text" name="customer_address" id="address" required>
@@ -579,12 +583,21 @@ if (isset($_POST['addCustomerBTN'])) {
 
         // Update address function
         function updateAddress() {
-            let district = document.getElementById("district").value.trim();
             let region = document.getElementById("region").value.trim();
+            let district = document.getElementById("district").value.trim();
+            let ward = document.getElementById("ward").value.trim();
 
             let address = "";
-            if (district && region) {
+            if (ward && district && region) {
+                address = ward + ", " + district + ", " + region;
+            } else if (district && region) {
                 address = district + ", " + region;
+            } else if (ward && region) {
+                address = ward + ", " + region;
+            } else if (ward && district) {
+                address = ward + ", " + district;
+            } else if (ward) {
+                address = ward;
             } else if (district) {
                 address = district;
             } else if (region) {

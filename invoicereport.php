@@ -1,14 +1,28 @@
+ <?php
+    include 'includes/db_connection.php';
+    include 'includes/session.php';
+
+    // Fetch invoice counts
+    $totalInvoicesQuery = $conn->query("SELECT COUNT(*) as count FROM orders");
+    $totalInvoices = $totalInvoicesQuery->fetch_assoc()['count'];
+
+    $pendingInvoicesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 0");
+    $pendingInvoices = $pendingInvoicesQuery->fetch_assoc()['count'];
+
+    $completedInvoicesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 1");
+    $completedInvoices = $completedInvoicesQuery->fetch_assoc()['count'];
+
+    $cancelledInvoicesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 2");
+    $cancelledInvoices = $cancelledInvoicesQuery->fetch_assoc()['count'];
+    ?>
+
  <!DOCTYPE html>
  <html lang="en">
 
  <head>
      <meta charset="utf-8">
      <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-     <meta name="description" content="POS - Bootstrap Admin Template">
-     <meta name="keywords" content="admin, estimates, bootstrap, business, corporate, creative, invoice, html5, responsive, Projects">
-     <meta name="author" content="Dreamguys - Bootstrap Admin Template">
-     <meta name="robots" content="noindex, nofollow">
-     <title>Dreams Pos admin template</title>
+     <title>Sonak Inventory | Invoice Report</title>
 
      <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 
@@ -87,9 +101,10 @@
                              <a class="dropdown-item" href="#"><i class="me-2" data-feather="settings"></i>Settings</a>
                              <hr class="m-0">
                              <a class="dropdown-item logout pb-0" href="signout.php">
-                                <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
-                                Logout
-                            </a> </div>
+                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
+                                 Logout
+                             </a>
+                         </div>
                      </div>
                  </li>
              </ul>
@@ -115,8 +130,6 @@
                              <ul>
                                  <li><a href="productlist.php">Product List</a></li>
                                  <li><a href="categorylist.php">Category List</a></li>
-                                 <li><a href="brandlist.php">Brand List</a></li>
-                                 <li><a href="addbrand.php">Add Brand</a></li>
                              </ul>
                          </li>
                          <li class="submenu">
@@ -152,7 +165,6 @@
                          <li class="submenu">
                              <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                              <ul>
-                                 <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                  <li><a href="inventoryreport.php">Inventory Report</a></li>
                                  <li><a href="salesreport.php">Sales Report</a></li>
                                  <li><a href="invoicereport.php" class="active">Invoice Report</a></li>
@@ -176,6 +188,37 @@
                      <div class="page-title">
                          <h4>Invoice Report</h4>
                          <h6>Manage your Invoice Report</h6>
+                     </div>
+                 </div>
+
+                 <div class="card"> 
+                     <div class="card-body">
+                         <div class="row text-center">
+                             <div class="col-md-3 mb-3">
+                                 <div class="bg-light border rounded p-3 shadow-sm">
+                                     <h6 class="card-title text-muted">Total Invoices</h6>
+                                     <h3 class="text-primary"><?= $totalInvoices; ?></h3>
+                                 </div>
+                             </div>
+                             <div class="col-md-3 mb-3">
+                                 <div class="bg-warning-subtle border rounded p-3 shadow-sm">
+                                     <h6 class="card-title text-muted">Pending Invoices</h6>
+                                     <h3 class="text-warning"><?= $pendingInvoices; ?></h3>
+                                 </div>
+                             </div>
+                             <div class="col-md-3 mb-3">
+                                 <div class="bg-success-subtle border rounded p-3 shadow-sm">
+                                     <h6 class="card-title text-muted">Completed Invoices</h6>
+                                     <h3 class="text-success"><?= $completedInvoices; ?></h3>
+                                 </div>
+                             </div>
+                             <div class="col-md-3 mb-3">
+                                 <div class="bg-danger-subtle border rounded p-3 shadow-sm">
+                                     <h6 class="card-title text-muted">Cancelled Invoices</h6>
+                                     <h3 class="text-danger"><?= $cancelledInvoices; ?></h3>
+                                 </div>
+                             </div>
+                         </div>
                      </div>
                  </div>
 
@@ -208,268 +251,161 @@
                              </div>
                          </div>
 
-                         <div class="card" id="filter_inputs">
-                             <div class="card-body pb-0">
-                                 <div class="row">
-                                     <div class="col-lg-2 col-sm-6 col-12">
-                                         <div class="form-group">
-                                             <div class="input-groupicon">
-                                                 <input type="text" placeholder="From Date" class="datetimepicker">
-                                                 <div class="addonset">
-                                                     <img src="assets/img/icons/calendars.svg" alt="img">
+                         <?php
+                            // Handle filter inputs with prepared statements
+                            $conditions = [];
+                            $params = [];
+                            $types = "";
+
+                            if (!empty($_GET['from_date'])) {
+                                $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
+                                $conditions[] = "orders.orderDate >= ?";
+                                $params[] = $fromDate;
+                                $types .= "s";
+                            }
+                            if (!empty($_GET['to_date'])) {
+                                $toDate = date('Y-m-d', strtotime($_GET['to_date']));
+                                $conditions[] = "orders.orderDate <= ?";
+                                $params[] = $toDate;
+                                $types .= "s";
+                            }
+                            if (!empty($_GET['customer_id'])) {
+                                $customerId = $_GET['customer_id'];
+                                $conditions[] = "orders.customerId = ?";
+                                $params[] = $customerId;
+                                $types .= "i";
+                            }
+
+                            // $whereClause = implode(" AND ", $conditions);
+                            $whereClause = !empty($conditions) ? implode(" AND ", $conditions) : "1=1";
+                            $query = "
+                                    SELECT
+                                        orders.*,
+                                        customers.customerName
+                                    FROM
+                                        orders
+                                    JOIN
+                                        customers ON orders.customerId = customers.customerId
+                                    WHERE $whereClause
+                                    ORDER BY
+                                        orders.orderUId DESC
+                                ";
+                            $stmt = $conn->prepare($query);
+                            if (!empty($params)) {
+                                $stmt->bind_param($types, ...$params);
+                            }
+                            $stmt->execute();
+                            $result = $stmt->get_result();
+                            $sn = 0;
+                            ?>
+
+                         <form method="GET" action="invoicereport.php">
+                             <div class="card" id="filter_inputs">
+                                 <div class="card-body pb-0">
+                                     <div class="row">
+                                         <div class="col-lg-2 col-sm-6 col-12">
+                                             <div class="form-group">
+                                                 <div class="input-groupicon">
+                                                     <input type="text" name="from_date" value="<?= ($_GET['from_date'] ?? '') ?>" class="datetimepicker" placeholder="From Date">
+                                                     <div class="addonset">
+                                                         <img src="assets/img/icons/calendars.svg" alt="img">
+                                                     </div>
                                                  </div>
                                              </div>
                                          </div>
-                                     </div>
-                                     <div class="col-lg-2 col-sm-6 col-12">
-                                         <div class="form-group">
-                                             <div class="input-groupicon">
-                                                 <input type="text" placeholder="To Date" class="datetimepicker">
-                                                 <div class="addonset">
-                                                     <img src="assets/img/icons/calendars.svg" alt="img">
+                                         <div class="col-lg-2 col-sm-6 col-12">
+                                             <div class="form-group">
+                                                 <div class="input-groupicon">
+                                                     <input type="text" name="to_date" value="<?= ($_GET['to_date'] ?? '') ?>" class="datetimepicker" placeholder="To Date">
+                                                     <div class="addonset">
+                                                         <img src="assets/img/icons/calendars.svg" alt="img">
+                                                     </div>
                                                  </div>
                                              </div>
                                          </div>
-                                     </div>
-                                     <div class="col-lg-1 col-sm-6 col-12 ms-auto">
-                                         <div class="form-group">
-                                             <a class="btn btn-filters ms-auto"><img src="assets/img/icons/search-whites.svg" alt="img"></a>
+                                         <div class="col-lg-2 col-sm-6 col-12">
+                                             <div class="form-group">
+                                                 <select name="customer_id" class="form-select">
+                                                     <option value="">Select Customer</option>
+                                                     <?php
+                                                        $customerQuery = $conn->query("SELECT customerId, customerName FROM customers WHERE customerStatus = 1");
+                                                        while ($customer = $customerQuery->fetch_assoc()) {
+                                                            $selected = ($_GET['customer_id'] ?? '') == $customer['customerId'] ? 'selected' : '';
+                                                            echo "<option value='" . $customer['customerId'] . "' $selected>" . ($customer['customerName']) . "</option>";
+                                                        }
+                                                        ?>
+                                                 </select>
+                                             </div>
+                                         </div>
+                                         <div class="col-lg-1 col-sm-6 col-12 ms-auto">
+                                             <div class="form-group">
+                                                 <button type="submit" class="btn btn-filters ms-auto">
+                                                     <img src="assets/img/icons/search-whites.svg" alt="img">
+                                                 </button>
+                                             </div>
                                          </div>
                                      </div>
                                  </div>
                              </div>
-                         </div>
-
+                         </form>
                          <div class="table-responsive">
-                             <table class="table datanew">
+                             <table class="table" id="invoiceReportTable">
                                  <thead>
                                      <tr>
-                                         <th>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox" id="select-all">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </th>
-                                         <th>Invoice number </th>
-                                         <th>Customer name </th>
-                                         <th>Due date</th>
+                                         <th>#</th>
+                                         <th>Invoice Number</th>
+                                         <th>Customer Name</th>
+                                         <th>Due Date</th>
                                          <th>Amount</th>
                                          <th>Paid</th>
-                                         <th>Amount due</th>
+                                         <th>Amount Due</th>
                                          <th>Status</th>
                                      </tr>
                                  </thead>
                                  <tbody>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV001</td>
-                                         <td>Thomas21</td>
-                                         <td>29-03-2022</td>
-                                         <td>1500.00</td>
-                                         <td>1500.00</td>
-                                         <td>1500.00</td>
-                                         <td><span class="badges bg-lightgreen">Paid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV002</td>
-                                         <td>504Benjamin</td>
-                                         <td>29-03-2022</td>
-                                         <td>10.00</td>
-                                         <td>10.00</td>
-                                         <td>10.00</td>
-                                         <td><span class="badges bg-lightred">Overdue</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV003</td>
-                                         <td>James 524</td>
-                                         <td>29-03-2022</td>
-                                         <td>10.00</td>
-                                         <td>10.00</td>
-                                         <td>10.00</td>
-                                         <td><span class="badges bg-lightred">Overdue</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV004</td>
-                                         <td>Bruklin2022</td>
-                                         <td>29-03-2022</td>
-                                         <td>10.00</td>
-                                         <td>10.00</td>
-                                         <td>10.00</td>
-                                         <td><span class="badges bg-lightgreen">Paid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV005</td>
-                                         <td>BeverlyWIN25</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightred">Overdue</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV006</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgreen">Paid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV007</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgreen">Paid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV008</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgrey">Unpaid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV009</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgrey">Unpaid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV0010</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgrey">Unpaid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV007</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgreen">Paid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV008</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgrey">Unpaid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV009</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgrey">Unpaid</span></td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td>INV0010</td>
-                                         <td>BHR256</td>
-                                         <td>29-03-2022</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td>150.00</td>
-                                         <td><span class="badges bg-lightgrey">Unpaid</span></td>
-                                     </tr>
+                                     <?php
+                                        if ($result->num_rows > 0) {
+                                            while ($row = $result->fetch_assoc()) {
+                                                $dueDate = date('d-m-Y', strtotime($row['orderDate'] . ' +30 days'));
+                                                $amount = number_format($row['total'], 2);
+                                                $paid = number_format($row['paid'], 2);
+                                                $amountDue = number_format($row['due'], 2);
+                                                $today = date('Y-m-d');
+
+                                                if ($row['orderStatus'] == 1 && $row['due'] == 0) {
+                                                    $status = 'Fully Paid';
+                                                    $statusClass = 'bg-lightgreen';
+                                                } elseif ($row['due'] > 0 && $row['paid'] == 0) {
+                                                    $status = 'Unpaid';
+                                                    $statusClass = 'bg-lightred';
+                                                } elseif ($row['due'] > 0 && $row['paid'] > 0 && $today <= $dueDate) {
+                                                    $status = 'Partially Paid';
+                                                    $statusClass = 'bg-lightyellow';
+                                                } elseif ($row['due'] > 0 && $today > $dueDate) {
+                                                    $status = 'Overdue';
+                                                    $statusClass = 'bg-lightorange';
+                                                } else {
+                                                    $status = 'Unknown';
+                                                    $statusClass = 'bg-lightgray';
+                                                }
+                                                $sn++;
+
+                                                echo "<tr>
+                                                <td>" . $sn . "</td>
+                                            <td>" . $row['invoiceNumber'] . "</td>
+                                            <td>" . $row['customerName'] . "</td>
+                                            <td>" . $dueDate . "</td>
+                                            <td>" . $amount . "</td>
+                                            <td>" . $paid . "</td>
+                                            <td>" . $amountDue . "</td>
+                                            <td><span class='badges $statusClass'>" . $status . "</span></td>
+                                          </tr>";
+                                            }
+                                        } else {
+                                            echo "<tr><td colspan='7' class='text-center'>No records found</td></tr>";
+                                        }
+                                        $stmt->close();
+                                        ?>
                                  </tbody>
                              </table>
                          </div>
@@ -504,6 +440,56 @@
      <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
 
      <script src="assets/js/script.js"></script>
+     <!-- <script>
+            $(document).ready(function() {
+                $('#invoiceReportTable').DataTable({
+                    "paging": true,
+                    "searching": true,
+                    "ordering": true,
+                    "info": true
+                });
+
+                // Validate date inputs
+                $('form').submit(function(e) {
+                    let fromDate = $('input[name="from_date"]').val();
+                    let toDate = $('input[name="to_date"]').val();
+                    if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                        e.preventDefault();
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'From Date cannot be after To Date',
+                            timer: 3000
+                        });
+                    }
+                });
+            });
+        </script> -->
+     <script>
+         $(document).ready(function() {
+             if ($("#invoiceReportTable").length > 0) {
+                 if (!$.fn.DataTable.isDataTable("#invoiceReportTable")) {
+                     $("#invoiceReportTable").DataTable({
+                         destroy: true,
+                         bFilter: true,
+                         sDom: "fBtlpi",
+                         pagingType: "numbers",
+                         ordering: true,
+                         language: {
+                             search: " ",
+                             sLengthMenu: "_MENU_",
+                             searchPlaceholder: "Search...",
+                             info: "_START_ - _END_ of _TOTAL_ items"
+                         },
+                         initComplete: function(settings, json) {
+                             $(".dataTables_filter").appendTo("#tableSearch");
+                             $(".dataTables_filter").appendTo(".search-input");
+                         }
+                     });
+                 }
+             }
+         });
+     </script>
+
  </body>
 
  </html>

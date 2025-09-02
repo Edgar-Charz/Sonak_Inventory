@@ -363,7 +363,8 @@ if (isset($_POST['updateUnitBTN'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -389,8 +390,6 @@ if (isset($_POST['updateUnitBTN'])) {
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php" class="active">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -426,7 +425,6 @@ if (isset($_POST['updateUnitBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -771,46 +769,46 @@ if (isset($_POST['updateUnitBTN'])) {
     </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        <?php if (isset($_GET['deleted']) && $_GET['deleted'] == 1): ?>
-            Swal.fire({
-                text: 'Deleted successfully.',
-                timer: 2000,
-                showConfirmButton: true
-            }).then(function() {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('deleted');
-                window.history.replaceState({}, document.title, url.pathname + url.search);
-            });
-        <?php elseif (isset($_GET['error']) && $_GET['error'] == 1): ?>
-            Swal.fire({
-                icon: 'error',
-                text: 'There was a problem deleting.'
-            }).then(function() {
-                const url = new URL(window.location.href);
-                url.searchParams.delete('error');
-                window.history.replaceState({}, document.title, url.pathname + url.search);
-            });
-        <?php endif; ?>
-    });
-
-    // Confirmation before delete
-    function confirmDelete(deleteUrl) {
-        Swal.fire({
-            title: 'Are you sure?',
-            text: "This action cannot be undone.",
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete!',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = deleteUrl;
-            }
+        document.addEventListener('DOMContentLoaded', function() {
+            <?php if (isset($_GET['deleted']) && $_GET['deleted'] == 1): ?>
+                Swal.fire({
+                    text: 'Deleted successfully.',
+                    timer: 2000,
+                    showConfirmButton: true
+                }).then(function() {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('deleted');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                });
+            <?php elseif (isset($_GET['error']) && $_GET['error'] == 1): ?>
+                Swal.fire({
+                    icon: 'error',
+                    text: 'There was a problem deleting.'
+                }).then(function() {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('error');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                });
+            <?php endif; ?>
         });
-    }
-</script>
+
+        // Confirmation before delete
+        function confirmDelete(deleteUrl) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "This action cannot be undone.",
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = deleteUrl;
+                }
+            });
+        }
+    </script>
 
     <script src="assets/js/jquery-3.6.0.min.js"></script>
 
@@ -852,7 +850,7 @@ if (isset($_POST['updateUnitBTN'])) {
                             $("#tableSearchCategory .btn-searchset").before($("#categoryTable_wrapper .dataTables_filter input"));
                             $("#categoryTable_wrapper .dataTables_filter").remove();
                         }
-                    }); 
+                    });
                 }
             }
 

@@ -96,7 +96,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -122,8 +123,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -159,7 +158,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -267,7 +265,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                         <th>Refer.No</th>
                                         <th>Custmer Name</th>
                                         <th>Biller</th>
-                                        <th>Quotation Date</th>
+                                        <th>Date</th>
                                         <th>Tax(%)</th>
                                         <th>Discount(%)</th>
                                         <th>Grand Total</th>
@@ -316,12 +314,12 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                 <td> <?= $quotation_row["quotationDate"]; ?> </td>
                                                 <td> <?= $quotation_row["taxPercentage"]; ?> </td>
                                                 <td> <?= $quotation_row["discountPercentage"]; ?> </td>
-                                                <td> <?= $quotation_row["totalAmount"]; ?> </td>
+                                                <td> <?= number_format($quotation_row["totalAmount"], 2); ?> </td>
                                                 <td>
                                                     <?php if ($quotation_row["quotationStatus"] == "0") : ?>
                                                         <span class="badges bg-lightgreen">Sent</span>
                                                     <?php elseif ($quotation_row["quotationStatus"] == "1"): ?>
-                                                        <span class="badges bg-lightyellow">Pending</span>
+                                                        <span class="badges bg-lightyellow">Approved</span>
                                                     <?php else: ?>
                                                         <span class="badges bg-lightred">Cancelled</span>
                                                     <?php endif; ?>
@@ -349,11 +347,35 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                 <img src="assets/img/icons/download.svg" class="me-2" alt="img">
                                                                 Download PDF
                                                             </a>
-                                                        </li> 
+                                                        </li>
+
+                                                        <?php if ($quotation_row["quotationStatus"] == "0"): ?>
+                                                            <li>
+                                                                <button type="button" class="dropdown-item" onclick="confirmApproveQuotation(<?= $quotation_uid; ?>)">
+                                                                    <img src="assets/img/icons/check.svg" class="me-2" alt="img">
+                                                                    Approve
+                                                                </button>
+                                                            </li>
+                                                            <li>
+                                                                <button type="button" class="dropdown-item" onclick="confirmCancelQuotation(<?= $quotation_uid; ?>)">
+                                                                    <img src="assets/img/icons/cancel.svg" class="me-2" alt="img">
+                                                                    Cancel
+                                                                </button>
+                                                            </li>
+
+                                                        <?php elseif ($quotation_row['quotationStatus'] == '2'): ?>
+                                                            <li>
+                                                                <button type="button" class="dropdown-item" onclick="confirmReactivateQuotation(<?= $quotation_uid; ?>)">
+                                                                    <img src="assets/img/icons/refresh.svg" class="me-2" alt="img">
+                                                                    Reactivate
+                                                                </button>
+                                                            </li>
+
+                                                        <?php endif; ?>
                                                         <li>
                                                             <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $quotation_uid; ?>)">
                                                                 <img src="assets/img/icons/delete1.svg" class="me-2" alt="img">
-                                                                Delete Quotation
+                                                                Delete
                                                             </button>
                                                         </li>
                                                     </ul>
@@ -387,37 +409,138 @@ $current_time = $time->format("Y-m-d H:i:s");
                     window.location.href = 'deletequotation.php?id=' + quotationUId;
                 }
             });
+        };
+
+        // Confirm cancel quotation
+        function confirmCancelQuotation(quotationUId) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, cancel it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = 'cancel_quotation.php?id=' + quotationUId;
+                }
+            });
+        };
+
+        // Confirm approve quotation
+        function confirmApproveQuotation(quotationUId) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, approve it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = 'approve_quotation.php?id=' + quotationUId;
+                }
+            });
+        };
+
+        // Confirm reactivation quotation
+        function confirmReactivateQuotation(quotationUId) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, reactivate it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = 'reactivate_quotation.php?id=' + quotationUId;
+                }
+            });
         }
 
-        // Trigger SweetAlert messages after redirect
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const status = urlParams.get('status');
 
-            if (status === 'success') {
-                Swal.fire({
+            // Sweetalerts for delete, cancel, approve and reactivation
+            const alerts = [{
+                    param: 'status',
+                    value: 'success',
                     title: 'Deleted!',
-                    text: 'Quotation deleted successfully.',
-                    timer: 3000,
-                    showConfirmButton: true
-                }).then(() => {
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('status');
-                    window.history.replaceState({}, document.title, url.pathname + url.search);
-                });
-            }
-            if (status === 'error') {
-                Swal.fire({
+                    text: 'Quotation deleted successfully.'
+                },
+                {
+                    param: 'status',
+                    value: 'error',
                     title: 'Error!',
-                    text: 'Failed to delete the Quotation.',
-                    timer: 3000,
-                    showConfirmButton: true
-                }).then(() => {
-                    const url = new URL(window.location.href);
-                    url.searchParams.delete('status');
-                    window.history.replaceState({}, document.title, url.pathname + url.search);
-                });
-            }
+                    text: 'Failed to delete the Quotation'
+                },
+                {
+                    param: 'message',
+                    value: 'approved',
+                    title: 'Approved!',
+                    text: 'Quotation approved successfully.'
+                },
+                {
+                    param: 'message',
+                    value: 'error',
+                    title: 'Error!',
+                    text: 'Failed to cancel the Quotation'
+                },
+                {
+                    param: 'message',
+                    value: 'invalid',
+                    title: 'Error!',
+                    text: 'Invalid Quotation UID'
+                },
+                {
+                    param: 'message',
+                    value: 'notfound',
+                    title: 'Error!',
+                    text: 'Quotation Not Found'
+                },
+                {
+                    param: 'response',
+                    value: 'reactivated',
+                    title: 'Reactivated!',
+                    text: 'Quotation has been reactivated successfully.'
+                },
+                {
+                    param: 'response',
+                    value: 'error',
+                    title: 'Error!',
+                    text: 'Failed to reactivate the Quotation'
+                },
+                {
+                    param: 'msg',
+                    value: 'cancelled',
+                    title: 'Cancelled!',
+                    text: 'Quotation has been cancelled successfully.'
+                },
+                {
+                    param: 'msg',
+                    value: 'error',
+                    title: 'Error!',
+                    text: 'Failed to cancel the Quotation'
+                }
+            ];
+
+            alerts.forEach(alert => {
+                const paramValue = urlParams.get(alert.param);
+                if (paramValue === alert.value) {
+                    Swal.fire({
+                        title: alert.title,
+                        text: alert.text,
+                        timer: 3000,
+                        showConfirmButton: true
+                    }).then(() => {
+                        // Remove the URL param after showing alert
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete(alert.param);
+                        window.history.replaceState({}, document.title, url.pathname + url.search);
+                    });
+                }
+            });
         });
     </script>
 

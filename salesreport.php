@@ -1,43 +1,45 @@
- <!DOCTYPE html>
- <html lang="en">
+<?php
+include 'includes/db_connection.php';
+include 'includes/session.php';
 
- <head>
-     <meta charset="utf-8">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-     <meta name="description" content="POS - Bootstrap Admin Template">
-     <meta name="keywords" content="admin, estimates, bootstrap, business, corporate, creative, invoice, html5, responsive, Projects">
-     <meta name="author" content="Dreamguys - Bootstrap Admin Template">
-     <meta name="robots" content="noindex, nofollow">
-     <title>Dreams Pos admin template</title>
+?>
 
-     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
+<!DOCTYPE html>
+<html lang="en">
 
-     <link rel="stylesheet" href="assets/css/bootstrap.min.css">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
+    <title>Sonak Inventory | Sales Report</title>
 
-     <link rel="stylesheet" href="assets/css/bootstrap-datetimepicker.min.css">
+    <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 
-     <link rel="stylesheet" href="assets/css/animate.css">
+    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
 
-     <link rel="stylesheet" href="assets/css/bootstrap-datetimepicker.min.css">
+    <link rel="stylesheet" href="assets/css/bootstrap-datetimepicker.min.css">
 
-     <link rel="stylesheet" href="assets/plugins/select2/css/select2.min.css">
+    <link rel="stylesheet" href="assets/css/animate.css">
 
-     <link rel="stylesheet" href="assets/css/dataTables.bootstrap4.min.css">
+    <link rel="stylesheet" href="assets/css/bootstrap-datetimepicker.min.css">
 
-     <link rel="stylesheet" href="assets/plugins/fontawesome/css/fontawesome.min.css">
-     <link rel="stylesheet" href="assets/plugins/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="assets/plugins/select2/css/select2.min.css">
 
-     <link rel="stylesheet" href="assets/css/style.css">
- </head>
+    <link rel="stylesheet" href="assets/css/dataTables.bootstrap4.min.css">
 
- <body>
-     <div id="global-loader">
-         <div class="whirly-loader"> </div>
-     </div>
+    <link rel="stylesheet" href="assets/plugins/fontawesome/css/fontawesome.min.css">
+    <link rel="stylesheet" href="assets/plugins/fontawesome/css/all.min.css">
 
-     <div class="main-wrapper">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
 
-         <div class="header">
+<body>
+    <div id="global-loader">
+        <div class="whirly-loader"> </div>
+    </div>
+
+    <div class="main-wrapper">
+
+        <div class="header">
             <div class="header-left active">
                 <a href="index.php" class="logo">
                     <img src="assets/img/logo.png" alt="">
@@ -89,7 +91,8 @@
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -115,8 +118,6 @@
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -152,7 +153,6 @@
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php" class="active">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -170,430 +170,239 @@
                 </div>
             </div>
         </div>
-         <div class="page-wrapper">
-             <div class="content">
-                 <div class="page-header">
-                     <div class="page-title">
-                         <h4>Sales Report</h4>
-                         <h6>Manage your Sales Report</h6>
-                     </div>
-                 </div>
+        <div class="page-wrapper">
+            <div class="content">
+                <div class="page-header">
+                    <div class="page-title">
+                        <h4>Sales Report</h4>
+                        <h6>Manage your Sales Report</h6>
+                    </div>
+                </div>
 
-                 <div class="card">
-                     <div class="card-body">
-                         <div class="table-top">
-                             <div class="search-set">
-                                 <div class="search-path">
-                                     <a class="btn btn-filter" id="filter_search">
-                                         <img src="assets/img/icons/filter.svg" alt="img">
-                                         <span><img src="assets/img/icons/closes.svg" alt="img"></span>
-                                     </a>
-                                 </div>
-                                 <div class="search-input">
-                                     <a class="btn btn-searchset"><img src="assets/img/icons/search-white.svg" alt="img"></a>
-                                 </div>
-                             </div>
-                             <div class="wordset">
-                                 <ul>
-                                     <li>
-                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
-                                     </li>
-                                     <li>
-                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
-                                     </li>
-                                     <li>
-                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                     </li>
-                                 </ul>
-                             </div>
-                         </div>
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-top">
+                            <div class="search-set">
+                                <div class="search-path">
+                                    <a class="btn btn-filter" id="filter_search">
+                                        <img src="assets/img/icons/filter.svg" alt="img">
+                                        <span><img src="assets/img/icons/closes.svg" alt="img"></span>
+                                    </a>
+                                </div>
+                                <div class="search-input">
+                                    <a class="btn btn-searchset"><img src="assets/img/icons/search-white.svg" alt="img"></a>
+                                </div>
+                            </div>
+                            <div class="wordset">
+                                <ul>
+                                    <li>
+                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
+                                    </li>
+                                    <li>
+                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
+                                    </li>
+                                    <li>
+                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
 
-                         <div class="card" id="filter_inputs">
-                             <div class="card-body pb-0">
-                                 <div class="row">
-                                     <div class="col-lg-2 col-sm-6 col-12">
-                                         <div class="form-group">
-                                             <div class="input-groupicon">
-                                                 <input type="text" placeholder="From Date" class="datetimepicker">
-                                                 <div class="addonset">
-                                                     <img src="assets/img/icons/calendars.svg" alt="img">
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     </div>
-                                     <div class="col-lg-2 col-sm-6 col-12">
-                                         <div class="form-group">
-                                             <div class="input-groupicon">
-                                                 <input type="text" placeholder="To Date" class="datetimepicker">
-                                                 <div class="addonset">
-                                                     <img src="assets/img/icons/calendars.svg" alt="img">
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     </div>
-                                     <div class="col-lg-1 col-sm-6 col-12 ms-auto">
-                                         <div class="form-group">
-                                             <a class="btn btn-filters ms-auto"><img src="assets/img/icons/search-whites.svg" alt="img"></a>
-                                         </div>
-                                     </div>
-                                 </div>
-                             </div>
-                         </div>
+                        <?php
+                        // Handle filter inputs 
+                        $conditions = ["orders.orderStatus = 1"];
+                        $params = [];
+                        $types = "";
 
-                         <div class="table-responsive">
-                             <table class="table datanew">
-                                 <thead>
-                                     <tr>
-                                         <th>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox" id="select-all">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </th>
-                                         <th>Product Name</th>
-                                         <th>SKU</th>
-                                         <th> Category</th>
-                                         <th>Brand</th>
-                                         <th>Sold amount</th>
-                                         <th>Sold qty</th>
-                                         <th>Instock qty</th>
-                                     </tr>
-                                 </thead>
-                                 <tbody>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product1.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Macbook pro</a>
-                                         </td>
-                                         <td>PT001</td>
-                                         <td>Computer</td>
-                                         <td>N/D</td>
-                                         <td>1500.00</td>
-                                         <td>1</td>
-                                         <td>1356</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product2.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Orange</a>
-                                         </td>
-                                         <td>PT002</td>
-                                         <td>Fruits</td>
-                                         <td>N/D</td>
-                                         <td>10.00</td>
-                                         <td>1</td>
-                                         <td>131</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product3.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Pineapple</a>
-                                         </td>
-                                         <td>PT003</td>
-                                         <td>Fruits</td>
-                                         <td>N/D</td>
-                                         <td>10.00</td>
-                                         <td>3</td>
-                                         <td>72</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product4.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Strawberry</a>
-                                         </td>
-                                         <td>PT004</td>
-                                         <td>Fruits</td>
-                                         <td>N/D</td>
-                                         <td>10.00</td>
-                                         <td>1</td>
-                                         <td>100</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product5.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Sunglasses</a>
-                                         </td>
-                                         <td>PT005</td>
-                                         <td>Accessories</td>
-                                         <td>N/D</td>
-                                         <td>10.00</td>
-                                         <td>1</td>
-                                         <td>100</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product6.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Unpaired gray</a>
-                                         </td>
-                                         <td>PT006</td>
-                                         <td>Shoes</td>
-                                         <td>Adidas</td>
-                                         <td>100.00</td>
-                                         <td>3</td>
-                                         <td>50</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product7.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Avocat</a>
-                                         </td>
-                                         <td>PT007</td>
-                                         <td>Fruits</td>
-                                         <td>N/D</td>
-                                         <td>5.00</td>
-                                         <td>5</td>
-                                         <td>29</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product8.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Banana</a>
-                                         </td>
-                                         <td>PT008</td>
-                                         <td>Fruits</td>
-                                         <td>N/D</td>
-                                         <td>10.00</td>
-                                         <td>1</td>
-                                         <td>24</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product9.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Earphones</a>
-                                         </td>
-                                         <td>PT009</td>
-                                         <td>Computers</td>
-                                         <td>N/D</td>
-                                         <td>15.00</td>
-                                         <td>2</td>
-                                         <td>11</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product8.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Banana</a>
-                                         </td>
-                                         <td>PT010</td>
-                                         <td>Health Care </td>
-                                         <td>N/D</td>
-                                         <td>5.00</td>
-                                         <td>5</td>
-                                         <td>16</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product6.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Unpaired gray</a>
-                                         </td>
-                                         <td>PT006</td>
-                                         <td>Shoes</td>
-                                         <td>Adidas</td>
-                                         <td>100.00</td>
-                                         <td>1</td>
-                                         <td>50</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product7.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Avocat</a>
-                                         </td>
-                                         <td>PT007</td>
-                                         <td>Fruits</td>
-                                         <td>N/D</td>
-                                         <td>5.00</td>
-                                         <td>2</td>
-                                         <td>29</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product8.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Banana</a>
-                                         </td>
-                                         <td>PT008</td>
-                                         <td>Fruits</td>
-                                         <td>N/D</td>
-                                         <td>10.00</td>
-                                         <td>2</td>
-                                         <td>24</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product9.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Earphones</a>
-                                         </td>
-                                         <td>PT009</td>
-                                         <td>Computers</td>
-                                         <td>N/D</td>
-                                         <td>15.00</td>
-                                         <td>2</td>
-                                         <td>11</td>
-                                     </tr>
-                                     <tr>
-                                         <td>
-                                             <label class="checkboxs">
-                                                 <input type="checkbox">
-                                                 <span class="checkmarks"></span>
-                                             </label>
-                                         </td>
-                                         <td class="productimgname">
-                                             <a class="product-img">
-                                                 <img src="assets/img/product/product8.jpg" alt="product">
-                                             </a>
-                                             <a href="javascript:void(0);">Banana</a>
-                                         </td>
-                                         <td>PT010</td>
-                                         <td>Health Care </td>
-                                         <td>N/D</td>
-                                         <td>5.00</td>
-                                         <td>4</td>
-                                         <td>16</td>
-                                     </tr>
-                                 </tbody>
-                             </table>
-                         </div>
-                     </div>
-                 </div>
+                        if (!empty($_GET['from_date'])) {
+                            $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
+                            $conditions[] = "orders.orderDate >= ?";
+                            $params[] = $fromDate;
+                            $types .= "s";
+                        }
+                        if (!empty($_GET['to_date'])) {
+                            $toDate = date('Y-m-d', strtotime($_GET['to_date']));
+                            $conditions[] = "orders.orderDate <= ?";
+                            $params[] = $toDate;
+                            $types .= "s";
+                        }
+                        if (!empty($_GET['customer_id'])) {
+                            $customerId = $_GET['customer_id'];
+                            $conditions[] = "orders.customerId = ?";
+                            $params[] = $customerId;
+                            $types .= "i";
+                        }
 
-             </div>
-         </div>
-     </div>
+                        $whereClause = implode(" AND ", $conditions);
+                        $query = "
+                                                                SELECT
+                                                                    products.productId AS 'Product ID',
+                                                                    products.productName AS 'Product Name',
+                                                                    SUM(od.totalCost) AS 'Sold Amount',
+                                                                    SUM(od.quantity) AS 'Sold QTY',
+                                                                    products.quantity AS 'Instock QTY'
+                                                                FROM
+                                                                    order_details od
+                                                                JOIN 
+                                                                    products ON od.productId = products.productId
+                                                                JOIN 
+                                                                    orders ON od.invoiceNumber = orders.invoiceNumber
+                                                                WHERE $whereClause
+                                                                GROUP BY 
+                                                                    products.productId, products.productName, products.quantity
+                                                                ORDER BY 
+                                                                    SUM(od.totalCost) DESC
+                                                            ";
+
+                        $stmt = $conn->prepare($query);
+                        if (!empty($params)) {
+                            $stmt->bind_param($types, ...$params);
+                        }
+                        $stmt->execute();
+                        $result = $stmt->get_result();
+                        ?>
+                        <form method="GET" action="salesreport.php">
+                            <div class="card" id="filter_inputs">
+                                <div class="card-body pb-0">
+                                    <div class="row">
+                                        <div class="col-lg-2 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <div class="input-groupicon">
+                                                    <input type="text" name="from_date" value="<?= ($_GET['from_date'] ?? '') ?>" class="datetimepicker" placeholder="From Date">
+                                                    <div class="addonset">
+                                                        <img src="assets/img/icons/calendars.svg" alt="img">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-2 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <div class="input-groupicon">
+                                                    <input type="text" name="to_date" value="<?= ($_GET['to_date'] ?? '') ?>" class="datetimepicker" placeholder="To Date">
+                                                    <div class="addonset">
+                                                        <img src="assets/img/icons/calendars.svg" alt="img">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-2 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <select name="customer_id" class="form-select">
+                                                    <option value="">Select Customer</option>
+                                                    <?php
+                                                    $customerQuery = $conn->query("SELECT customerId, customerName 
+                                                                           FROM customers 
+                                                                           WHERE customerStatus = 1");
+                                                    while ($customer = $customerQuery->fetch_assoc()) {
+                                                        $selected = ($_GET['customer_id'] ?? '') == $customer['customerId'] ? 'selected' : '';
+                                                        echo "<option value='" . $customer['customerId'] . "' $selected>" . ($customer['customerName']) . "</option>";
+                                                    }
+                                                    ?>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-1 col-sm-6 col-12 ms-auto">
+                                            <div class="form-group">
+                                                <button type="submit" class="btn btn-filters ms-auto">
+                                                    <img src="assets/img/icons/search-whites.svg" alt="img">
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div class="table-responsive mt-4">
+                            <table class="table" id="saleReportTable">
+                                <thead>
+                                    <tr>
+                                        <th>Product ID</th>
+                                        <th>Product Name</th>
+                                        <th>Sold Amount</th>
+                                        <th>Sold QTY</th>
+                                        <th>Instock QTY</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    if ($result->num_rows > 0) {
+                                        while ($row = $result->fetch_assoc()) {
+                                            echo "<tr>
+                                            <td>" . ($row['Product ID']) . "</td>
+                                            <td>" . ($row['Product Name']) . "</td>
+                                            <td>" . number_format($row['Sold Amount'], 2) . "</td>
+                                            <td>" . ($row['Sold QTY']) . "</td>
+                                            <td>" . ($row['Instock QTY']) . "</td>
+                                         </tr>";
+                                        }
+                                    } else {
+                                        echo "<tr><td colspan='5' class='text-center'>No records found.</td></tr>";
+                                    }
+                                    $stmt->close();
+                                    ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
 
 
-     <script src="assets/js/jquery-3.6.0.min.js"></script>
+    <script src="assets/js/jquery-3.6.0.min.js"></script>
 
-     <script src="assets/js/feather.min.js"></script>
+    <script src="assets/js/feather.min.js"></script>
 
-     <script src="assets/js/jquery.slimscroll.min.js"></script>
+    <script src="assets/js/jquery.slimscroll.min.js"></script>
 
-     <script src="assets/js/jquery.dataTables.min.js"></script>
-     <script src="assets/js/dataTables.bootstrap4.min.js"></script>
+    <script src="assets/js/jquery.dataTables.min.js"></script>
+    <script src="assets/js/dataTables.bootstrap4.min.js"></script>
 
-     <script src="assets/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/bootstrap.bundle.min.js"></script>
 
-     <script src="assets/js/moment.min.js"></script>
-     <script src="assets/js/bootstrap-datetimepicker.min.js"></script>
+    <script src="assets/js/moment.min.js"></script>
+    <script src="assets/js/bootstrap-datetimepicker.min.js"></script>
 
-     <script src="assets/plugins/select2/js/select2.min.js"></script>
+    <script src="assets/plugins/select2/js/select2.min.js"></script>
 
-     <script src="assets/js/moment.min.js"></script>
-     <script src="assets/js/bootstrap-datetimepicker.min.js"></script>
+    <script src="assets/js/moment.min.js"></script>
+    <script src="assets/js/bootstrap-datetimepicker.min.js"></script>
 
-     <script src="assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
-     <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
+    <script src="assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
+    <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
 
-     <script src="assets/js/script.js"></script>
- </body>
+    <script src="assets/js/script.js"></script>
 
- </html>
+    <script>
+        $(document).ready(function() {
+            if ($("#saleReportTable").length > 0) {
+                if (!$.fn.DataTable.isDataTable("#saleReportTable")) {
+                    $("#saleReportTable").DataTable({
+                        destroy: true,
+                        bFilter: true,
+                        sDom: "fBtlpi",
+                        pagingType: "numbers",
+                        ordering: true,
+                        language: {
+                            search: " ",
+                            sLengthMenu: "_MENU_",
+                            searchPlaceholder: "Search...",
+                            info: "_START_ - _END_ of _TOTAL_ items"
+                        },
+                        initComplete: function(settings, json) {
+                            $(".dataTables_filter").appendTo("#tableSearch");
+                            $(".dataTables_filter").appendTo(".search-input");
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html>

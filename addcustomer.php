@@ -169,7 +169,8 @@ if (isset($_POST['addCustomerBTN'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -195,8 +196,6 @@ if (isset($_POST['addCustomerBTN'])) {
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -232,7 +231,6 @@ if (isset($_POST['addCustomerBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -288,7 +286,7 @@ if (isset($_POST['addCustomerBTN'])) {
                                     <div class="form-group">
                                         <label>Country</label>
                                         <input type="text" id="country" oninput="updateAddress(); capitalizeFirstLetter(this);">
-                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-lg-4 col-sm-6 col-12">
                                     <div class="form-group">
@@ -339,7 +337,7 @@ if (isset($_POST['addCustomerBTN'])) {
                                 </div>
                                 <div class="col-lg-12">
                                     <button type="submit" name="addCustomerBTN" class="btn btn-submit me-2">Submit</a>
-                                    <button type="reset" class="btn btn-cancel">Cancel</a>
+                                        <button type="reset" class="btn btn-cancel">Cancel</a>
                                 </div>
                             </div>
                         </form>

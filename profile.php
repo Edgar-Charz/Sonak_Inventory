@@ -1,42 +1,35 @@
 <?php
-session_start();
 include 'includes/db_connection.php';
+include 'includes/session.php';
 
 // Select user data from session
-if (isset($_SESSION['id'])) {
-    $user_id = $_SESSION['id'];
-    $user_stmt = $conn->prepare("SELECT * FROM users WHERE userId = ?");
-    $user_stmt->bind_param("i", $user_id);
-    $user_stmt->execute();
-    $user_result = $user_stmt->get_result();
-    $user_row = $user_result->fetch_assoc();
-} else {
-    header("Location: signin.php?timeout=true");
-    exit();
-}
+$user_id = $_SESSION['id'];
+$user_stmt = $conn->prepare("SELECT * FROM users WHERE userId = ?");
+$user_stmt->bind_param("i", $user_id);
+$user_stmt->execute();
+$user_result = $user_stmt->get_result();
+$user_row = $user_result->fetch_assoc();
 
 // Handle profile update
 if (isset($_POST['submit_btn'])) {
-    $first_name = trim($_POST['first_name']);
-    $last_name = trim($_POST['last_name']);
     $email = trim($_POST['email']);
-    $phone = trim($_POST['phone_no']);
+    $phone = trim($_POST['phone']);
     $username = trim($_POST['username']);
 
     // Update user data
     $user_stmt = $conn->prepare('UPDATE users 
-                                 SET first_name = ?, last_name = ?, email = ?, phone_no = ?, username = ? 
-                                 WHERE user_id = ?');
-    $user_stmt->bind_param('sssssi', $first_name, $last_name, $email, $phone, $username, $user_id);
+                                 SET username = ?, userPhone = ?, userEmail = ? 
+                                 WHERE userId = ?');
+    $user_stmt->bind_param('sssi', $username, $phone, $email, $user_id);
 
     if ($user_stmt->execute()) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
-                    icon: 'Success',
-                    text: 'Profile updated successfully!'
+                    title: 'Success',
+                    text: 'Profile updated successfully!',
                     timer: 1500,
-                    showConfirmButton: false
+                    showConfirmButton: true
                 }).then(() => {
                     window.location.href = 'profile.php';
                 });
@@ -62,11 +55,7 @@ if (isset($_POST['submit_btn'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <meta name="description" content="POS - Bootstrap Admin Template">
-    <meta name="keywords" content="admin, estimates, bootstrap, business, corporate, creative, invoice, html5, responsive, Projects">
-    <meta name="author" content="Dreamguys - Bootstrap Admin Template">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Dreams Pos admin template</title>
+    <title>Sonak Inventory | Profile</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 
@@ -143,7 +132,8 @@ if (isset($_POST['submit_btn'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -169,8 +159,6 @@ if (isset($_POST['submit_btn'])) {
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -206,7 +194,6 @@ if (isset($_POST['submit_btn'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>

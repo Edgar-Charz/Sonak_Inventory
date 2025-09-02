@@ -43,6 +43,7 @@ if (isset($_POST["loginBTN"])) {
                 $_SESSION['id'] = $user['userId'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['userRole'] = $user['userRole'];
+                $_SESSION['profilePicture'] = $user['userPhoto'] ?? 'assets/img/profiles/avator1.jpg';
                 $_SESSION['login_success'] = true;
 
                 echo "<script>
@@ -55,7 +56,7 @@ if (isset($_POST["loginBTN"])) {
 
                 setTimeout(function() {
                     window.location.href = 'index.php';
-                }, 2000); // 2 seconds delay before redirect
+                }, 1000); 
             });
         </script>";
             } else {

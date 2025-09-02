@@ -8,7 +8,7 @@ if (!isset($_SESSION['username'])) {
 }
 
 // Session timeout logic (10 minutes = 600 seconds)
-$timeout_duration = 600;
+$timeout_duration = 900;
 if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $timeout_duration) {
     session_unset();
     session_destroy();
@@ -35,9 +35,9 @@ if (isset($_SESSION['login_success']) && $_SESSION['login_success']) {
 }
 ?>
 <script>
-    // Config (10 minutes total, show warning 5 minutes before)
-    const timeoutDuration = 600000;   // 10 min
-    const warningTime = 300000;       // 5 min before timeout
+    // Config (15 minutes total, show warning 5 minutes before)
+    const timeoutDuration = 900000;   
+    const warningTime = 300000;       
     const logoutUrl = 'signout.php?reason=timeout';
 
     let countdownShown = false;
@@ -46,7 +46,7 @@ if (isset($_SESSION['login_success']) && $_SESSION['login_success']) {
     function showWarning() {
         if (!countdownShown) {
             countdownShown = true;
-            let secondsLeft = (timeoutDuration - warningTime) / 1000; // 300s (5min)
+            let secondsLeft = (timeoutDuration - warningTime) / 1000; 
 
             const alertBox = document.createElement('div');
             alertBox.id = 'session-alert';

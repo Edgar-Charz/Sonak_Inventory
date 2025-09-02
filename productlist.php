@@ -154,7 +154,8 @@ if (isset($_POST['addProductBTN'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -180,8 +181,6 @@ if (isset($_POST['addProductBTN'])) {
                             <ul>
                                 <li><a href="productlist.php" class="active">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                <li><a href="brandlist.php">Brand List</a></li>
-                                <li><a href="addbrand.php">Add Brand</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -217,7 +216,6 @@ if (isset($_POST['addProductBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -285,16 +283,14 @@ if (isset($_POST['addProductBTN'])) {
                                 <thead>
                                     <tr>
                                         <th>ID</th>
-                                        <th>Product Name</th>
+                                        <th>ProductName</th>
                                         <th>Category</th>
                                         <th>Unit</th>
                                         <th>Type</th>
                                         <th>Qty</th>
                                         <th>Buying</th>
                                         <th>Selling</th>
-                                        <th>Alert</th>
                                         <th>Tax</th>
-                                        <th>Notes</th>
                                         <th>Status</th>
                                         <th>Action</th>
                                     </tr>
@@ -303,12 +299,34 @@ if (isset($_POST['addProductBTN'])) {
                                     <?php
                                     // Fetch all products data from the database
                                     $products_query = $conn->query("SELECT products.*, categories.categoryName, units.unitName
-                                                                            FROM products, categories, units
-                                                                            WHERE categories.categoryId = products.categoryId 
-                                                                            AND units.unitId = products.unitId");
+                                                                                FROM products, categories, units
+                                                                                WHERE categories.categoryId = products.categoryId 
+                                                                                AND units.unitId = products.unitId");
                                     if ($products_query->num_rows > 0) {
                                         while ($product_row = $products_query->fetch_assoc()) {
                                             $product_id = $product_row['productId'];
+                                            $quantity = $product_row['quantity'];
+                                            $quantityAlert = $product_row['quantityAlert'] ?? 0;
+                                            $currentStatus = $product_row['productStatus'];
+
+                                            $newStatus = $currentStatus;
+
+                                            if ($quantity == 0) {
+                                                $newStatus = 0;
+                                            } elseif ($quantity <= $quantityAlert) {
+                                                $newStatus = 2;
+                                            } else {
+                                                $newStatus = 1;
+                                            }
+
+                                            if ($newStatus != $currentStatus) {
+                                                $update_query = $conn->prepare("UPDATE products SET productStatus = ? WHERE productId = ?");
+                                                $update_query->bind_param("ii", $newStatus, $product_id);
+                                                $update_query->execute();
+                                                $update_query->close();
+
+                                                $product_row['productStatus'] = $newStatus;
+                                            }
                                     ?>
                                             <tr>
                                                 <td><?= $product_row['productId']; ?></td>
@@ -319,9 +337,7 @@ if (isset($_POST['addProductBTN'])) {
                                                 <td><?= $product_row['quantity']; ?></td>
                                                 <td><?= number_format($product_row['buyingPrice'], 2); ?></td>
                                                 <td><?= number_format($product_row['sellingPrice'], 2); ?></td>
-                                                <td><?= $product_row['quantityAlert']; ?></td>
-                                                <td><?= $product_row['tax']; ?></td>
-                                                <td><?= $product_row['notes']; ?></td>
+                                                <td><?= $product_row['tax']; ?>%</td>
                                                 <td>
                                                     <?php if ($product_row['productStatus'] == "0") : ?>
                                                         <span class="badges bg-lightred">OutOfStock</span>
@@ -494,8 +510,9 @@ if (isset($_POST['addProductBTN'])) {
                                                     <div class="form-group">
                                                         <label>Product Type</label>
                                                         <select class="select" name="product_type">
-                                                            <option>Choose Brand</option>
-                                                            <option>Brand</option>
+                                                            <option value="" selected disabled>Choose Brand</option>
+                                                            <option>Samsung</option>
+                                                            <option>Panasonic</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -545,13 +562,10 @@ if (isset($_POST['addProductBTN'])) {
                                                 <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Tax</label>
-                                                        <select class="select" name="product_tax">
-                                                            <option>Choose Tax</option>
-                                                            <option>2%</option>
-                                                        </select>
+                                                        <input type="text" name="product_tax">
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-3 col-sm-6 col-12">
+                                                <!-- <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Discount Type</label>
                                                         <select class="select" name="product_discount">
@@ -560,13 +574,7 @@ if (isset($_POST['addProductBTN'])) {
                                                             <option>20%</option>
                                                         </select>
                                                     </div>
-                                                </div>
-                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <label>Price</label>
-                                                        <input type="text">
-                                                    </div>
-                                                </div>
+                                                </div> -->
                                                 <!-- <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label> Status</label>
@@ -623,15 +631,19 @@ if (isset($_POST['addProductBTN'])) {
             }
 
 
-            if ((name === 'product_quantity') && !/^[1-9]\d*$/.test(value)) {
+            if ((name === 'product_quantity' || name === 'product_quantity_alert') && !/^[1-9]\d*$/.test(value)) {
                 return 'Quantity contains only numbers.';
             }
 
-            if ((name === 'product_buying_price || name === product_selling_price') && !/^\d+(\.\d{1,2})?$/.test(value)) {
-                return 'Invalid Price.';
+            if (name === 'product_tax' && !/^[0-9]+$/.test(value)) {
+                return 'Tax contains only numbers.';
             }
 
-            if ((name === 'product_category' || name === 'product_unit') && value === '') {
+            if ((name === 'product_buying_price' || name === 'product_selling_price') && !/^\d+(\.\d{1,2})?$/.test(value)) {
+                return 'Invalid Price. Please enter a valid monetary amount.';
+            }
+
+            if ((name === 'product_category' || name === 'product_unit' || name === 'product_type') && value === '') {
                 return 'Please select an option.';
             }
             return true;
