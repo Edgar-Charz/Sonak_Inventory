@@ -20,7 +20,7 @@ if (isset($_GET['referenceNumber'])) {
     $stmt->execute();
     $result = $stmt->get_result();
     $quotation = $result->fetch_assoc();
- 
+
     if ($quotation) {
         $pdf = new FPDF();
         $pdf->AddPage('P', 'A4');

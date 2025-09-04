@@ -1,14 +1,15 @@
+<?php
+include 'includes/db_connection.php';
+include 'includes/session.php';
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <meta name="description" content="POS - Bootstrap Admin Template">
-    <meta name="keywords" content="admin, estimates, bootstrap, business, corporate, creative, invoice, html5, responsive, Projects">
-    <meta name="author" content="Dreamguys - Bootstrap Admin Template">
-    <meta name="robots" content="noindex, nofollow">
-    <title>Dreams Pos admin template</title>
+    <title>Sonak Inventory | Inventory Report</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 
@@ -60,7 +61,8 @@
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -69,7 +71,8 @@
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -183,7 +186,7 @@
                         <div class="table-top">
                             <div class="search-set">
                                 <div class="search-path">
-                                    <a class="btn btn-filter" id="filter_search">
+                                    <a class="btn btn-filter" id="">
                                         <img src="assets/img/icons/filter.svg" alt="img">
                                         <span><img src="assets/img/icons/closes.svg" alt="img"></span>
                                     </a>
@@ -248,325 +251,46 @@
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table datanew">
+                            <table class="table" id="inventoryReportTable">
                                 <thead>
                                     <tr>
-                                        <th>
-                                            <label class="checkboxs">
-                                                <input type="checkbox" id="select-all">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </th>
+                                        <th>#</th>
                                         <th>Product Name</th>
-                                        <th>SKU</th>
                                         <th>Category</th>
-                                        <th>Brand</th>
-                                        <th>Price</th>
                                         <th>Unit</th>
-                                        <th>Instock qty</th>
+                                        <th>Brand</th>
+                                        <th>BuyingPrice</th>
+                                        <th>SellingPrice</th>
+                                        <th>Instock Qty</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product1.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Macbook pro</a>
-                                        </td>
-                                        <td>PT001</td>
-                                        <td>Computer</td>
-                                        <td>N/D</td>
-                                        <td>1500.00</td>
-                                        <td>pc</td>
-                                        <td>1356</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product2.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Orange</a>
-                                        </td>
-                                        <td>PT002</td>
-                                        <td>Fruits</td>
-                                        <td>N/D</td>
-                                        <td>10.00</td>
-                                        <td>kg</td>
-                                        <td>131</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product3.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Pineapple</a>
-                                        </td>
-                                        <td>PT003</td>
-                                        <td>Fruits</td>
-                                        <td>N/D</td>
-                                        <td>10.00</td>
-                                        <td>kg</td>
-                                        <td>72</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product4.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Strawberry</a>
-                                        </td>
-                                        <td>PT004</td>
-                                        <td>Fruits</td>
-                                        <td>N/D</td>
-                                        <td>10.00</td>
-                                        <td>kg</td>
-                                        <td>100</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product5.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Sunglasses</a>
-                                        </td>
-                                        <td>PT005</td>
-                                        <td>Accessories</td>
-                                        <td>N/D</td>
-                                        <td>10.00</td>
-                                        <td>pc</td>
-                                        <td>100</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product6.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Unpaired gray</a>
-                                        </td>
-                                        <td>PT006</td>
-                                        <td>Shoes</td>
-                                        <td>Adidas</td>
-                                        <td>100.00</td>
-                                        <td>pc</td>
-                                        <td>50</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product7.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Avocat</a>
-                                        </td>
-                                        <td>PT007</td>
-                                        <td>Fruits</td>
-                                        <td>N/D</td>
-                                        <td>5.00</td>
-                                        <td>kg</td>
-                                        <td>29</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product8.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Banana</a>
-                                        </td>
-                                        <td>PT008</td>
-                                        <td>Fruits</td>
-                                        <td>N/D</td>
-                                        <td>10.00</td>
-                                        <td>kg</td>
-                                        <td>24</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product9.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Earphones</a>
-                                        </td>
-                                        <td>PT009</td>
-                                        <td>Computers</td>
-                                        <td>N/D</td>
-                                        <td>15.00</td>
-                                        <td>pc</td>
-                                        <td>11</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product8.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Banana</a>
-                                        </td>
-                                        <td>PT010</td>
-                                        <td>Health Care </td>
-                                        <td>N/D</td>
-                                        <td>5.00</td>
-                                        <td>kg</td>
-                                        <td>16</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product6.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Unpaired gray</a>
-                                        </td>
-                                        <td>PT006</td>
-                                        <td>Shoes</td>
-                                        <td>Adidas</td>
-                                        <td>100.00</td>
-                                        <td>pc</td>
-                                        <td>50</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product7.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Avocat</a>
-                                        </td>
-                                        <td>PT007</td>
-                                        <td>Fruits</td>
-                                        <td>N/D</td>
-                                        <td>5.00</td>
-                                        <td>kg</td>
-                                        <td>29</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product8.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Banana</a>
-                                        </td>
-                                        <td>PT008</td>
-                                        <td>Fruits</td>
-                                        <td>N/D</td>
-                                        <td>10.00</td>
-                                        <td>kg</td>
-                                        <td>24</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product9.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Earphones</a>
-                                        </td>
-                                        <td>PT009</td>
-                                        <td>Computers</td>
-                                        <td>N/D</td>
-                                        <td>15.00</td>
-                                        <td>pc</td>
-                                        <td>11</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <label class="checkboxs">
-                                                <input type="checkbox">
-                                                <span class="checkmarks"></span>
-                                            </label>
-                                        </td>
-                                        <td class="productimgname">
-                                            <a class="product-img">
-                                                <img src="assets/img/product/product8.jpg" alt="product">
-                                            </a>
-                                            <a href="javascript:void(0);">Banana</a>
-                                        </td>
-                                        <td>PT010</td>
-                                        <td>Health Care </td>
-                                        <td>N/D</td>
-                                        <td>5.00</td>
-                                        <td>kg</td>
-                                        <td>16</td>
-                                    </tr>
+                                    <?php
+                                    $inventory_report_stmt = $conn->prepare("SELECT products.*, categories.*, units.* 
+                                                                                        FROM products, categories, units
+                                                                                        WHERE products.categoryId = categories.categoryId
+                                                                                          AND products.unitId = units.unitId");
+                                    $inventory_report_stmt->execute();
+                                    $inventory_result = $inventory_report_stmt->get_result();
+                                    $sn = 0;
+                                    if ($inventory_result->num_rows > 0) {
+                                        while ($row = $inventory_result->fetch_assoc()) {
+                                            $sn++;
+                                    ?>
+                                            <tr>
+                                                <td> <?= $sn; ?></td>
+                                                <td> <?= $row['productName']; ?> </td>
+                                                <td> <?= $row['categoryName']; ?> </td>
+                                                <td> <?= $row['unitName']; ?> </td>
+                                                <td> <?= $row['productType']; ?> </td>
+                                                <td> <?= number_format($row['buyingPrice'], 2); ?> </td>
+                                                <td> <?= number_format($row['sellingPrice'], 2); ?> </td>
+                                                <td> <?= $row['quantity']; ?> </td>
+                                            </tr>
+                                    <?php
+                                        }
+                                    }
+                                    ?>
                                 </tbody>
                             </table>
                         </div>
@@ -601,6 +325,31 @@
     <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
 
     <script src="assets/js/script.js"></script>
+    <script>
+        $(document).ready(function() {
+            if ($("#inventoryReportTable").length > 0) {
+                if (!$.fn.DataTable.isDataTable("#inventoryReportTable")) {
+                    $("#inventoryReportTable").DataTable({
+                        destroy: true,
+                        bFilter: true,
+                        sDom: "fBtlpi",
+                        pagingType: "numbers",
+                        ordering: true,
+                        language: {
+                            search: " ",
+                            sLengthMenu: "_MENU_",
+                            searchPlaceholder: "Search...",
+                            info: "_START_ - _END_ of _TOTAL_ items"
+                        },
+                        initComplete: function(settings, json) {
+                            $(".dataTables_filter").appendTo("#tableSearch");
+                            $(".dataTables_filter").appendTo(".search-input");
+                        }
+                    });
+                }
+            }
+        });
+    </script>
 </body>
 
 </html>

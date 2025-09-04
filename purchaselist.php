@@ -64,7 +64,8 @@ $current_time = $time->format("Y-m-d H:i:s");
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -73,7 +74,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -192,7 +194,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <div class="table-top">
                             <div class="search-set">
                                 <div class="search-path">
-                                    <a class="btn btn-filter" id="filter_search">
+                                    <a class="btn btn-filter" id="">
                                         <img src="assets/img/icons/filter.svg" alt="img">
                                         <span><img src="assets/img/icons/closes.svg" alt="img"></span>
                                     </a>
@@ -308,7 +310,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                             <tr>
                                                 <td> <?= $purchase_row['purchaseUId']; ?> </td>
                                                 <td> <?= $purchase_row['purchaseNumber']; ?> </td>
-                                                <td> <?= $purchase_row['purchaseDate']; ?> </td>
+                                                <td> <?= date('d-m-Y', strtotime($purchase_row['purchaseDate'])); ?> </td>
                                                 <td> <?= !empty($purchase_row['trackingNumber']) ? $purchase_row['trackingNumber'] : 'N/A'; ?> </td>
                                                 <td> <?= $purchase_row['supplierName']; ?> </td>
                                                 <td> <?= !empty($purchase_row['agentName']) ? $purchase_row['agentName'] : 'N/A'; ?> </td>

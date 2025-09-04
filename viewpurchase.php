@@ -73,7 +73,8 @@ $current_time = $time->format("Y-m-d H:i:s");
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -82,7 +83,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -199,7 +201,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <h2>Purchase Number : <?= ($purchase_number); ?></h2>
                             <ul>
                                 <li>
-                                    <a href="javascript:void(0);"><img src="assets/img/icons/edit.svg" alt="img"></a>
+                                    <a href="editpurchase.php?purchaseNumber=<?= $purchase_number; ?>"><img src="assets/img/icons/edit.svg" alt="img"></a>
                                 </li>
                                 <li>
                                     <a href="javascript:void(0);"><img src="assets/img/icons/pdf.svg" alt="img"></a>
@@ -219,7 +221,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                         // Get purchase details
                         $purchase_query = $conn->prepare("SELECT 
                                                 purchases.*, 
-                                                suppliers.*, 
+                                                suppliers.supplierId, suppliers.supplierName, suppliers.supplierEmail, suppliers.supplierPhone, suppliers.supplierAccountNumber, suppliers.supplierAccountHolder,
                                                 u1.username AS purchaser,
                                                 u2.username AS updater
                                             FROM purchases
@@ -304,11 +306,11 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         </tr>
                                                         <tr>
                                                             <td><strong>Created At:</strong></td>
-                                                            <td><?= $purchase_row['created_at']; ?></td>
+                                                            <td><?= date('d/m/Y H:i:s', strtotime($purchase_row['created_at'])); ?></td>
                                                         </tr>
                                                         <tr>
                                                             <td><strong>Updated At:</strong></td>
-                                                            <td><?= $purchase_row['updated_at']; ?></td>
+                                                            <td><?= date('d/m/Y H:i:s', strtotime($purchase_row['updated_at'])); ?></td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
@@ -332,14 +334,14 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <?php
                                                         // Get agent information from purchase details
                                                         $agent_query = $conn->prepare("SELECT DISTINCT 
-                                                                            a.agentName, 
-                                                                            a.agentEmail, 
-                                                                            a.agentPhone,
-                                                                            pd.trackingNumber,
-                                                                            pd.agentTransportationCost
-                                                                        FROM purchase_details pd 
-                                                                        LEFT JOIN agents a ON pd.agentId = a.agentId 
-                                                                        WHERE pd.purchaseNumber = ? AND pd.agentId IS NOT NULL 
+                                                                            agents.agentName, 
+                                                                            agents.agentEmail, 
+                                                                            agents.agentPhone,
+                                                                            purchase_details.trackingNumber,
+                                                                            purchase_details.agentTransportationCost
+                                                                        FROM purchase_details
+                                                                        LEFT JOIN agents ON purchase_details.agentId = agents.agentId 
+                                                                        WHERE purchase_details.purchaseNumber = ? AND purchase_details.agentId IS NOT NULL 
                                                                         LIMIT 1");
                                                         $agent_query->bind_param("s", $purchase_number);
                                                         $agent_query->execute();
@@ -414,7 +416,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                             <td class="text-primary"><strong><?= number_format($purchase_row['totalAmount'], 2); ?></strong></td>
                                                             <td>
                                                                 <?php
-                                                                $transport_query = $conn->prepare("SELECT SUM(agentTransportationCost) as totalTransportCost FROM purchase_details WHERE purchaseNumber = ?");
+                                                                $transport_query = $conn->prepare("SELECT (agentTransportationCost) as totalTransportCost FROM purchase_details WHERE purchaseNumber = ?");
                                                                 $transport_query->bind_param("s", $purchase_number);
                                                                 $transport_query->execute();
                                                                 $transport_result = $transport_query->get_result();
@@ -459,14 +461,14 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <?php
                                                         // Get purchase details and products using prepared statement
                                                         $details_query = $conn->prepare("SELECT 
-                                                                        pd.*, 
-                                                                        p.productName,
-                                                                        a.agentName
-                                                                    FROM purchase_details pd
-                                                                    JOIN products p ON pd.productId = p.productId
-                                                                    LEFT JOIN agents a ON pd.agentId = a.agentId
-                                                                    WHERE pd.purchaseNumber = ?
-                                                                    ORDER BY pd.purchaseDetailsId ASC");
+                                                                        purchase_details.*, 
+                                                                        products.productName,
+                                                                        agents.agentName
+                                                                    FROM purchase_details
+                                                                    JOIN products ON purchase_details.productId = products.productId
+                                                                    LEFT JOIN agents ON purchase_details.agentId = agents.agentId
+                                                                    WHERE purchase_details.purchaseNumber = ?
+                                                                    ORDER BY purchase_details.purchaseDetailsId ASC");
                                                         $details_query->bind_param("s", $purchase_number);
                                                         $details_query->execute();
                                                         $details_result = $details_query->get_result();

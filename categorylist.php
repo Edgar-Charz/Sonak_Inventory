@@ -286,7 +286,7 @@ if (isset($_POST['updateUnitBTN'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <title>Dreams Pos admin template</title>
+    <title>Sonak Inventory | Categories & Units</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 
@@ -334,7 +334,8 @@ if (isset($_POST['updateUnitBTN'])) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -343,7 +344,8 @@ if (isset($_POST['updateUnitBTN'])) {
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">

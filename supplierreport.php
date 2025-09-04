@@ -61,7 +61,8 @@ include 'includes/session.php';
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -70,7 +71,8 @@ include 'includes/session.php';
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -222,63 +224,113 @@ include 'includes/session.php';
                                         </div>
                                     </div>
 
-                                    <div class="card" id="filter_inputs">
-                                        <div class="card-body pb-0">
-                                            <div class="row">
-                                                <div class="col-lg-2 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <div class="input-groupicon">
-                                                            <input type="text" placeholder="From Date" class="datetimepicker">
-                                                            <div class="addonset">
-                                                                <img src="assets/img/icons/calendars.svg" alt="img">
+                                    <!-- Supplier Purchase Report -->
+                                    <?php
+                                    // Filter
+                                    $conditions = [];
+                                    $params = [];
+                                    $types = [];
+
+                                    if (!empty($_GET['from_date'])) {
+                                        $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
+                                        $conditions[] = "purchases.purchase >= ?";
+                                        $params[] = $fromDate;
+                                        $types .= "s";
+                                    }
+                                    if(!empty($_GET['to_date'])) {
+                                        $toDate = date('Y-m-d', strtotime($_GET['to_date']));
+                                        $conditions[] = "purchases.purchaseDate <= ?";
+                                        $params[] = $toDate;
+                                        $types .= "s";
+                                    }
+
+                                    $whereClause = !empty($conditions) ? implode("AND", $conditions) : "1=1";
+
+                                    // Query
+                                    $supplier_purchase_stmt = $conn->prepare("SELECT purchases.purchaseNumber, purchases.purchaseDate, suppliers.*, purchase_details.*, products.productName
+                                                                                            FROM purchases, suppliers, purchase_details, products
+                                                                                            WHERE purchases.purchaseNumber = purchase_details.purchaseNumber 
+                                                                                                AND purchases.supplierId = suppliers.supplierId
+                                                                                                AND purchase_details.productId = products.productId
+                                                                                                AND $whereClause
+                                                                                            ORDER BY purchases.purchaseUId DESC");
+                                    if (!empty($params)) {
+                                        $supplier_purchase_stmt->bind_param($types, $params);
+                                    }
+                                    $supplier_purchase_stmt->execute();
+                                    $supplier_purchase_result = $supplier_purchase_stmt->get_result();
+                                    ?>
+                                    <form method="GET" action="supplierreport.php">
+                                        <div class="card" id="filter_inputs">
+                                            <div class="card-body pb-0">
+                                                <div class="row">
+                                                    <div class="col-lg-2 col-sm-6 col-12">
+                                                        <div class="form-group">
+                                                            <div class="input-groupicon">
+                                                                <input type="text" name="from_date" value="<?= $_GET['from_date'] ?? '' ?>" placeholder="From Date" class="datetimepicker">
+                                                                <div class="addonset">
+                                                                    <img src="assets/img/icons/calendars.svg" alt="img">
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div class="col-lg-2 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <div class="input-groupicon">
-                                                            <input type="text" placeholder="To Date" class="datetimepicker">
-                                                            <div class="addonset">
-                                                                <img src="assets/img/icons/calendars.svg" alt="img">
+                                                    <div class="col-lg-2 col-sm-6 col-12">
+                                                        <div class="form-group">
+                                                            <div class="input-groupicon">
+                                                                <input type="text" name="to_date" value="<?= $_GET['to_date'] ?? '' ?>" placeholder="To Date" class="datetimepicker">
+                                                                <div class="addonset">
+                                                                    <img src="assets/img/icons/calendars.svg" alt="img">
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div class="col-lg-1 col-sm-6 col-12 ms-auto">
-                                                    <div class="form-group">
-                                                        <a class="btn btn-filters ms-auto"><img src="assets/img/icons/search-whites.svg" alt="img"></a>
+                                                    <div class="col-lg-1 col-sm-6 col-12 ms-auto">
+                                                        <div class="form-group">
+                                                            <a class="btn btn-filters ms-auto"><img src="assets/img/icons/search-whites.svg" alt="img"></a>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </form>
 
                                     <div class="table-responsive">
                                         <table class="table" id="purchaseReportTable">
                                             <thead>
                                                 <tr>
-                                                    <th>purchased Date</th>
-                                                    <th>pRODUCT nAME</th>
-                                                    <th>Purchased amount</th>
-                                                    <th>purchased QTY</th>
+                                                    <th>Purchased Date</th>
+                                                    <th>Product Name</th>
+                                                    <th>Purchased Amount</th>
+                                                    <th>Purchased QTY</th>
+                                                    <th>Paid</th>
+                                                    <th>Balance</th>
                                                     <th>Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr>
-                                                    <td>07/12/2021 06:58:25</td>
-                                                    <td>Macbook pro</td>
-                                                    <td>38698.00</td>
-                                                    <td>1248</td>
-                                                    <td>0.00</td>
-                                                    <td>38698.00</td>
-                                                    <td><span class="badges bg-lightgrey">Recieved</span></td>
-                                                </tr>
+                                                <?php
+                                                if ($supplier_purchase_result->num_rows > 0) {
+                                                    while ($row = $supplier_purchase_result->fetch_assoc()) {
+                                                        echo "<tr>
+                                                    <td>" . date('d-m-Y', strtotime($row['purchaseDate'])) . "</td>
+                                                    <td>" . $row['productName'] . "</td>
+                                                    <td>" . number_format($row['totalCost']) . "</td>
+                                                    <td>" . $row['quantity'] . "</td>
+                                                    <td>" . $row['purchaseDate'] . "</td>
+                                                    <td>" . $row['purchaseDate'] . "</td>
+                                                    <td><span class='badges bg-lightgrey''>" . $row['purchaseDate'] . "</span></td>
+                                                </tr>";
+                                                    }
+                                                } else {
+                                                    echo "<tr><td colspan='7' class='text-center'></td></tr>";
+                                                }
+                                                $supplier_purchase_stmt->close();
+                                                ?>
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
+
                                 <div class="tab-pane fade" id="payment" role="tabpanel">
                                     <div class="table-top">
                                         <div class="search-set">
@@ -343,6 +395,12 @@ include 'includes/session.php';
                                         <table class="table" id="purchasePaymentReportTable">
                                             <thead>
                                                 <tr>
+                                                    <th>
+                                                        <label class="checkboxs">
+                                                            <input type="checkbox">
+                                                            <span class="checkmarks"></span>
+                                                        </label>
+                                                    </th>
                                                     <th>DATE</th>
                                                     <th>Purchase</th>
                                                     <th>Reference</th>
@@ -354,6 +412,12 @@ include 'includes/session.php';
                                             </thead>
                                             <tbody>
                                                 <tr>
+                                                    <td>
+                                                        <label class="checkboxs">
+                                                            <input type="checkbox">
+                                                            <span class="checkmarks"></span>
+                                                        </label>
+                                                    </td>
                                                     <td>2022-03-10 </td>
                                                     <td>PR_1001</td>
                                                     <td>INV/PR_1001</td>
@@ -430,6 +494,12 @@ include 'includes/session.php';
                                         <table class="table" id="purchaseReturnTable">
                                             <thead>
                                                 <tr>
+                                                    <th>
+                                                        <label class="checkboxs">
+                                                            <input type="checkbox">
+                                                            <span class="checkmarks"></span>
+                                                        </label>
+                                                    </th>
                                                     <th>Reference</th>
                                                     <th>Supplier name </th>
                                                     <th>Amount</th>
@@ -441,6 +511,12 @@ include 'includes/session.php';
                                             </thead>
                                             <tbody>
                                                 <tr>
+                                                    <td>
+                                                        <label class="checkboxs">
+                                                            <input type="checkbox">
+                                                            <span class="checkmarks"></span>
+                                                        </label>
+                                                    </td>
                                                     <td>RT_1001</td>
                                                     <td>Thomas21</td>
                                                     <td>1500.00</td>
@@ -460,6 +536,7 @@ include 'includes/session.php';
 
             </div>
         </div>
+
 
         <div class="searchpart">
             <div class="searchcontent">

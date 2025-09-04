@@ -139,7 +139,8 @@ if (isset($_POST['paymentBTN'])) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -148,7 +149,8 @@ if (isset($_POST['paymentBTN'])) {
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -265,7 +267,7 @@ if (isset($_POST['paymentBTN'])) {
                         <div class="table-top">
                             <div class="search-set">
                                 <div class="search-path">
-                                    <a class="btn btn-filter" id="filter_search">
+                                    <a class="btn btn-filter" id="">
                                         <img src="assets/img/icons/filter.svg" alt="img">
                                         <span><img src="assets/img/icons/closes.svg" alt="img"></span>
                                     </a>

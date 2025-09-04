@@ -281,7 +281,7 @@ $(document).ready(function () {
     $(".searchinputs").removeClass("show");
   });
   $(document).on("click", "#filter_search", function () {
-    $("#filter_inputs").slideToggle("slow");
+    $("#filter_inputs").slideToggle("fast");
   });
   $(document).on("click", "#filter_search1", function () {
     $("#filter_inputs1").slideToggle("slow");

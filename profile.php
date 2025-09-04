@@ -2,27 +2,71 @@
 include 'includes/db_connection.php';
 include 'includes/session.php';
 
-// Select user data from session
+// Ensure user is logged in
+if (!isset($_SESSION['id'])) {
+    header("Location: login.php");
+    exit();
+}
+
 $user_id = $_SESSION['id'];
+
+// Fetch user data
 $user_stmt = $conn->prepare("SELECT * FROM users WHERE userId = ?");
 $user_stmt->bind_param("i", $user_id);
 $user_stmt->execute();
 $user_result = $user_stmt->get_result();
 $user_row = $user_result->fetch_assoc();
 
-// Handle profile update
+// Handle profile update (details + photo)
 if (isset($_POST['submit_btn'])) {
     $email = trim($_POST['email']);
     $phone = trim($_POST['phone']);
     $username = trim($_POST['username']);
 
-    // Update user data
-    $user_stmt = $conn->prepare('UPDATE users 
-                                 SET username = ?, userPhone = ?, userEmail = ? 
-                                 WHERE userId = ?');
-    $user_stmt->bind_param('sssi', $username, $phone, $email, $user_id);
+    // --- Update Profile Picture if provided ---
+    $newFileName = $user_row['userPhoto']; // Keep old photo if no new upload
+    if (isset($_FILES["profile_photo"]) && $_FILES["profile_photo"]["error"] != UPLOAD_ERR_NO_FILE) {
+        $targetDir = "assets/img/profiles/";
+        $imageFileType = strtolower(pathinfo($_FILES["profile_photo"]["name"], PATHINFO_EXTENSION));
+        $check = getimagesize($_FILES["profile_photo"]["tmp_name"]);
 
-    if ($user_stmt->execute()) {
+        if ($check !== false) {
+            $newFileName = "user_" . $user_id . "_" . time() . "." . $imageFileType;
+            $newFilePath = $targetDir . $newFileName;
+
+            if (move_uploaded_file($_FILES["profile_photo"]["tmp_name"], $newFilePath)) {
+                $_SESSION['profilePicture'] = $newFileName; // Update session immediately
+            } else {
+                echo "<script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        Swal.fire({
+                            icon: 'error',
+                            text: 'Failed to upload profile picture.'
+                        });
+                    });
+                </script>";
+                exit();
+            }
+        } else {
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    Swal.fire({
+                        icon: 'error',
+                        text: 'Invalid image file.'
+                    });
+                });
+            </script>";
+            exit();
+        }
+    }
+
+    // Update user data
+    $update_stmt = $conn->prepare('UPDATE users 
+                                   SET username = ?, userPhone = ?, userEmail = ?, userPhoto = ? 
+                                   WHERE userId = ?');
+    $update_stmt->bind_param('ssssi', $username, $phone, $email, $newFileName, $user_id);
+
+    if ($update_stmt->execute()) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
@@ -45,9 +89,10 @@ if (isset($_POST['submit_btn'])) {
             });
         </script>";
     }
-    $user_stmt->close();
+    $update_stmt->close();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -103,17 +148,21 @@ if (isset($_POST['submit_btn'])) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($user_row['userPhoto']) ? 'assets/img/profiles/' . $user_row['userPhoto'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
+
 
                     <!-- User Profile -->
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.svg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($user_row['userPhoto']) ? 'assets/img/profiles/' . $user_row['userPhoto'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
+                                </span>
                                 </span>
                                 <div class="profilesets">
                                     <?php if (isset($_SESSION['username']) && isset($_SESSION['userRole'])) { ?>
@@ -223,30 +272,36 @@ if (isset($_POST['submit_btn'])) {
 
                 <div class="card">
                     <div class="card-body">
-                        <div class="profile-set">
-                            <div class="profile-head">
-                            </div>
-                            <div class="profile-top">
-                                <div class="profile-content">
-                                    <div class="profile-contentimg">
-                                        <img src="assets/img/profiles/avator.jpg" alt="img" id="blah">
-                                        <div class="profileupload">
-                                            <input type="file" id="imgInp">
-                                            <a href="javascript:void(0);"><img src="assets/img/icons/edit-set.svg" alt="img"></a>
+
+                        <form action="" method="POST" enctype="multipart/form-data">
+                            <div class="profile-set">
+                                <div class="profile-head">
+                                </div>
+                                <div class="profile-top">
+                                    <div class="profile-content">
+                                        <div class="profile-contentimg">
+                                            <img src="<?= !empty($user_row['userPhoto']) ? 'assets/img/profiles/' . $user_row['userPhoto'] : 'assets/img/profiles/avator1.jpg' ?>" alt="img" id="blah">
+                                            <div class="profileupload">
+                                                <input type="file" name="profile_photo" id="imgInp" accept="image/*">
+                                                <a href="javascript:void(0);">
+                                                    <img src="assets/img/icons/edit-set.svg" alt="img">
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="profile-contentname">
+                                            <h2><?= ($user_row['username']) ?></h2>
+                                            <h4>Update your photo and personal details.</h4>
                                         </div>
                                     </div>
-                                    <div class="profile-contentname">
-                                        <h2><?= $user_row['username'] ?></h2>
-                                        <h4>Updates Your Photo and Personal Details.</h4>
-                                    </div>
+                                    <!-- <div class="ms-auto">
+                                        <button type="submit" name="upload_photo" class="btn btn-submit me-2">Save Photo</button>
+                                        <a href="javascript:void(0);" class="btn btn-cancel">Cancel</a>
+                                    </div> -->
                                 </div>
-                                <div class="ms-auto">
-                                    <a href="javascript:void(0);" class="btn btn-submit me-2">Save</a>
-                                    <a href="javascript:void(0);" class="btn btn-cancel">Cancel</a>
-                                </div>
+                                <!-- </form> -->
+
                             </div>
-                        </div>
-                        <form id="profile_form" method="POST" action="">
+                            <!-- <form id="profile_form" method="POST" action=""> -->
                             <div class="row">
                                 <div class="col-lg-6 col-sm-12">
                                     <div class="form-group">
@@ -278,7 +333,6 @@ if (isset($_POST['submit_btn'])) {
             </div>
         </div>
     </div>
-
 
     <script src="assets/js/jquery-3.6.0.min.js"></script>
 

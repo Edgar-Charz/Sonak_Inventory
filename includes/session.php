@@ -7,15 +7,21 @@ if (!isset($_SESSION['username'])) {
     exit();
 }
 
-// Session timeout logic (10 minutes = 600 seconds)
+// Session timeout configuration (15 minutes = 900 seconds)
 $timeout_duration = 900;
+
 if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > $timeout_duration) {
     session_unset();
     session_destroy();
     header("Location: signin.php?reason=timeout");
     exit();
 }
+
 $_SESSION['last_activity'] = time();
+
+// Calculate remaining time for JavaScript (in milliseconds)
+$remaining_time = $timeout_duration * 1000;
+$warning_time = 30000; // 30 seconds before timeout
 
 // SweetAlert welcome message
 if (isset($_SESSION['login_success']) && $_SESSION['login_success']) {
@@ -34,20 +40,22 @@ if (isset($_SESSION['login_success']) && $_SESSION['login_success']) {
     </script>";
 }
 ?>
+
 <script>
-    // Config (15 minutes total, show warning 5 minutes before)
-    const timeoutDuration = 900000;   
-    const warningTime = 300000;       
+    // Synchronized timeout configuration
+    let timeoutDuration = <?php echo $remaining_time; ?>;
+    const warningTime = <?php echo $warning_time; ?>;
     const logoutUrl = 'signout.php?reason=timeout';
 
     let countdownShown = false;
     let warningTimer;
+    let logoutTimer;
 
+    // Function to show warning
     function showWarning() {
         if (!countdownShown) {
             countdownShown = true;
-            let secondsLeft = (timeoutDuration - warningTime) / 1000; 
-
+            let secondsLeft = warningTime / 1000;
             const alertBox = document.createElement('div');
             alertBox.id = 'session-alert';
             alertBox.style.position = 'fixed';
@@ -65,7 +73,6 @@ if (isset($_SESSION['login_success']) && $_SESSION['login_success']) {
             const countdown = setInterval(() => {
                 secondsLeft--;
                 alertBox.innerText = `Session will expire in ${secondsLeft} seconds...`;
-
                 if (secondsLeft <= 0) {
                     clearInterval(countdown);
                     window.location.href = logoutUrl;
@@ -74,21 +81,27 @@ if (isset($_SESSION['login_success']) && $_SESSION['login_success']) {
         }
     }
 
-    function resetTimer() {
+    // Function to start timers
+    function startTimers() {
         clearTimeout(warningTimer);
+        clearTimeout(logoutTimer);
         countdownShown = false;
-
-        const existingAlert = document.querySelector('#session-alert');
-        if (existingAlert) existingAlert.remove();
+        const alertBox = document.getElementById('session-alert');
+        if (alertBox) alertBox.remove();
 
         warningTimer = setTimeout(showWarning, timeoutDuration - warningTime);
+        logoutTimer = setTimeout(() => {
+            window.location.href = logoutUrl;
+        }, timeoutDuration);
     }
 
-    // Reset timer on user activity
-    ['click', 'mousemove', 'keypress', 'scroll'].forEach(evt =>
-        document.addEventListener(evt, resetTimer)
-    );
+    // Reset timers on user activity
+    ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(event => {
+        document.addEventListener(event, () => {
+            startTimers();
+        });
+    });
 
-    // Start the warning timer
-    warningTimer = setTimeout(showWarning, timeoutDuration - warningTime);
+    // Start initial timers
+    startTimers();
 </script>

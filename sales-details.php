@@ -72,7 +72,8 @@ $current_time = $time->format("Y-m-d H:i:s");
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -81,7 +82,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -198,7 +200,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <h2>Invoice Number : <?= $invoice_number; ?></h2>
                             <ul>
                                 <li>
-                                    <a href="javascript:void(0);"><img src="assets/img/icons/edit.svg" alt="img"></a>
+                                    <a href="edit-sales.php?invoiceNumber=<?= $invoice_number; ?>"><img src="assets/img/icons/edit.svg" alt="img"></a>
                                 </li>
                                 <li>
                                     <a href="javascript:void(0);"><img src="assets/img/icons/pdf.svg" alt="img"></a>
@@ -228,7 +230,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                     // Get order 
                                                     $order_query = $conn->prepare("SELECT 
                                                                 orders.*, 
-                                                                customers.*, 
+                                                                customers.customerId, customers.customerName, customers.customerEmail, customers.customerPhone, customers.customerAddress,
                                                                 u1.username AS biller,
                                                                 u2.username AS updater
                                                             FROM orders
@@ -300,7 +302,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         </tr>
                                                         <tr>
                                                             <td><strong>Order Date:</strong></td>
-                                                            <td><?= $order_row['orderDate']; ?></td>
+                                                            <td><?= date('d-m-Y', strtotime($order_row['orderDate']));  ?></td>
                                                         </tr>
                                                         <!-- <tr>
                                                             <td><strong>Created At:</strong></td>
@@ -308,7 +310,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         </tr> -->
                                                         <tr>
                                                             <td><strong>Updated At:</strong></td>
-                                                            <td><?= $order_row['updated_at']; ?></td>
+                                                            <td><?= date('d-m-Y H:i:s', strtotime($order_row['updated_at'])); ?></td>
                                                         </tr>
                                                         <!-- <tr>
                                                             <td><strong>Invoice Number:</strong></td>
@@ -344,32 +346,35 @@ $current_time = $time->format("Y-m-d H:i:s");
                                         <div class="table-responsive">
                                             <table class="table table-striped mb-0">
                                                 <thead>
-                                                    <tr>
-                                                        <th>Total Products</th>
-                                                        <th>SubTotal</th>
-                                                        <th>Order VAT(%)</th>
-                                                        <th>Total</th>
-                                                        <th>Paid</th>
-                                                        <th>Due</th>
-                                                        <th>Status</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
                                                     <?php
                                                     if (isset($order_row)) {
                                                     ?>
                                                         <tr>
-                                                            <td><?= $order_row['totalProducts']; ?></td>
-                                                            <td class="text-primary"><strong>Tsh: <?= number_format($order_row['subTotal'], 2); ?></strong></td>
-                                                            <td><?= $order_row['vat']; ?>%</td>
-                                                            <td class="text-primary"><strong>Tsh: <?= number_format($order_row['total'], 2); ?></strong></td>
-                                                            <td class="text-success"><strong>Tsh: <?= number_format($order_row['paid'], 2); ?></strong></td>
-                                                            <td class="text-danger"><strong>Tsh: <?= number_format($order_row['due'], 2); ?></strong></td>
-                                                            <td> <?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : 'Cancelled'); ?> </td>
+                                                            <th>Shipping</th>
+                                                            <th>SubTotal</th>
+                                                            <th>Order VAT(<?= $order_row['vat']; ?>%)</th>
+                                                            <th>Discount(<?= $order_row['discount']; ?>%)</th>
+                                                            <th>Total</th>
+                                                            <th>Paid</th>
+                                                            <th>Due</th>
+                                                            <th>Status</th>
                                                         </tr>
-                                                    <?php
+                                                </thead>
+                                                <tbody>
+
+                                                    <tr>
+                                                        <td><?= $order_row['shippingAmount']; ?></td>
+                                                        <td class="text-primary"><strong>Tsh: <?= number_format($order_row['subTotal'], 2); ?></strong></td>
+                                                        <td><?= number_format($order_row['vatAmount'], 2); ?></td>
+                                                        <td><?= number_format($order_row['discountAmount'], 2); ?></td>
+                                                        <td class="text-primary"><strong>Tsh: <?= number_format($order_row['total'], 2); ?></strong></td>
+                                                        <td class="text-success"><strong>Tsh: <?= number_format($order_row['paid'], 2); ?></strong></td>
+                                                        <td class="text-danger"><strong>Tsh: <?= number_format($order_row['due'], 2); ?></strong></td>
+                                                        <td> <?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : 'Cancelled'); ?> </td>
+                                                    </tr>
+                                                <?php
                                                     }
-                                                    ?>
+                                                ?>
                                                 </tbody>
                                             </table>
                                         </div>
@@ -395,8 +400,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <th>Quantity</th>
                                                         <th>Unit Cost</th>
                                                         <th>Total Cost</th>
-                                                        <th>Discount</th>
-                                                        <th>TAX</th>
+                                                        <!-- <th>Discount</th>
+                                                        <th>TAX</th> -->
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -422,17 +427,17 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                 <?= $detail['quantity']; ?>
                                                             </td>
                                                             <td style="padding: 10px;vertical-align: top;">
-                                                                <?= $detail['unitCost']; ?>
+                                                                <?= number_format($detail['unitCost'], 2); ?>
                                                             </td>
                                                             <td style="padding: 10px;vertical-align: top;">
-                                                                <?= $detail['totalCost']; ?>
+                                                                <?= number_format($detail['totalCost'], 2); ?>
                                                             </td>
-                                                            <td style="padding: 10px;vertical-align: top;">
+                                                            <!-- <td style="padding: 10px;vertical-align: top;">
                                                                 <?= $detail['discount'] ?? '-'; ?>
                                                             </td>
                                                             <td style="padding: 10px;vertical-align: top;">
                                                                 <?= $detail['tax']; ?>%
-                                                            </td>
+                                                            </td> -->
                                                         </tr>
                                                     <?php
                                                     }

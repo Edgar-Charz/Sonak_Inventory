@@ -12,22 +12,32 @@ if (isset($_POST['restPasswordBTN'])) {
         $result = $stmt->get_result();
 
         if ($result->num_rows === 1) {
-            echo "<script>
+            // Hash the default Password
+            $defaultPassword = password_hash("1234", PASSWORD_DEFAULT);
+
+            // Reset the password
+            $reset_password_stmt = $conn->prepare("UPDATE users 
+                                                        SET userPassword = ? 
+                                                        WHERE userEmail = ? AND userPhone = ?");
+            $reset_password_stmt->bind_param("sss", $defaultPassword, $email, $phone);
+            if ($reset_password_stmt->execute()) {
+                echo "<script>
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
-                        icon: 'success',
-                        text: 'A reset password link has been sent to your email.',
-                        timer: 3000
+                        // icon: 'success',
+                        title: 'Success!',
+                        text: 'Your password has been successfully set to 1234.',
+                        timer: 5000
                     }).then(function() {
                         window.location.href = 'signin.php';
                     });
                 });
             </script>";
-        } else {
-            echo "<script>
+            } else {
+                echo "<script>
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
-                        icon: 'error',
+                        // icon: 'error',
                         text: 'Email and phone combination not found.',
                         timer: 3000
                     }).then(function() {
@@ -35,9 +45,9 @@ if (isset($_POST['restPasswordBTN'])) {
                     });                   
                 });
             </script>";
-        }
-    } else {
-        echo "<script>
+            }
+        } else {
+            echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
                     icon: 'error',
@@ -48,6 +58,7 @@ if (isset($_POST['restPasswordBTN'])) {
                 });
             });
         </script>";
+        }
     }
 }
 ?>
@@ -59,7 +70,6 @@ if (isset($_POST['restPasswordBTN'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <meta name="robots" content="noindex, nofollow">
     <title>Login - Sonak Inventory</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
@@ -118,9 +128,6 @@ if (isset($_POST['restPasswordBTN'])) {
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="login-img">
-                    <img src="assets/img/login.jpg" alt="img">
                 </div>
             </div>
         </div>

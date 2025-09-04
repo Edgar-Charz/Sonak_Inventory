@@ -31,14 +31,32 @@ if (isset($_POST['addUserBTN'])) {
                     text: 'User with this email already exists!'
                 }).then(function(){
                     window.location.href = 'userlist.php';
-               });
+                });
             });
         </script>";
     } else {
         $password = password_hash($password, PASSWORD_DEFAULT);
-        // Insert new user
-        $insert_stmt = $conn->prepare("INSERT INTO users (username, userPhone, userEmail, userPassword, userRole, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $insert_stmt->bind_param("sssssss", $username, $phone, $email, $password, $role, $current_time, $current_time);
+
+        // --- Handle image upload (optional) ---
+        $userPhoto = null;
+        if (isset($_FILES["image"]) && $_FILES["image"]["error"] != UPLOAD_ERR_NO_FILE) {
+            $targetDir = "assets/img/profiles/";
+            $imageFileType = strtolower(pathinfo($_FILES["image"]["name"], PATHINFO_EXTENSION));
+            $check = getimagesize($_FILES["image"]["tmp_name"]);
+
+            if ($check !== false) {
+                $newFileName = "user_" . time() . "." . $imageFileType;
+                $newFilePath = $targetDir . $newFileName;
+
+                if (move_uploaded_file($_FILES["image"]["tmp_name"], $newFilePath)) {
+                    $userPhoto = $newFileName;
+                }
+            }
+        }
+
+        // --- Insert new user (with or without image) ---
+        $insert_stmt = $conn->prepare("INSERT INTO users (username, userPhone, userEmail, userPassword, userRole, userPhoto, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $insert_stmt->bind_param("ssssssss", $username, $phone, $email, $password, $role, $userPhoto, $current_time, $current_time);
 
         if ($insert_stmt->execute()) {
             echo "<script>
@@ -47,9 +65,9 @@ if (isset($_POST['addUserBTN'])) {
                         icon: 'success',
                         text: 'User added successfully!'
                     }).then(function(){
-                    window.location.href = 'userlist.php';
-               });
-            });
+                        window.location.href = 'userlist.php';
+                    });
+                });
             </script>";
         } else {
             echo "<script>
@@ -58,14 +76,13 @@ if (isset($_POST['addUserBTN'])) {
                         icon: 'error',
                         text: 'Error adding user. Please try again.'
                     }).then(function(){
-                    window.location.href = 'userlist.php';
-               });
-             });
+                        window.location.href = 'userlist.php';
+                    });
+                });
             </script>";
         }
     }
-}
-?>
+} ?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -123,7 +140,8 @@ if (isset($_POST['addUserBTN'])) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -132,7 +150,8 @@ if (isset($_POST['addUserBTN'])) {
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.svg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -152,7 +171,8 @@ if (isset($_POST['addUserBTN'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -178,7 +198,7 @@ if (isset($_POST['addUserBTN'])) {
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                </ul>
+                            </ul>
                         </li>
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
@@ -251,7 +271,7 @@ if (isset($_POST['addUserBTN'])) {
                         <div class="table-top">
                             <div class="search-set">
                                 <div class="search-path">
-                                    <a class="btn btn-filter" id="filter_search">
+                                    <a class="btn btn-filter" id="">
                                         <img src="assets/img/icons/filter.svg" alt="img">
                                         <span><img src="assets/img/icons/closes.svg" alt="img"></span>
                                     </a>
@@ -338,7 +358,7 @@ if (isset($_POST['addUserBTN'])) {
                                                 <td><?= $user_row['userId']; ?></td>
                                                 <td class="productimgname">
                                                     <a href="javascript:void(0);" class="product-img">
-                                                        <img src="assets/img/customer/customer1.jpg" alt="product">
+                                                        <img src="assets/img/profiles/<?= $user_row['userPhoto'] ?>" alt="product">
                                                     </a>
                                                 </td>
                                                 <td><?= $user_row['username']; ?></td>

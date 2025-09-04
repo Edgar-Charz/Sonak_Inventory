@@ -9,147 +9,150 @@ $user_id = $_SESSION['id'];
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
+// Check if the addQuotationBTN was clicked
 if (isset($_POST['addQuotationBTN'])) {
-    $referenceNumber    = $_POST['reference_number'];
-    $customerId         = $_POST['customer_name'];
-    $quotationDate      = DateTime::createFromFormat('d-m-Y', $_POST['quotation_date'])->format('Y-m-d');
-    $subTotal           = $_POST['sub_total'];
-    $vat                = $_POST['vat'];
-    $vatAmount          = $_POST['vat_amount'];
-    $discount           = $_POST['discount'];
-    $discountAmount     = $_POST['discount_amount'];
-    $shippingAmount     = $_POST['shipping_amount'];
-    $grandTotal         = $_POST['total_amount'];
-    $note               = $_POST['note'];
-    // $quotationStatus    = $_POST['quotation_status'];
-    $totalProducts  = $_POST['total_products'];
-    $products       = $_POST['products'];
 
-    // Check if invoice exists
-    $check = $conn->prepare("SELECT totalAmount, totalProducts 
-                                        FROM quotations 
-                                        WHERE referenceNumber = ?");
-    $check->bind_param("s", $referenceNumber);
-    $check->execute();
-    $result = $check->get_result();
+    $conn->begin_transaction();
 
-    if ($result->num_rows > 0) {
-        // Reference Number exists → update quotation
-        $row = $result->fetch_assoc();
-        $newTotal = $row['totalAmount'] + $grandTotal;
-        $newTotalProducts = $row['totalProducts'] + $totalProducts;
+    try {
+        $referenceNumber    = $_POST['reference_number'];
+        $customerId         = $_POST['customer_name'];
+        $quotationDate      = DateTime::createFromFormat('d-m-Y', $_POST['quotation_date'])->format('Y-m-d');
+        $subTotal           = $_POST['sub_total'];
+        $vat                = $_POST['vat'];
+        $vatAmount          = $_POST['vat_amount'];
+        $discount           = $_POST['discount'];
+        $discountAmount     = $_POST['discount_amount'];
+        $shippingAmount     = $_POST['shipping_amount'];
+        $grandTotal         = $_POST['total_amount'];
+        $note               = $_POST['note'];
+        $totalProducts      = $_POST['total_products'];
+        $products           = $_POST['products'];
 
-        $update = $conn->prepare("UPDATE quotations
-                                            SET customerId = ?, updatedBy = ?, totalProducts = totalProducts + ?, subTotal = subTotal + ?, taxPercentage = ?, taxAmount = taxAmount + ?, discountPercentage = ?, discountAmount = discountAmount + ?, shippingAmount = ?, totalAmount = ?, note = ?, updated_at = ?
-                                            WHERE referenceNumber = ?");
-        $update->bind_param(
-            "iiidididddsss",
-            $customerId,
-            $user_id,
-            $newTotalProducts,
-            $subTotal,
-            $vat,
-            $vatAmount,
-            $discount,
-            $discountAmount,
-            $shippingAmount,
-            $newTotal,
-            $note,
-            $current_time,
-            $referenceNumber
-        );
-        $update->execute();
-        $update->close();
-    } else {
-        // Invoice does not exist → insert new order
-        $insertQuotation = $conn->prepare("INSERT INTO quotations 
-            (referenceNumber, customerId, createdBy, updatedBy, quotationDate, totalProducts, subTotal, taxPercentage, taxAmount, discountPercentage, discountAmount, shippingAmount, totalAmount, note, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $insertQuotation->bind_param(
-            "siiisidididddsss",
-            $referenceNumber,
-            $customerId,
-            $user_id,
-            $user_id,
-            $quotationDate,
-            $totalProducts,
-            $subTotal,
-            $vat,
-            $vatAmount,
-            $discount,
-            $discountAmount,
-            $shippingAmount,
-            $grandTotal,
-            $note,
-            $current_time,
-            $current_time
-        );
-        $insertQuotation->execute();
-        $insertQuotation->close();
-    }
-
-    $check->close();
-
-    // Insert/Update quotations details (for each product row)
-    foreach ($products as $p) {
-        $productId   = $p['product_id'];
-        $unitPrice   = $p['unit_cost'];
-        $quantity    = $p['quantity'];
-        $totalCost   = $p['total_cost'];
-
-        // Check if this product already exists in quotation_details for this referenceNumber
-        $checkDetail = $conn->prepare("SELECT quotationDetailsId, quantity, subTotal 
-                                   FROM quotation_details 
-                                   WHERE referenceNumber = ? AND productId = ?");
-        $checkDetail->bind_param("si", $referenceNumber, $productId);
-        $checkDetail->execute();
-        $result = $checkDetail->get_result();
+        // Check if reference number exists
+        $check = $conn->prepare("SELECT totalAmount, totalProducts FROM quotations WHERE referenceNumber = ?");
+        $check->bind_param("s", $referenceNumber);
+        $check->execute();
+        $result = $check->get_result();
 
         if ($result->num_rows > 0) {
-            // Already exists → update quantity and totalCost
             $row = $result->fetch_assoc();
-            $newQuantity = $row['quantity'] + $quantity;
-            $newTotal    = $row['subTotal'] + $totalCost;
+            $newTotal = $row['totalAmount'] + $grandTotal;
+            $newTotalProducts = $row['totalProducts'] + $totalProducts;
 
-            $updateDetail = $conn->prepare("UPDATE quotation_details 
-                                        SET quantity = ?, subTotal = ?, updated_at = ? 
-                                        WHERE quotationDetailsId = ?");
-            $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['quotationDetailsId']);
-            $updateDetail->execute();
-            $updateDetail->close();
+            $update = $conn->prepare("UPDATE quotations
+                SET customerId = ?, updatedBy = ?, totalProducts = ?, subTotal = subTotal + ?, taxPercentage = ?, taxAmount = taxAmount + ?, discountPercentage = ?, discountAmount = discountAmount + ?, shippingAmount = ?, totalAmount = ?, note = ?, updated_at = ?
+                WHERE referenceNumber = ?");
+            $update->bind_param(
+                "iiidididddsss",
+                $customerId,
+                $user_id,
+                $newTotalProducts,
+                $subTotal,
+                $vat,
+                $vatAmount,
+                $discount,
+                $discountAmount,
+                $shippingAmount,
+                $newTotal,
+                $note,
+                $current_time,
+                $referenceNumber
+            );
+            $update->execute();
+            $update->close();
         } else {
-            // Doesn’t exist → insert new row
-            $insertDetail = $conn->prepare("INSERT INTO quotation_details 
-            (referenceNumber, productId, quantity, unitPrice, subTotal, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $insertDetail->bind_param("siiddss", $referenceNumber, $productId,  $quantity, $unitPrice, $totalCost, $current_time, $current_time);
-
-            $insertDetail->execute();
-            $insertDetail->close();
+            $insertQuotation = $conn->prepare("INSERT INTO quotations 
+                (referenceNumber, customerId, createdBy, updatedBy, quotationDate, totalProducts, subTotal, taxPercentage, taxAmount, discountPercentage, discountAmount, shippingAmount, totalAmount, note, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $insertQuotation->bind_param(
+                "siiisidididddsss",
+                $referenceNumber,
+                $customerId,
+                $user_id,
+                $user_id,
+                $quotationDate,
+                $totalProducts,
+                $subTotal,
+                $vat,
+                $vatAmount,
+                $discount,
+                $discountAmount,
+                $shippingAmount,
+                $grandTotal,
+                $note,
+                $current_time,
+                $current_time
+            );
+            $insertQuotation->execute();
+            $insertQuotation->close();
         }
 
-        $checkDetail->close();
+        $check->close();
 
-        // Update remaining quantity in products table
-        // $updateProduct = $conn->prepare("UPDATE products 
-        //                              SET quantity = quantity - ?, updated_at = ?
-        //                              WHERE productId = ?");
-        // $updateProduct->bind_param("iss", $quantity, $current_time, $productId);
-        // $updateProduct->execute();
-        // $updateProduct->close();
-    }
+        // Insert/Update quotation details
+        foreach ($products as $p) {
+            $productId   = $p['product_id'];
+            $unitPrice   = $p['unit_cost'];
+            $quantity    = $p['quantity'];
+            $totalCost   = $p['total_cost'];
 
-    echo "<script>
+            $checkDetail = $conn->prepare("SELECT quotationDetailsId, quantity, subTotal 
+                FROM quotation_details 
+                WHERE referenceNumber = ? AND productId = ?");
+            $checkDetail->bind_param("si", $referenceNumber, $productId);
+            $checkDetail->execute();
+            $result = $checkDetail->get_result();
+
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                $newQuantity = $row['quantity'] + $quantity;
+                $newTotal    = $row['subTotal'] + $totalCost;
+
+                $updateDetail = $conn->prepare("UPDATE quotation_details 
+                    SET quantity = ?, subTotal = ?, updated_at = ? 
+                    WHERE quotationDetailsId = ?");
+                $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['quotationDetailsId']);
+                $updateDetail->execute();
+                $updateDetail->close();
+            } else {
+                $insertDetail = $conn->prepare("INSERT INTO quotation_details 
+                    (referenceNumber, productId, quantity, unitPrice, subTotal, created_at, updated_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $insertDetail->bind_param("siiddss", $referenceNumber, $productId, $quantity, $unitPrice, $totalCost, $current_time, $current_time);
+                $insertDetail->execute();
+                $insertDetail->close();
+            }
+
+            $checkDetail->close();
+        }
+
+        $conn->commit();
+
+        echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
-                title: 'Success',
-                text: 'Quotation saved successfully',
-                timer: 5000
-            }).then(function() {
-                window.location.href = 'addquotation.php';
+                    title: 'Success',
+                    text: 'Quotation saved successfully',
+                    timer: 5000
+                }).then(function() {
+                    window.location.href = 'addquotation.php';
+                });
             });
-          });
         </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Transaction failed: " . $conn->error . "',
+                    icon: 'error',
+                    timer: 5000
+                });
+            });
+        </script>";
+    }
 }
 
 function generateReferenceNumber($conn)
@@ -234,7 +237,8 @@ function generateReferenceNumber($conn)
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -243,7 +247,8 @@ function generateReferenceNumber($conn)
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">

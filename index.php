@@ -142,7 +142,8 @@ if ($total_quotations_result->num_rows > 0) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -151,19 +152,21 @@ if ($total_quotations_result->num_rows > 0) {
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
                                     <?php if (isset($_SESSION['username']) && isset($_SESSION['userRole'])) { ?>
-                                        <h6><?= $_SESSION['username']; ?></h6>
-                                        <h5><?= $_SESSION['userRole']; ?></h5>
+                                        <h6><?= htmlspecialchars($_SESSION['username']) ?></h6>
+                                        <h5><?= htmlspecialchars($_SESSION['userRole']) ?></h5>
                                     <?php } else { ?>
                                         <h6>Guest</h6>
                                         <h5>Visitor</h5>
                                     <?php } ?>
                                 </div>
                             </div>
+
                             <hr class="m-0">
                             <a class="dropdown-item" href="profile.php"> <i class="me-2" data-feather="user"></i> My Profile</a>
                             <a class="dropdown-item" href="#"><i class="me-2" data-feather="settings"></i>Settings</a>
@@ -204,7 +207,7 @@ if ($total_quotations_result->num_rows > 0) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="addsales.php">Add Sales</a></li>
+                                <li><a href="add-sales.php">Add Sales</a></li>
                             </ul>
                         </li>
                         <li class="submenu">

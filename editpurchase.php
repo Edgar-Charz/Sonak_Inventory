@@ -64,35 +64,40 @@ while ($row = $details_result->fetch_assoc()) {
 
 // Handle form submission for updating purchase
 if (isset($_POST['updatePurchaseBTN'])) {
-    $supplierId     = $_POST['supplier_name'];
-    $purchaseDate   = DateTime::createFromFormat('d-m-Y', $_POST['purchase_date'])->format('Y-m-d');
-    $totalProducts  = $_POST['total_products'];
-    $totalAmount    = $_POST['total_amount'];
-    $purchaseStatus = $_POST['purchase_status'];
+    
+    $conn->begin_transaction();
+    try {
+        $supplierId     = $_POST['supplier_name'];
+        $purchaseDate   = DateTime::createFromFormat('d-m-Y', $_POST['purchase_date'])->format('Y-m-d');
+        $totalProducts  = $_POST['total_products'];
+        $totalAmount    = $_POST['total_amount'];
+        $purchaseStatus = $_POST['purchase_status'];
+        $purchaseNumber = $_POST['purchase_number'];
 
-    $agentId        = $_POST['agent_name'] ?? null;
-    $trackingNo     = $_POST['tracking_number'] ?? null;
-    $transportCost  = $_POST['agent_transport_cost'] ?? null;
+        $agentId        = $_POST['agent_name'] ?? null;
+        $trackingNo     = $_POST['tracking_number'] ?? null;
+        $transportCost  = $_POST['agent_transport_cost'] ?? null;
 
-    // Convert form dates from DD-MM-YYYY to MySQL YYYY-MM-DD
-    $dateToAgent    = !empty($_POST['agent_abroad_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_abroad_date'])->format('Y-m-d') : null;
-    $dateReceivedTZ = !empty($_POST['agent_tanzania_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_tanzania_date'])->format('Y-m-d') : null;
-    $dateAtSonak    = !empty($_POST['at_sonak_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['at_sonak_date'])->format('Y-m-d') : null;
+        $dateToAgent    = !empty($_POST['agent_abroad_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_abroad_date'])->format('Y-m-d') : null;
+        $dateReceivedTZ = !empty($_POST['agent_tanzania_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_tanzania_date'])->format('Y-m-d') : null;
+        $dateAtSonak    = !empty($_POST['at_sonak_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['at_sonak_date'])->format('Y-m-d') : null;
 
-    $updatedBy = $user_id;
+        $updatedBy = $user_id;
 
-    // Update purchase
-    $update_purchase_stmt = $conn->prepare(
-        "UPDATE purchases SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, updatedBy = ?, updated_at = ? 
-        WHERE purchaseNumber = ?"
-    );
-    $update_purchase_stmt->bind_param("sssssss", $supplierId, $purchaseDate, $totalProducts, $totalAmount, $updatedBy, $current_time, $purchaseNumber);
+        // Update purchase
+        $update_purchase_stmt = $conn->prepare(
+            "UPDATE purchases SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, updatedBy = ?, updated_at = ? 
+            WHERE purchaseNumber = ?"
+        );
+        $update_purchase_stmt->bind_param("sssssss", $supplierId, $purchaseDate, $totalProducts, $totalAmount, $updatedBy, $current_time, $purchaseNumber);
+        $update_purchase_stmt->execute();
+        $update_purchase_stmt->close();
 
-    if ($update_purchase_stmt->execute()) {
-        // Delete existing purchase details to avoid duplicates
+        // Delete existing purchase details
         $delete_details_stmt = $conn->prepare("DELETE FROM purchase_details WHERE purchaseNumber = ?");
         $delete_details_stmt->bind_param("s", $purchaseNumber);
         $delete_details_stmt->execute();
+        $delete_details_stmt->close();
 
         // Insert updated products
         foreach ($_POST['products'] as $product) {
@@ -129,7 +134,10 @@ if (isset($_POST['updatePurchaseBTN'])) {
                 $current_time
             );
             $insert_details_stmt->execute();
+            $insert_details_stmt->close();
         }
+
+        $conn->commit();
 
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
@@ -143,14 +151,15 @@ if (isset($_POST['updatePurchaseBTN'])) {
                 });
             });
         </script>";
-    } else {
+    } catch (Exception $e) {
+        $conn->rollback();
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
                     title: 'Error!',
-                    text: 'Error updating purchase.',
-                    timer: 5000,
-                    timerProgressBar: true
+                    text: 'Transaction failed: " . $conn->error . "',
+                    icon: 'error',
+                    timer: 5000
                 }).then(function(){
                     window.location.href = 'editpurchase.php?purchaseNumber=$purchaseNumber';
                 });
@@ -208,7 +217,8 @@ if (isset($_POST['updatePurchaseBTN'])) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -217,7 +227,8 @@ if (isset($_POST['updatePurchaseBTN'])) {
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">

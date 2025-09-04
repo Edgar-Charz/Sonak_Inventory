@@ -65,7 +65,8 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -74,7 +75,8 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -248,7 +250,7 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                             <table class="table" id="customerReportTable">
                                 <thead>
                                     <tr>
-                                        <th>Customer code</th>
+                                        <th>CustomerID</th>
                                         <th>Customer name </th>
                                         <th>Amount</th>
                                         <th>Paid</th>
@@ -290,15 +292,15 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                                             $customer_id = $customer_report['Customer code'];
                                     ?>
                                             <tr>
-                                                <td><?= $customer_report['Customer code']; ?></td>
+                                                <td class="text-center"><?= $customer_report['Customer code']; ?></td>
                                                 <td><?= $customer_report['Customer name']; ?></td>
-                                                <td><?= number_format($customer_report['Amount'], 2); ?></td>
-                                                <td><?= number_format($customer_report['Paid'], 2); ?></td>
-                                                <td><?= number_format($customer_report['Amount due'], 2); ?></td>
+                                                <td class="text-center"><?= number_format($customer_report['Amount'], 2); ?></td>
+                                                <td class="text-success text-center"><?= number_format($customer_report['Paid'], 2); ?></td>
+                                                <td class="text-danger text-center"><?= number_format($customer_report['Amount due'], 2); ?></td>
 
                                                 <td>
-                                                    <span class="badges bg-warning"><?= $customer_report['Pending Orders']; ?> Pending</span>
                                                     <span class="badges bg-success"><?= $customer_report['Completed Orders']; ?> Completed</span>
+                                                    <span class="badges bg-warning"><?= $customer_report['Pending Orders']; ?> Pending</span>
                                                     <span class="badges bg-danger"><?= $customer_report['Cancelled Orders']; ?> Cancelled</span>
                                                 </td>
                                                 <?php

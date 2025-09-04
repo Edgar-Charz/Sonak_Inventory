@@ -74,7 +74,8 @@
 
                  <li class="nav-item dropdown has-arrow main-drop">
                      <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                         <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                         <span class="user-img">
+                             <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                              <span class="status online"></span>
                          </span>
                      </a>
@@ -83,7 +84,8 @@
                      <div class="dropdown-menu menu-drop-user">
                          <div class="profilename">
                              <div class="profileset">
-                                 <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                 <span class="user-img">
+                                     <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                      <span class="status online"></span>
                                  </span>
                                  <div class="profilesets">
@@ -191,7 +193,55 @@
                      </div>
                  </div>
 
-                 <div class="card"> 
+                 <?php
+                    // Handle filter inputs with prepared statements
+                    $conditions = [];
+                    $params = [];
+                    $types = "";
+
+                    if (!empty($_GET['from_date'])) {
+                        $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
+                        $conditions[] = "orders.orderDate >= ?";
+                        $params[] = $fromDate;
+                        $types .= "s";
+                    }
+                    if (!empty($_GET['to_date'])) {
+                        $toDate = date('Y-m-d', strtotime($_GET['to_date']));
+                        $conditions[] = "orders.orderDate <= ?";
+                        $params[] = $toDate;
+                        $types .= "s";
+                    }
+                    if (!empty($_GET['customer_id'])) {
+                        $customerId = $_GET['customer_id'];
+                        $conditions[] = "orders.customerId = ?";
+                        $params[] = $customerId;
+                        $types .= "i";
+                    }
+
+                    // $whereClause = implode(" AND ", $conditions);
+                    $whereClause = !empty($conditions) ? implode(" AND ", $conditions) : "1=1";
+                    $query = "
+                                    SELECT
+                                        orders.*,
+                                        customers.customerName
+                                    FROM
+                                        orders
+                                    JOIN
+                                        customers ON orders.customerId = customers.customerId
+                                    WHERE $whereClause
+                                    ORDER BY
+                                        orders.orderUId DESC
+                                ";
+                    $stmt = $conn->prepare($query);
+                    if (!empty($params)) {
+                        $stmt->bind_param($types, ...$params);
+                    }
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    $sn = 0;
+                    ?>
+
+                 <div class="card">
                      <div class="card-body">
                          <div class="row text-center">
                              <div class="col-md-3 mb-3">
@@ -250,54 +300,6 @@
                                  </ul>
                              </div>
                          </div>
-
-                         <?php
-                            // Handle filter inputs with prepared statements
-                            $conditions = [];
-                            $params = [];
-                            $types = "";
-
-                            if (!empty($_GET['from_date'])) {
-                                $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
-                                $conditions[] = "orders.orderDate >= ?";
-                                $params[] = $fromDate;
-                                $types .= "s";
-                            }
-                            if (!empty($_GET['to_date'])) {
-                                $toDate = date('Y-m-d', strtotime($_GET['to_date']));
-                                $conditions[] = "orders.orderDate <= ?";
-                                $params[] = $toDate;
-                                $types .= "s";
-                            }
-                            if (!empty($_GET['customer_id'])) {
-                                $customerId = $_GET['customer_id'];
-                                $conditions[] = "orders.customerId = ?";
-                                $params[] = $customerId;
-                                $types .= "i";
-                            }
-
-                            // $whereClause = implode(" AND ", $conditions);
-                            $whereClause = !empty($conditions) ? implode(" AND ", $conditions) : "1=1";
-                            $query = "
-                                    SELECT
-                                        orders.*,
-                                        customers.customerName
-                                    FROM
-                                        orders
-                                    JOIN
-                                        customers ON orders.customerId = customers.customerId
-                                    WHERE $whereClause
-                                    ORDER BY
-                                        orders.orderUId DESC
-                                ";
-                            $stmt = $conn->prepare($query);
-                            if (!empty($params)) {
-                                $stmt->bind_param($types, ...$params);
-                            }
-                            $stmt->execute();
-                            $result = $stmt->get_result();
-                            $sn = 0;
-                            ?>
 
                          <form method="GET" action="invoicereport.php">
                              <div class="card" id="filter_inputs">
@@ -372,11 +374,14 @@
                                                 $amountDue = number_format($row['due'], 2);
                                                 $today = date('Y-m-d');
 
-                                                if ($row['orderStatus'] == 1 && $row['due'] == 0) {
+                                                if ($row['orderStatus'] == 2) {
+                                                    $status = 'Cancelled';
+                                                    $statusClass = 'bg-lightred';
+                                                } else if ($row['orderStatus'] == 1 && $row['due'] == 0) {
                                                     $status = 'Fully Paid';
                                                     $statusClass = 'bg-lightgreen';
                                                 } elseif ($row['due'] > 0 && $row['paid'] == 0) {
-                                                    $status = 'Unpaid';
+                                                    $status = 'UnPaid';
                                                     $statusClass = 'bg-lightred';
                                                 } elseif ($row['due'] > 0 && $row['paid'] > 0 && $today <= $dueDate) {
                                                     $status = 'Partially Paid';

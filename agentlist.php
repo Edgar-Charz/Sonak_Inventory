@@ -139,7 +139,8 @@ if (isset($_POST['addAgentBTN'])) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -148,7 +149,8 @@ if (isset($_POST['addAgentBTN'])) {
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -168,7 +170,8 @@ if (isset($_POST['addAgentBTN'])) {
                             <a class="dropdown-item logout pb-0" href="signout.php">
                                 <img src="assets/img/icons/log-out.svg" class="me-2" alt="img">
                                 Logout
-                            </a></div>
+                            </a>
+                        </div>
                     </div>
                 </li>
             </ul>
@@ -194,7 +197,7 @@ if (isset($_POST['addAgentBTN'])) {
                             <ul>
                                 <li><a href="productlist.php">Product List</a></li>
                                 <li><a href="categorylist.php">Category List</a></li>
-                                </ul>
+                            </ul>
                         </li>
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
@@ -266,7 +269,7 @@ if (isset($_POST['addAgentBTN'])) {
                         <div class="table-top">
                             <div class="search-set">
                                 <div class="search-path">
-                                    <a class="btn btn-filter" id="filter_search">
+                                    <a class="btn btn-filter" id="">
                                         <img src="assets/img/icons/filter.svg" alt="img">
                                         <span><img src="assets/img/icons/closes.svg" alt="img"></span>
                                     </a>

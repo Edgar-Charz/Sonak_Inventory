@@ -29,67 +29,75 @@ if (isset($_GET['referenceNumber'])) {
     $details_result = $details_query->get_result();
 }
 
+// Check if the updateQuotationBTN was set
 if (isset($_POST['updateQuotationBTN'])) {
-    $referenceNumber  = $_POST['reference_number'];
-    $customerId     = $_POST['customer_name'];
-    $quotationDate  = DateTime::createFromFormat('d-m-Y', $_POST['quotation_date'])->format('Y-m-d');
-    $subTotal       = $_POST['sub_total'];
-    $vat            = $_POST['vat'];
-    $vatAmount      = $_POST['vat_amount'];
-    $discount       = $_POST['discount'];
-    $discountAmount = $_POST['discount_amount'];
-    $shippingAmount = $_POST['shipping_amount'];
-    $grandTotal     = $_POST['total_amount'];
-    $note           = $_POST['note'];
-    $totalProducts  = $_POST['total_products'];
-    $products       = $_POST['products'];
 
-    // Update quotation
-    $update = $conn->prepare("UPDATE quotations 
-                             SET customerId = ?, updatedBy = ?, quotationDate = ?, totalProducts = ?, subTotal = ?, taxPercentage = ?, taxAmount = ?, discountPercentage = ?, discountAmount = ?, shippingAmount = ?, totalAmount = ?, note = ?, updated_at = ? 
-                             WHERE referenceNumber = ?");
-    $update->bind_param(
-        "iisidididddsss",
-        $customerId,
-        $user_id,
-        $quotationDate,
-        $totalProducts,
-        $subTotal,
-        $vat,
-        $vatAmount,
-        $discount,
-        $discountAmount,
-        $shippingAmount,
-        $grandTotal,
-        $note,
-        $current_time,
-        $referenceNumber
-    );
-    $update->execute();
-    $update->close();
+    // Start transaction
+    $conn->begin_transaction();
 
-    // Delete existing quotation details to replace with new ones
-    $delete_details = $conn->prepare("DELETE FROM quotation_details WHERE referenceNumber = ?");
-    $delete_details->bind_param("s", $referenceNumber);
-    $delete_details->execute();
-    $delete_details->close();
+    try {
+        $referenceNumber  = $_POST['reference_number'];
+        $customerId       = $_POST['customer_name'];
+        $quotationDate    = DateTime::createFromFormat('d-m-Y', $_POST['quotation_date'])->format('Y-m-d');
+        $subTotal         = $_POST['sub_total'];
+        $vat              = $_POST['vat'];
+        $vatAmount        = $_POST['vat_amount'];
+        $discount         = $_POST['discount'];
+        $discountAmount   = $_POST['discount_amount'];
+        $shippingAmount   = $_POST['shipping_amount'];
+        $grandTotal       = $_POST['total_amount'];
+        $note             = $_POST['note'];
+        $totalProducts    = $_POST['total_products'];
+        $products         = $_POST['products'];
 
-    // Insert updated quotation details
-    foreach ($products as $p) {
-        $productId   = $p['product_id'];
-        $unitPrice   = $p['unit_cost'];
-        $quantity    = $p['quantity'];
-        $totalCost   = $p['total_cost'];
+        // Update quotation
+        $update = $conn->prepare("UPDATE quotations 
+            SET customerId = ?, updatedBy = ?, quotationDate = ?, totalProducts = ?, subTotal = ?, taxPercentage = ?, taxAmount = ?, discountPercentage = ?, discountAmount = ?, shippingAmount = ?, totalAmount = ?, note = ?, updated_at = ? 
+            WHERE referenceNumber = ?");
+        $update->bind_param(
+            "iisidididddsss",
+            $customerId,
+            $user_id,
+            $quotationDate,
+            $totalProducts,
+            $subTotal,
+            $vat,
+            $vatAmount,
+            $discount,
+            $discountAmount,
+            $shippingAmount,
+            $grandTotal,
+            $note,
+            $current_time,
+            $referenceNumber
+        );
+        $update->execute();
+        $update->close();
 
-        $insertDetail = $conn->prepare("INSERT INTO quotation_details 
-                                       (referenceNumber, productId, quantity, unitPrice, subTotal, created_at, updated_at) 
-                                       VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $insertDetail->bind_param("siiddss", $referenceNumber, $productId, $quantity, $unitPrice, $totalCost, $current_time, $current_time);
-        $insertDetail->execute();
-        $insertDetail->close();
-    }
+        // Delete existing quotation details
+        $delete_details = $conn->prepare("DELETE FROM quotation_details WHERE referenceNumber = ?");
+        $delete_details->bind_param("s", $referenceNumber);
+        $delete_details->execute();
+        $delete_details->close();
 
-    echo "<script>
+        // Insert updated quotation details
+        foreach ($products as $p) {
+            $productId   = $p['product_id'];
+            $unitPrice   = $p['unit_cost'];
+            $quantity    = $p['quantity'];
+            $totalCost   = $p['total_cost'];
+
+            $insertDetail = $conn->prepare("INSERT INTO quotation_details 
+                (referenceNumber, productId, quantity, unitPrice, subTotal, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $insertDetail->bind_param("siiddss", $referenceNumber, $productId, $quantity, $unitPrice, $totalCost, $current_time, $current_time);
+            $insertDetail->execute();
+            $insertDetail->close();
+        }
+
+        $conn->commit();
+
+        echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
                     title: 'Success',
@@ -99,9 +107,25 @@ if (isset($_POST['updateQuotationBTN'])) {
                     window.location.href = 'quotationlist.php';
                 });
             });
-          </script>";
+        </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Transaction failed: " . $conn->error . "',
+                    icon: 'error',
+                    timer: 5000
+                }).then(function() {
+                    window.location.href = 'editquotation.php?referenceNumber=$referenceNumber';
+                });
+            });
+        </script>";
+    }
 }
 
+// Function to generate next reference number
 function generateReferenceNumber($conn)
 {
     $query = "SELECT referenceNumber 
@@ -167,14 +191,16 @@ function generateReferenceNumber($conn)
             <ul class="nav user-menu">
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">

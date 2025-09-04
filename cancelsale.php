@@ -25,6 +25,8 @@ if (isset($_GET["id"])) {
 
     $invoice_number = $invoice_number_result->fetch_assoc()["invoiceNumber"];
 
+    $conn->begin_transaction();
+
     // Fetch order details to restore stock
     $details_query = $conn->prepare("SELECT productId, quantity FROM order_details WHERE invoiceNumber = ?");
     $details_query->bind_param("s", $invoice_number);

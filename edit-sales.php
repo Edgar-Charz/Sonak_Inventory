@@ -62,99 +62,112 @@ while ($row = $details_result->fetch_assoc()) {
     $order_products[] = $row;
 }
 
-// Handle form submission for updating order
+// Check if updateSaleBTN was clicked
 if (isset($_POST['updateSaleBTN'])) {
-    $customerId     = $_POST['customer_name'];
-    $orderDate      = !empty($_POST['order_date']) ? date("Y-m-d", strtotime($_POST['order_date'])) : null;
-    $subTotal       = $_POST['sub_total'];
-    $vat            = $_POST['vat'];
-    $grandTotal     = $_POST['total'];
-    $paymentType    = $_POST['payment_type'];
-    $pay            = $_POST['pay'];
-    $due            = $_POST['due'];
-    $totalProducts  = $_POST['total_products'];
-    $products       = $_POST['products'];
 
-    // 1. Restore original quantities to stock
-    foreach ($order_products as $old_product) {
-        $update_product_stmt = $conn->prepare("UPDATE products SET quantity = quantity + ?, updated_at = ? WHERE productId = ?");
-        $update_product_stmt->bind_param("iss", $old_product['quantity'], $current_time, $old_product['productId']);
-        $update_product_stmt->execute();
-        $update_product_stmt->close();
-    }
+    // Start transaction
+    $conn->begin_transaction();
 
-    // 2. Delete old order details
-    $delete_details_stmt = $conn->prepare("DELETE FROM order_details WHERE invoiceNumber = ?");
-    $delete_details_stmt->bind_param("s", $invoiceNumber);
-    $delete_details_stmt->execute();
-    $delete_details_stmt->close();
+    try {
+        $customerId     = $_POST['customer_name'];
+        $orderDate      = !empty($_POST['order_date']) ? date("Y-m-d", strtotime($_POST['order_date'])) : null;
+        $subTotal       = $_POST['sub_total'];
+        $vat            = $_POST['vat'];
+        $vatAmount      = $_POST['vat_amount'];
+        $discount       = $_POST['discount'];
+        $discountAmount = $_POST['discount_amount'];
+        $shippingAmount = $_POST['shipping_amount'];
+        $grandTotal     = $_POST['total'];
+        $paymentType    = $_POST['payment_type'];
+        $pay            = $_POST['pay'];
+        $due            = $_POST['due'];
+        $totalProducts  = $_POST['total_products'];
+        $products       = $_POST['products'];
+        $invoiceNumber  = $_POST['invoice_number'];
+        $current_time   = date('Y-m-d H:i:s');
 
-    // 3. Update order
-    $update_order_stmt = $conn->prepare("UPDATE orders 
-        SET customerId = ?, orderDate = ?, subTotal = ?, vat = ?, total = ?, paymentType = ?, paid = ?, due = ?, totalProducts = ?, updated_at = ? 
-        WHERE invoiceNumber = ?");
-    $update_order_stmt->bind_param("isdidsddiss", $customerId, $orderDate, $subTotal, $vat, $grandTotal, $paymentType, $pay, $due, $totalProducts, $current_time, $invoiceNumber);
-    $update_order_stmt->execute();
-    $update_order_stmt->close();
-
-    // 4. Insert new order details and subtract new quantities from stock
-    foreach ($products as $p) {
-        $productId   = $p['product_id'];
-        $unitPrice   = $p['unit_cost'];
-        $quantity    = $p['quantity'];
-        $totalCost   = $p['total_cost'];
-
-        // Validate stock
-        $stock_stmt = $conn->prepare("SELECT quantity FROM products WHERE productId = ?");
-        $stock_stmt->bind_param("s", $productId);
-        $stock_stmt->execute();
-        $stock_result = $stock_stmt->get_result();
-        $stock = $stock_result->fetch_assoc();
-        $stock_stmt->close();
-
-        if ($quantity > $stock['quantity']) {
-            // Rollback if insufficient stock
-            $conn->rollback();
-            echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: 'Insufficient stock for product ID: $productId',
-                        timer: 5000,
-                        timerProgressBar: true
-                    });
-                });
-            </script>";
-            exit;
+        // Restore original quantities to stock
+        foreach ($order_products as $old_product) {
+            $update_product_stmt = $conn->prepare("UPDATE products SET quantity = quantity + ?, updated_at = ? WHERE productId = ?");
+            $update_product_stmt->bind_param("iss", $old_product['quantity'], $current_time, $old_product['productId']);
+            $update_product_stmt->execute();
+            $update_product_stmt->close();
         }
 
-        // Insert new detail
-        $insert_detail_stmt = $conn->prepare("INSERT INTO order_details 
-            (invoiceNumber, productId, unitCost, quantity, totalCost, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $insert_detail_stmt->bind_param("ssdidss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
-        $insert_detail_stmt->execute();
-        $insert_detail_stmt->close();
+        // Delete old order details
+        $delete_details_stmt = $conn->prepare("DELETE FROM order_details WHERE invoiceNumber = ?");
+        $delete_details_stmt->bind_param("s", $invoiceNumber);
+        $delete_details_stmt->execute();
+        $delete_details_stmt->close();
 
-        // Subtract from stock
-        $update_product_stmt = $conn->prepare("UPDATE products SET quantity = quantity - ?, updated_at = ? WHERE productId = ?");
-        $update_product_stmt->bind_param("iss", $quantity, $current_time, $productId);
-        $update_product_stmt->execute();
-        $update_product_stmt->close();
-    }
+        // Update order
+        $update_order_stmt = $conn->prepare("UPDATE orders 
+            SET customerId = ?, orderDate = ?, subTotal = ?, vat = ?, vatAmount = ?, discount = ?, discountAmount = ?, shippingAmount = ?, total = ?, paymentType = ?, paid = ?, due = ?, totalProducts = ?, updated_at = ? 
+            WHERE invoiceNumber = ?");
+        $update_order_stmt->bind_param("isdididddsddiss", $customerId, $orderDate, $subTotal, $vat, $vatAmount, $discount, $discountAmount, $shippingAmount, $grandTotal, $paymentType, $pay, $due, $totalProducts, $current_time, $invoiceNumber);
+        $update_order_stmt->execute();
+        $update_order_stmt->close();
 
+        // Insert new order details and subtract new quantities from stock
+        foreach ($products as $p) {
+            $productId   = $p['product_id'];
+            $unitPrice   = $p['unit_cost'];
+            $quantity    = $p['quantity'];
+            $totalCost   = $p['total_cost'];
 
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                title: 'Success',
-                text: 'Order updated successfully',
-                timer: 5000
-            }).then(function() {
-                window.location.href = 'saleslist.php';
+            // Validate stock
+            $stock_stmt = $conn->prepare("SELECT quantity FROM products WHERE productId = ?");
+            $stock_stmt->bind_param("s", $productId);
+            $stock_stmt->execute();
+            $stock_result = $stock_stmt->get_result();
+            $stock = $stock_result->fetch_assoc();
+            $stock_stmt->close();
+
+            if ($quantity > $stock['quantity']) {
+                throw new Exception("Insufficient stock for product ID: $productId");
+            }
+
+            // Insert new detail
+            $insert_detail_stmt = $conn->prepare("INSERT INTO order_details 
+                (invoiceNumber, productId, unitCost, quantity, totalCost, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $insert_detail_stmt->bind_param("ssdidss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
+            $insert_detail_stmt->execute();
+            $insert_detail_stmt->close();
+
+            // Subtract from stock
+            $update_product_stmt = $conn->prepare("UPDATE products SET quantity = quantity - ?, updated_at = ? WHERE productId = ?");
+            $update_product_stmt->bind_param("iss", $quantity, $current_time, $productId);
+            $update_product_stmt->execute();
+            $update_product_stmt->close();
+        }
+
+        $conn->commit();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Success',
+                    text: 'Order updated successfully',
+                    timer: 5000
+                }).then(function() {
+                    window.location.href = 'saleslist.php';
+                });
             });
-        });
-    </script>";
+        </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error!',
+                    text: '" . $e->getMessage() . "',
+                    icon: 'error',
+                    timer: 5000
+                });
+            });
+        </script>";
+    }
 }
 
 ?>
@@ -207,7 +220,8 @@ if (isset($_POST['updateSaleBTN'])) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -216,7 +230,8 @@ if (isset($_POST['updateSaleBTN'])) {
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -467,7 +482,13 @@ if (isset($_POST['updateSaleBTN'])) {
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Subtotal</label>
+                                            <label>Shipping Amount</label>
+                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="<?= ($order['shippingAmount']); ?>">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>SubTotal</label>
                                             <input type="text" name="sub_total" id="subTotal" class="form-control" value="<?= ($order['subTotal']); ?>" readonly>
                                         </div>
                                     </div>
@@ -480,7 +501,19 @@ if (isset($_POST['updateSaleBTN'])) {
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>VAT Amount</label>
-                                            <input type="text" name="vat_amount" id="vatAmount" class="form-control" readonly>
+                                            <input type="text" name="vat_amount" id="vatAmount" class="form-control" value="<?= ($order['vatAmount']); ?>" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount(%)</label>
+                                            <input type="number" name="discount" id="discount" class="form-control" value="<?= ($order['discount']); ?>">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount Amount</label>
+                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" value="<?= ($order['discountAmount']); ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
@@ -699,6 +732,10 @@ if (isset($_POST['updateSaleBTN'])) {
                         totalProducts += qty;
                     });
 
+                    // Add Shipping Amount
+                    let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
+                    subTotal += shippingAmount;
+
                     // SubTotal & Total Products
                     document.getElementById("subTotal").value = subTotal.toFixed(2);
                     document.getElementById("totalProducts").value = totalProducts;
@@ -708,15 +745,22 @@ if (isset($_POST['updateSaleBTN'])) {
                     let vatAmount = subTotal * vatPercent / 100;
                     document.getElementById("vatAmount").value = vatAmount.toFixed(2);
 
+                    // Discount
+                    let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
+                    let discountAmount = subTotal * discountPercent / 100;
+                    document.getElementById("discountAmount").value = discountAmount.toFixed(2);
+
                     // Grand Total
-                    let grandTotal = subTotal + vatAmount;
+                    let grandTotal = subTotal - discountAmount + vatAmount;
                     document.getElementById("grandTotal").value = grandTotal.toFixed(2);
 
                     let pay = parseFloat(document.getElementById("pay").value) || 0;
                     document.getElementById("due").value = (grandTotal - pay).toFixed(2);
                 }
 
-                // Event listeners for VAT and Pay inputs
+                // Event listeners for inputs
+                document.getElementById("shippingAmount").addEventListener("input", calculateSummary);
+                document.getElementById("discount").addEventListener("input", calculateSummary);
                 document.getElementById("vat").addEventListener("input", calculateSummary);
                 document.getElementById("pay").addEventListener("input", calculateSummary);
 

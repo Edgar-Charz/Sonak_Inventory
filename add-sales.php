@@ -9,166 +9,186 @@ $user_id = $_SESSION['id'];
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
+// Check if addSaleBTN was clicked
 if (isset($_POST['addSaleBTN'])) {
-    $invoiceNumber  = $_POST['invoice_number'];
-    $customerId     = $_POST['customer_name'];
-    $orderDate      = DateTime::createFromFormat('d-m-Y', $_POST['order_date'])->format('Y-m-d');
-    $paymentType    = $_POST['payment_type'];
-    $subTotal       = $_POST['sub_total'];
-    $vat            = $_POST['vat'];
-    $grandTotal     = $_POST['total'];
-    $pay            = $_POST['pay'];
-    $due            = $_POST['due'];
-    // $paymentStatus  = $_POST['payment_status'];
-    $totalProducts  = $_POST['total_products'];
-    $products       = $_POST['products'];
+    $conn->begin_transaction();
 
-    // Check if invoice exists
-    $check = $conn->prepare("SELECT total, totalProducts FROM orders WHERE invoiceNumber = ?");
-    $check->bind_param("s", $invoiceNumber);
-    $check->execute();
-    $result = $check->get_result();
+    try {
+        $invoiceNumber  = $_POST['invoice_number'];
+        $customerId     = $_POST['customer_name'];
+        $orderDate      = DateTime::createFromFormat('d-m-Y', $_POST['order_date'])->format('Y-m-d');
+        $paymentType    = $_POST['payment_type'];
+        $subTotal       = $_POST['sub_total'];
+        $vat            = $_POST['vat'];
+        $vatAmount      = $_POST['vat_amount'];
+        $discount       = $_POST['discount'];
+        $discountAmount = $_POST['discount_amount'];
+        $shippingAmount = $_POST['shipping_amount'];
+        $grandTotal     = $_POST['total'];
+        $pay            = $_POST['pay'];
+        $due            = $_POST['due'];
+        $totalProducts  = $_POST['total_products'];
+        $products       = $_POST['products'];
+        $current_time   = date('Y-m-d H:i:s');
 
-    if ($result->num_rows > 0) {
-        // Invoice exists → update order
-        $row = $result->fetch_assoc();
-        $newTotal = $row['total'] + $grandTotal;
-        $newTotalProducts = $row['totalProducts'] + $totalProducts;
-
-        $update = $conn->prepare("UPDATE orders 
-                                            SET customerId = ?, orderDate = ?, subTotal = subTotal + ?, vat = ?, total = ?, paid = paid + ?, due = ?, orderStatus = ?, totalProducts = ?, updated_at = ?
-                                            WHERE invoiceNumber = ?");
-        $update->bind_param(
-            "ssdddiisiss",
-            $customerId,
-            $orderDate,
-            $subTotal,
-            $vat,
-            $newTotal,
-            $pay,
-            $due,
-            $paymentStatus,
-            $newTotalProducts,
-            $current_time,
-            $invoiceNumber
-        );
-
-        $update->execute();
-        $update->close();
-        // If fully paid, set orderStatus=1 in order_details
-        if ($newTotal == ($row['paid'] + $pay)) {
-            $updateDetails = $conn->prepare("UPDATE order_details SET orderStatus = 1 WHERE invoiceNumber = ?");
-            $updateDetails->bind_param("s", $invoiceNumber);
-            $updateDetails->execute();
-            $updateDetails->close();
-        }
-    } else {
-        // Invoice does not exist → insert new order
-        $insertOrder = $conn->prepare("INSERT INTO orders 
-            (invoiceNumber, customerId, createdBy, updatedBy, orderDate, subTotal, vat, total, paymentType, paid, due, totalProducts, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $insertOrder->bind_param(
-            "siiisdidsddiss",
-            $invoiceNumber,
-            $customerId,
-            $user_id,
-            $user_id,
-            $orderDate,
-            $subTotal,
-            $vat,
-            $grandTotal,
-            $paymentType,
-            $pay,
-            $due,
-            $totalProducts,
-            $current_time,
-            $current_time
-        );
-        $insertOrder->execute();
-        $insertOrder->close();
-
-        // If fully paid, set orderStatus=1 in order_details
-        if ($grandTotal == $pay) {
-            $updateDetails = $conn->prepare("UPDATE order_details SET status = 1 WHERE invoiceNumber = ?");
-            $updateDetails->bind_param("s", $invoiceNumber);
-            $updateDetails->execute();
-            $updateDetails->close();
-        }
-    }
-
-    $check->close();
-
-    // Insert/Update order details (for each product row)
-    foreach ($products as $p) {
-        $productId   = $p['product_id'];
-        $unitPrice   = $p['unit_cost'];
-        $quantity    = $p['quantity'];
-        $totalCost   = $p['total_cost'];
-
-        // Check if this product already exists in order_details for this invoice
-        $checkDetail = $conn->prepare("SELECT orderDetailsId, quantity, totalCost 
-                                   FROM order_details 
-                                   WHERE invoiceNumber = ? AND productId = ?");
-        $checkDetail->bind_param("ss", $invoiceNumber, $productId);
-        $checkDetail->execute();
-        $result = $checkDetail->get_result();
+        // Check if invoice exists
+        $check = $conn->prepare("SELECT total, totalProducts, paid FROM orders WHERE invoiceNumber = ?");
+        $check->bind_param("s", $invoiceNumber);
+        $check->execute();
+        $result = $check->get_result();
 
         if ($result->num_rows > 0) {
-            // Already exists → update quantity and totalCost
             $row = $result->fetch_assoc();
-            $newQuantity = $row['quantity'] + $quantity;
-            $newTotal    = $row['totalCost'] + $totalCost;
+            $newTotal = $row['total'] + $grandTotal;
+            $newTotalProducts = $row['totalProducts'] + $totalProducts;
+            $newPaid = $row['paid'] + $pay;
+            $newDue = $newTotal - $newPaid;
 
-            $updateDetail = $conn->prepare("UPDATE order_details 
-                                        SET quantity = ?, totalCost = ?, updated_at = ? 
-                                        WHERE orderDetailsId = ?");
-            $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['orderDetailsId']);
-            $updateDetail->execute();
-            $updateDetail->close();
+            $update = $conn->prepare("UPDATE orders 
+                SET customerId = ?, orderDate = ?, subTotal = subTotal + ?, vat = ?, total = ?, paid = ?, due = ?, orderStatus = ?, totalProducts = ?, updated_at = ?
+                WHERE invoiceNumber = ?");
+            $update->bind_param(
+                "ssdddiisiss",
+                $customerId,
+                $orderDate,
+                $subTotal,
+                $vat,
+                $newTotal,
+                $newPaid,
+                $newDue,
+                $paymentStatus,
+                $newTotalProducts,
+                $current_time,
+                $invoiceNumber
+            );
+            $update->execute();
+            $update->close();
+
+            if ($newTotal == $newPaid) {
+                $updateDetails = $conn->prepare("UPDATE order_details SET orderStatus = 1 WHERE invoiceNumber = ?");
+                $updateDetails->bind_param("s", $invoiceNumber);
+                $updateDetails->execute();
+                $updateDetails->close();
+            }
         } else {
-            // Doesn’t exist → insert new row
-            $insertDetail = $conn->prepare("INSERT INTO order_details 
-            (invoiceNumber, productId, unitCost, quantity, totalCost, created_at, updated_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $insertDetail->bind_param("ssdidss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
+            // Insert new order
+            $insertOrder = $conn->prepare("INSERT INTO orders 
+                (invoiceNumber, customerId, createdBy, updatedBy, orderDate, subTotal, vat, vatAmount, discount, discountAmount, shippingAmount, total, paymentType, paid, due, totalProducts, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $insertOrder->bind_param(
+                "siiisdididddsddiss",
+                $invoiceNumber,
+                $customerId,
+                $user_id,
+                $user_id,
+                $orderDate,
+                $subTotal,
+                $vat,
+                $vatAmount,
+                $discount,
+                $discountAmount,
+                $shippingAmount,
+                $grandTotal,
+                $paymentType,
+                $pay,
+                $due,
+                $totalProducts,
+                $current_time,
+                $current_time
+            );
+            $insertOrder->execute();
+            $insertOrder->close();
 
-            $insertDetail->execute();
-            $insertDetail->close();
+            if ($grandTotal == $pay) {
+                $updateDetails = $conn->prepare("UPDATE order_details SET orderStatus = 1 WHERE invoiceNumber = ?");
+                $updateDetails->bind_param("s", $invoiceNumber);
+                $updateDetails->execute();
+                $updateDetails->close();
+            }
         }
 
-        $checkDetail->close();
+        $check->close();
 
-        // Update remaining quantity in products table
-        $updateProduct = $conn->prepare("UPDATE products 
-                                     SET quantity = quantity - ?, updated_at = ?
-                                     WHERE productId = ?");
-        $updateProduct->bind_param("iss", $quantity, $current_time, $productId);
-        $updateProduct->execute();
-        $updateProduct->close();
-    }
+        // Insert/Update order details
+        foreach ($products as $p) {
+            $productId   = $p['product_id'];
+            $unitPrice   = $p['unit_cost'];
+            $quantity    = $p['quantity'];
+            $totalCost   = $p['total_cost'];
 
-    echo "<script>
+            $checkDetail = $conn->prepare("SELECT orderDetailsId, quantity, totalCost 
+                FROM order_details 
+                WHERE invoiceNumber = ? AND productId = ?");
+            $checkDetail->bind_param("ss", $invoiceNumber, $productId);
+            $checkDetail->execute();
+            $result = $checkDetail->get_result();
+
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                $newQuantity = $row['quantity'] + $quantity;
+                $newTotal    = $row['totalCost'] + $totalCost;
+
+                $updateDetail = $conn->prepare("UPDATE order_details 
+                    SET quantity = ?, totalCost = ?, updated_at = ? 
+                    WHERE orderDetailsId = ?");
+                $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['orderDetailsId']);
+                $updateDetail->execute();
+                $updateDetail->close();
+            } else {
+                $insertDetail = $conn->prepare("INSERT INTO order_details 
+                    (invoiceNumber, productId, unitCost, quantity, totalCost, created_at, updated_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $insertDetail->bind_param("ssdidss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
+                $insertDetail->execute();
+                $insertDetail->close();
+            }
+
+            $checkDetail->close();
+
+            $updateProduct = $conn->prepare("UPDATE products 
+                SET quantity = quantity - ?, updated_at = ?
+                WHERE productId = ?");
+            $updateProduct->bind_param("iss", $quantity, $current_time, $productId);
+            $updateProduct->execute();
+            $updateProduct->close();
+        }
+
+        $conn->commit();
+
+        echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
-                title: 'Success',
-                text: 'Order saved successfully',
-                timer: 5000
-            }).then(function() {
-                window.location.href = 'add-sales.php';
+                    title: 'Success',
+                    text: 'Order saved successfully',
+                    timer: 5000
+                }).then(function() {
+                    window.location.href = 'add-sales.php';
+                });
             });
-          });
         </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Transaction failed: " . $conn->error . "',
+                    icon: 'error'
+                });
+            });
+        </script>";
+    }
 }
 
 function generateInvoiceNumber($conn)
-{ 
+{
     $query = "SELECT invoiceNumber 
                 FROM orders 
                 WHERE invoiceNumber 
                 LIKE 'SNK-S%' 
                 ORDER BY invoiceNumber 
                 DESC LIMIT 1";
-    $result = $conn->query($query); 
+    $result = $conn->query($query);
 
     if ($result && $result->num_rows > 0) {
         $row = $result->fetch_assoc();
@@ -242,7 +262,8 @@ function generateInvoiceNumber($conn)
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -251,7 +272,8 @@ function generateInvoiceNumber($conn)
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -460,7 +482,13 @@ function generateInvoiceNumber($conn)
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Subtotal</label>
+                                            <label>Shipping Amount</label>
+                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>SubTotal</label>
                                             <input type="text" name="sub_total" id="subTotal" class="form-control" readonly>
                                         </div>
                                     </div>
@@ -474,6 +502,18 @@ function generateInvoiceNumber($conn)
                                         <div class="form-group">
                                             <label>VAT Amount</label>
                                             <input type="text" name="vat_amount" id="vatAmount" class="form-control" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount(%)</label>
+                                            <input type="number" name="discount" id="discount" class="form-control" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount Amount</label>
+                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
@@ -771,7 +811,7 @@ function generateInvoiceNumber($conn)
                     row.querySelector(".availableQuantity").value = remaining;
 
                     updateRowTotal(row);
-                }); 
+                });
 
                 row.querySelector(".removeProduct").onclick = function() {
                     row.remove();
@@ -791,12 +831,17 @@ function generateInvoiceNumber($conn)
                 let subTotal = 0;
                 let totalProducts = 0;
 
+                // Calculate SubTotal & Total Product
                 document.querySelectorAll(".product-row").forEach(row => {
                     let qty = parseFloat(row.querySelector(".quantity").value) || 0;
                     let cost = parseFloat(row.querySelector(".totalCost").value) || 0;
                     subTotal += cost;
                     totalProducts += qty;
                 });
+
+                // Add Shipping Amount
+                let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
+                subTotal += shippingAmount;
 
                 // Subtotal and Total Products
                 document.getElementById("subTotal").value = subTotal.toFixed(2);
@@ -807,8 +852,13 @@ function generateInvoiceNumber($conn)
                 let vatAmount = subTotal * vatPercent / 100;
                 document.getElementById("vatAmount").value = vatAmount.toFixed(2);
 
+                // Discount
+                let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
+                let discountAmount = subTotal * discountPercent / 100;
+                document.getElementById("discountAmount").value = discountAmount.toFixed(2);
+
                 // Grand Total
-                let grandTotal = subTotal + (subTotal * vatPercent / 100);
+                let grandTotal = subTotal - discountAmount + vatAmount;
                 document.getElementById("grandTotal").value = grandTotal.toFixed(2);
 
                 // Pay Amount
@@ -817,6 +867,8 @@ function generateInvoiceNumber($conn)
             }
 
             // Event listeners
+            document.getElementById("shippingAmount").addEventListener("input", calculateSummary);
+            document.getElementById("discount").addEventListener("input", calculateSummary);
             document.getElementById("vat").addEventListener("input", calculateSummary);
             document.getElementById("pay").addEventListener("input", calculateSummary);
 

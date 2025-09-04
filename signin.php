@@ -43,7 +43,7 @@ if (isset($_POST["loginBTN"])) {
                 $_SESSION['id'] = $user['userId'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['userRole'] = $user['userRole'];
-                $_SESSION['profilePicture'] = $user['userPhoto'] ?? 'assets/img/profiles/avator1.jpg';
+                $_SESSION['profilePicture'] = $user['userPhoto'];
                 $_SESSION['login_success'] = true;
 
                 echo "<script>
@@ -105,7 +105,7 @@ if (isset($_POST["loginBTN"])) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
     <meta name="robots" content="noindex, nofollow">
-    <title>Login - Pos admin template</title>
+    <title>Login - Sonak Inventory</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 

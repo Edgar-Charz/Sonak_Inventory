@@ -255,7 +255,7 @@ function generateInvoiceNumber($conn)
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
                         <span class="user-img">
-                            <img src="<?= ($_SESSION['userPhoto'] ?? 'assets/img/profiles/avator.jpg') ?>" alt="Profile">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -263,7 +263,7 @@ function generateInvoiceNumber($conn)
                         <div class="profilename">
                             <div class="profileset">
                                 <span class="user-img">
-                                    <img src="<?= ($_SESSION['userPhoto'] ?? 'assets/img/profiles/avator.jpg') ?>" alt="Profile">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -764,7 +764,7 @@ function generateInvoiceNumber($conn)
                     });
 
                     // Add shipping Amount
-                     let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
+                    let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
                     subTotal += shippingAmount;
 
                     document.getElementById("subTotal").value = subTotal.toFixed(2);
@@ -772,7 +772,7 @@ function generateInvoiceNumber($conn)
 
                     let vatPercent = parseFloat(document.getElementById("vat").value) || 0;
                     let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
-                   
+
                     let vatAmount = subTotal * vatPercent / 100;
                     let discountAmount = subTotal * discountPercent / 100;
                     let grandTotal = subTotal + vatAmount - discountAmount;

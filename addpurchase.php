@@ -11,141 +11,143 @@ $current_time = $time->format("Y-m-d H:i:s");
 
 // Check if the addPurchaseBTN button is clicked
 if (isset($_POST['addPurchaseBTN'])) {
-    $purchaseNumber = $_POST['purchase_number'];
-    $supplierId     = $_POST['supplier_name'];
-    $purchaseDate   = DateTime::createFromFormat('d-m-Y', $_POST['purchase_date'])->format('Y-m-d');
-    $totalProducts = $_POST['total_products'];
-    $totalAmount    = $_POST['total_amount'];
-    // $purchaseStatus = $_POST['purchase_status'];
+    $conn->begin_transaction();
 
-    $agentId        = $_POST['agent_name'] ?? null;
-    $trackingNo     = $_POST['tracking_number'] ?? null;
-    $transportCost  = $_POST['agent_transport_cost'] ?? null;
+    try {
+        $purchaseNumber = $_POST['purchase_number'];
+        $supplierId     = $_POST['supplier_name'];
+        $purchaseDate   = DateTime::createFromFormat('d-m-Y', $_POST['purchase_date'])->format('Y-m-d');
+        $totalProducts  = $_POST['total_products'];
+        $totalAmount    = $_POST['total_amount'];
 
-    $dateToAgent    = !empty($_POST['agent_abroad_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_abroad_date'])->format('Y-m-d') : null;
-    $dateReceivedTZ = !empty($_POST['agent_tanzania_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_tanzania_date'])->format('Y-m-d') : null;
-    $dateAtSonak    = !empty($_POST['at_sonak_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['at_sonak_date'])->format('Y-m-d') : null;
+        $agentId        = $_POST['agent_name'] ?? null;
+        $trackingNo     = $_POST['tracking_number'] ?? null;
+        $transportCost  = $_POST['agent_transport_cost'] ?? null;
 
-    $createdBy = $user_id;
-    $updatedBy = $user_id;
+        $dateToAgent    = !empty($_POST['agent_abroad_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_abroad_date'])->format('Y-m-d') : null;
+        $dateReceivedTZ = !empty($_POST['agent_tanzania_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_tanzania_date'])->format('Y-m-d') : null;
+        $dateAtSonak    = !empty($_POST['at_sonak_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['at_sonak_date'])->format('Y-m-d') : null;
 
-    // Check if purchaseNumber exists
-    $check_purchase_stmt = $conn->prepare("SELECT * FROM purchases WHERE purchaseNumber = ?");
-    $check_purchase_stmt->bind_param("s", $purchaseNumber);
-    $check_purchase_stmt->execute();
-    $check_result = $check_purchase_stmt->get_result();
+        $createdBy = $user_id;
+        $updatedBy = $user_id;
 
-    if ($check_result->num_rows > 0) {
-        // Purchase number exists, update purchase
-        $row = $check_result->fetch_assoc();
-        $newTotal = $row["totalAmount"] + $totalAmount;
-        $newTotalProducts = $row["totalProducts"] + $totalProducts;
+        // Check if purchaseNumber exists
+        $check_purchase_stmt = $conn->prepare("SELECT totalAmount, totalProducts FROM purchases WHERE purchaseNumber = ?");
+        $check_purchase_stmt->bind_param("s", $purchaseNumber);
+        $check_purchase_stmt->execute();
+        $check_result = $check_purchase_stmt->get_result();
 
-        $update_purchase_stmt = $conn->prepare("UPDATE purchases
-                                                SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, updatedBy = ?, updated_at = ?
-                                                WHERE purchaseNumber = ?");
-        $update_purchase_stmt->bind_param("isidsss", $supplierId, $purchaseDate, $newTotalProducts, $newTotal, $updatedBy, $current_time, $purchaseNumber);
+        if ($check_result->num_rows > 0) {
+            $row = $check_result->fetch_assoc();
+            $newTotal = $row["totalAmount"] + $totalAmount;
+            $newTotalProducts = $row["totalProducts"] + $totalProducts;
 
-        $update_purchase_stmt->execute();
-        $update_purchase_stmt->close();
-    } else {
-        // Insert into purchases
-        $insert_purchase_stmt = $conn->prepare(
-            "INSERT INTO purchases(purchaseNumber, supplierId, createdBy, updatedBy, purchaseDate, totalProducts, totalAmount, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?,  ?)"
-        );
-        $insert_purchase_stmt->bind_param("sssssssss", $purchaseNumber, $supplierId, $createdBy, $updatedBy, $purchaseDate, $totalProducts, $totalAmount, $current_time, $current_time);
+            $update_purchase_stmt = $conn->prepare("UPDATE purchases
+                SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, updatedBy = ?, updated_at = ?
+                WHERE purchaseNumber = ?");
+            $update_purchase_stmt->bind_param("isidsss", $supplierId, $purchaseDate, $newTotalProducts, $newTotal, $updatedBy, $current_time, $purchaseNumber);
+            $update_purchase_stmt->execute();
+            $update_purchase_stmt->close();
+        } else {
+            $insert_purchase_stmt = $conn->prepare("INSERT INTO purchases(
+                purchaseNumber, supplierId, createdBy, updatedBy, purchaseDate, totalProducts, totalAmount, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $insert_purchase_stmt->bind_param("sssssssss", $purchaseNumber, $supplierId, $createdBy, $updatedBy, $purchaseDate, $totalProducts, $totalAmount, $current_time, $current_time);
+            $insert_purchase_stmt->execute();
+            $insert_purchase_stmt->close();
+        }
 
-        if ($insert_purchase_stmt->execute()) {
+        // Loop over products
+        foreach ($_POST['products'] as $product) {
+            $productId   = $product['product_name'];
+            $quantity    = $product['quantity'];
+            $unitCost    = $product['unit_cost'];
+            $rate        = $product['rate'];
+            $totalCost   = $product['total_cost'];
+            $productSize = $product['product_size'] ?? null;
 
-            // Loop over products submitted from step 2
-            foreach ($_POST['products'] as $product) {
-                $productId   = $product['product_name'];
-                $quantity    = $product['quantity'];
-                $unitCost    = $product['unit_cost'];
-                $rate        = $product['rate'];
-                $totalCost   = $product['total_cost'];
+            // Check if product already exists in purchase_details
+            $check_stmt = $conn->prepare("SELECT purchaseDetailsId, quantity, totalCost 
+                FROM purchase_details 
+                WHERE purchaseNumber = ? AND productId = ?");
+            $check_stmt->bind_param("si", $purchaseNumber, $productId);
+            $check_stmt->execute();
+            $result = $check_stmt->get_result();
 
-                // First check if this product already exists for the same purchase
-                $check_stmt = $conn->prepare("SELECT purchaseDetailsId, quantity, totalCost 
-                                                        FROM purchase_details 
-                                                        WHERE purchaseNumber = ? AND productId = ?");
-                $check_stmt->bind_param("si", $purchaseNumber, $productId);
-                $check_stmt->execute();
-                $result = $check_stmt->get_result();
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                $newQty   = $row['quantity'] + $quantity;
+                $newTotal = $row['totalCost'] + $totalCost;
 
-                if ($result->num_rows > 0) {
-                    // Already exists → Update instead of insert
-                    $row = $result->fetch_assoc();
-                    $newQty   = $row['quantity'] + $quantity;
-                    $newTotal = $row['totalCost'] + $totalCost;
-
-                    $update_stmt = $conn->prepare("UPDATE purchase_details 
-                                                            SET quantity = ?, totalCost = ?, updated_at = ? 
-                                                            WHERE purchaseDetailsId = ?");
-                    $update_stmt->bind_param("idss", $newQty, $newTotal, $current_time, $row['purchaseDetailsId']);
-                    $update_stmt->execute();
-                } else {
-                    // Insert new purchase detail
-                    $insert_details_stmt = $conn->prepare("INSERT INTO purchase_details(
-                                                                    purchaseNumber, productId, agentId, trackingNumber, productSize,
-                                                                    quantity, unitCost, rate, totalCost,
-                                                                    agentTransportationCost, dateToAgentAbroadWarehouse,
-                                                                    dateReceivedByAgentInCountryWarehouse, dateReceivedByCompany,
-                                                                    created_at, updated_at) 
-                                                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-                    $insert_details_stmt->bind_param(
-                        "siissidddssssss",
-                        $purchaseNumber,
-                        $productId,
-                        $agentId,
-                        $trackingNo,
-                        $productSize,
-                        $quantity,
-                        $unitCost,
-                        $rate,
-                        $totalCost,
-                        $transportCost,
-                        $dateToAgent,
-                        $dateReceivedTZ,
-                        $dateAtSonak,
-                        $current_time,
-                        $current_time
-                    );
-
-                    $insert_details_stmt->execute();
-                }
+                $update_stmt = $conn->prepare("UPDATE purchase_details 
+                    SET quantity = ?, totalCost = ?, updated_at = ? 
+                    WHERE purchaseDetailsId = ?");
+                $update_stmt->bind_param("idss", $newQty, $newTotal, $current_time, $row['purchaseDetailsId']);
+                $update_stmt->execute();
+                $update_stmt->close();
+            } else {
+                $insert_details_stmt = $conn->prepare("INSERT INTO purchase_details(
+                    purchaseNumber, productId, agentId, trackingNumber, productSize,
+                    quantity, unitCost, rate, totalCost,
+                    agentTransportationCost, dateToAgentAbroadWarehouse,
+                    dateReceivedByAgentInCountryWarehouse, dateReceivedByCompany,
+                    created_at, updated_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $insert_details_stmt->bind_param(
+                    "siissidddssssss",
+                    $purchaseNumber,
+                    $productId,
+                    $agentId,
+                    $trackingNo,
+                    $productSize,
+                    $quantity,
+                    $unitCost,
+                    $rate,
+                    $totalCost,
+                    $transportCost,
+                    $dateToAgent,
+                    $dateReceivedTZ,
+                    $dateAtSonak,
+                    $current_time,
+                    $current_time
+                );
+                $insert_details_stmt->execute();
+                $insert_details_stmt->close();
             }
 
-            echo "<script>
-        document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                title: 'Success!',
-                text: 'Purchase added successfully!',                   
-                timer: 5000,
-                timerProgressBar: true
-            }).then(function(){
-                window.location.href = 'addpurchase.php';
-            });
-        });
-    </script>";
-        } else {
-            echo "<script>
-        document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                title: 'Error!',
-                text: 'Error adding purchase.',
-                timer: 5000,
-                timerProgressBar: true
-            }).then(function(){
-                window.location.href = 'addpurchase.php';
-            });
-        });
-    </script>";
+            $check_stmt->close();
         }
+
+        $conn->commit();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Success!',
+                    text: 'Purchase added successfully!',                   
+                    timer: 5000,
+                    timerProgressBar: true
+                }).then(function(){
+                    window.location.href = 'addpurchase.php';
+                });
+            });
+        </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Transaction failed: " . $conn->error . "',
+                    icon: 'error',
+                    timer: 5000
+                });
+            });
+        </script>";
     }
 }
+
+// Function to generate purchase numbers
 function generatePurchaseNumber($conn)
 {
     $query = "SELECT purchaseNumber 
@@ -227,7 +229,8 @@ function generatePurchaseNumber($conn)
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -236,7 +239,8 @@ function generatePurchaseNumber($conn)
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">

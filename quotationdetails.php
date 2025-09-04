@@ -13,7 +13,7 @@ if (isset($_GET['referenceNumber'])) {
     $referenceNumber = $_GET['referenceNumber'];
 
     // Fetch quotation data
-    $quotation_query = $conn->prepare("SELECT quotations.*, customers.*
+    $quotation_query = $conn->prepare("SELECT quotations.*, customers.customerId, customers.customerName, customers.customerPhone, customers.customerEmail, customers.customerAddress
                                      FROM quotations 
                                      LEFT JOIN customers ON quotations.customerId = customers.customerId 
                                      WHERE quotations.referenceNumber = ? LIMIT 1");
@@ -86,7 +86,8 @@ if (isset($_GET['referenceNumber'])) {
 
                 <li class="nav-item dropdown has-arrow main-drop">
                     <a href="javascript:void(0);" class="dropdown-toggle nav-link userset" data-bs-toggle="dropdown">
-                        <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                        <span class="user-img">
+                            <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                             <span class="status online"></span>
                         </span>
                     </a>
@@ -95,7 +96,8 @@ if (isset($_GET['referenceNumber'])) {
                     <div class="dropdown-menu menu-drop-user">
                         <div class="profilename">
                             <div class="profileset">
-                                <span class="user-img"><img src="assets/img/profiles/avator1.jpg" alt="">
+                                <span class="user-img">
+                                    <img src="<?= !empty($_SESSION['profilePicture']) ? 'assets/img/profiles/' . $_SESSION['profilePicture'] : 'assets/img/profiles/avator1.jpg' ?>" alt="User Image">
                                     <span class="status online"></span>
                                 </span>
                                 <div class="profilesets">
@@ -215,7 +217,7 @@ if (isset($_GET['referenceNumber'])) {
                                     <a href="editquotation.php?referenceNumber=<?= ($referenceNumber ?? '') ?>"><img src="assets/img/icons/edit.svg" alt="img"></a>
                                 </li>
                                 <li>
-                                    <a href="javascript:void(0);"><img src="assets/img/icons/pdf.svg" alt="img"></a>
+                                    <a href="download-quotation.php?referenceNumber=<?= $referenceNumber; ?>"><img src="assets/img/icons/pdf.svg" alt="img"></a>
                                 </li>
                                 <li>
                                     <a href="javascript:void(0);"><img src="assets/img/icons/excel.svg" alt="img"></a>
@@ -248,6 +250,10 @@ if (isset($_GET['referenceNumber'])) {
                                                         <tr>
                                                             <td><strong>Email:</strong></td>
                                                             <td><?= $quotation['customerEmail'] ?? 'N/A'; ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Address:</strong></td>
+                                                            <td><?= $quotation['customerAddress'] ?? 'N/A'; ?></td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
@@ -352,7 +358,11 @@ if (isset($_GET['referenceNumber'])) {
                                                 <table class="table table-borderless mb-0">
                                                     <tbody>
                                                         <tr>
-                                                            <td class="text-end fw-bold w-50">Subtotal:</td>
+                                                            <td class="text-end fw-bold">Shipping:</td>
+                                                            <td class="text-center"><?= number_format($quotation['shippingAmount'], 2); ?></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td class="text-end fw-bold w-50">SubTotal:</td>
                                                             <td class="text-center"><?= number_format($quotation['subTotal'], 2); ?></td>
                                                         </tr>
                                                         <tr>
@@ -362,10 +372,6 @@ if (isset($_GET['referenceNumber'])) {
                                                         <tr>
                                                             <td class="text-end fw-bold">Discount (<?= $quotation['discountPercentage']; ?>%):</td>
                                                             <td class="text-center text-danger">-<?= number_format($quotation['discountAmount'], 2); ?></td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td class="text-end fw-bold">Shipping:</td>
-                                                            <td class="text-center"><?= number_format($quotation['shippingAmount'], 2); ?></td>
                                                         </tr>
                                                         <tr>
                                                             <td class="text-end fw-bold">Grand Total:</td>
