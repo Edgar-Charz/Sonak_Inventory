@@ -103,7 +103,7 @@ include 'includes/session.php';
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -303,11 +303,14 @@ include 'includes/session.php';
                                                 </select>
                                             </div>
                                         </div>
-                                        <div class="col-lg-1 col-sm-6 col-12 ms-auto">
-                                            <div class="form-group">
+                                        <div class="col-lg-2 col-sm-6 col-12 ms-auto">
+                                            <div class="form-group  d-flex align-items-center justify-content-end gap-2">
                                                 <button type="submit" class="btn btn-filters ms-auto">
                                                     <img src="assets/img/icons/search-whites.svg" alt="img">
                                                 </button>
+                                                <a href="salesreport.php" class="btn btn-reset">
+                                                     <img src="assets/img/icons/refresh.svg" alt="Reset">
+                                                 </a>
                                             </div>
                                         </div>
                                     </div>

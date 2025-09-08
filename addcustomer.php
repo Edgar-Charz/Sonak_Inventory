@@ -181,7 +181,7 @@ if (isset($_POST['addCustomerBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>

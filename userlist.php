@@ -181,7 +181,7 @@ if (isset($_POST['addUserBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -233,7 +233,6 @@ if (isset($_POST['addUserBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="purchaseorderreport.php">Purchase order report</a></li>
                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
@@ -636,8 +635,8 @@ if (isset($_POST['addUserBTN'])) {
                 return 'Name fields should contain letters only.';
             }
 
-            if (name === 'phone_number' && !/^0[0-9]{9}$/.test(value)) {
-                return 'Phone number must start with 0 and contain 10 digits.';
+            if (name === 'phone_number' && !/^[0-9]{7,15}$/.test(value)) {
+                return 'Please enter a valid Phone number.';
             }
 
             if (name === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {

@@ -185,7 +185,7 @@ if (isset($_POST['addSupplierBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -419,12 +419,12 @@ if (isset($_POST['addSupplierBTN'])) {
                                                         </div>
                                                         <div class="modal-body">
                                                             <div class="row">
-                                                                <div class="col-lg-4 col-sm-12 col-12">
+                                                                <!-- <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
-                                                                        <label>User ID</label>
+                                                                        <label>Supplier ID</label>
                                                                         <p class="form-control"><?= $supplier_id; ?></p>
                                                                     </div>
-                                                                </div>
+                                                                </div> -->
                                                                 <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>User Name</label>
@@ -659,8 +659,8 @@ if (isset($_POST['addSupplierBTN'])) {
                 return 'Name fields should contain letters, spaces, and commas only.';
             }
 
-            if (name === 'supplier_phone' && !/^0[0-9]{9}$/.test(value)) {
-                return 'Phone number must start with 0 and contain 10 digits.';
+            if (name === 'supplier_phone' && !/^[0-9]{7,15}$/.test(value)) {
+                return 'Please enter a valid Phone number.';
             }
 
             if (name === 'supplier_email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {

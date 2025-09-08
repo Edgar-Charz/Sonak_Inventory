@@ -97,8 +97,9 @@ if (isset($_POST['restPasswordBTN'])) {
                             </div>
                             <div class="login-userheading">
                                 <h3>Forgot password?</h3>
-                                <h4>Don’t worry! it happens. Please enter the address <br>
-                                    associated with your account.</h4>
+                                <h4>Don’t worry! it happens. Please enter the correct credentials <br>
+                                    associated with your account.
+                                </h4>
                             </div>
                             <div class="form-login">
                                 <form method="POST" action="">

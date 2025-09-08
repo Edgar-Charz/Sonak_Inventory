@@ -55,7 +55,7 @@ if (isset($_POST['updateSupplierBTN'])) {
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
                         title: 'Info!',
-                        text: 'No changes were made to the supplier.'
+                        text: 'No changes were made to the supplier.',
                         timer: 5000,
                         timerProgressBar: true
                     }).then(function() {
@@ -276,7 +276,7 @@ if (isset($_POST['updateSupplierBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -474,8 +474,8 @@ if (isset($_POST['updateSupplierBTN'])) {
                 return 'Please fill in all fields.';
             }
 
-            if (name === 'supplier_phone' && !/^[0-9]{10,12}$/.test(value)) {
-                return 'Phone number must contain only numbers and atleast 10 to 12 digits.';
+            if (name === 'supplier_phone' && !/^[0-9]{7,15}$/.test(value)) {
+                return 'Please enter a valid Phone number.';
             }
 
             if (name === 'supplier_email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {

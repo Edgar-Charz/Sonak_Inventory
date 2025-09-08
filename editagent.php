@@ -43,7 +43,7 @@ if (isset($_POST['updateAgentBTN'])) {
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
                         text: 'No changes were made to the agent.',
-                        icon: 'info',
+                        title: 'Info!',
                         timer: 5000,
                         timerProgressBar: true
                     }).then(function() {
@@ -64,7 +64,7 @@ if (isset($_POST['updateAgentBTN'])) {
                     document.addEventListener('DOMContentLoaded', function () {
                         Swal.fire({
                             text: 'Email address already exists for another agent.',
-                            icon: 'error',
+                            title: 'Error!',
                             timer: 5000,
                             timerProgressBar: true
                         }).then(function() {
@@ -85,7 +85,7 @@ if (isset($_POST['updateAgentBTN'])) {
                         document.addEventListener('DOMContentLoaded', function () {
                             Swal.fire({
                                 text: 'Username already exists for another agent.',
-                                icon: 'error',
+                                title: 'Error!',
                                 timer: 5000,
                                 timerProgressBar: true
                             }).then(function() {
@@ -106,7 +106,7 @@ if (isset($_POST['updateAgentBTN'])) {
                             document.addEventListener('DOMContentLoaded', function () {
                                 Swal.fire({
                                     text: 'Phone number already exists for another agent.',
-                                    icon: 'error',
+                                    title: 'Error!',
                                     timer: 5000,
                                     timerProgressBar: true
                                 }).then(function() {
@@ -128,7 +128,7 @@ if (isset($_POST['updateAgentBTN'])) {
                                     document.addEventListener('DOMContentLoaded', function() {
                                         Swal.fire({
                                             text: 'Agent updated successfully.',
-                                            icon: 'success',
+                                            title: 'Success',
                                             timer: 5000,
                                             timerProgressBar: true
                                         }).then(function() {
@@ -141,7 +141,7 @@ if (isset($_POST['updateAgentBTN'])) {
                                     document.addEventListener('DOMContentLoaded', function() {
                                         Swal.fire({
                                             text: 'No changes were made to the agent.',
-                                            icon: 'info',
+                                            title: 'Info',
                                             timer: 5000,
                                             timerProgressBar: true
                                         }).then(function() {
@@ -155,7 +155,7 @@ if (isset($_POST['updateAgentBTN'])) {
                                 document.addEventListener('DOMContentLoaded', function() {
                                     Swal.fire({
                                         text: 'Error updating agent: " . $conn->error . "',
-                                        icon: 'error',
+                                        title: 'Error',
                                         timer: 5000,
                                         timerProgressBar: true
                                     });
@@ -264,7 +264,7 @@ if (isset($_POST['updateAgentBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -411,8 +411,8 @@ if (isset($_POST['updateAgentBTN'])) {
                 return 'Please fill in all fields.';
             }
 
-            if (name === 'agent_phone' && !/^[0-9]{10,12}$/.test(value)) {
-                return 'Phone number must contain only numbers and atleast 10 to 12 digits.';
+            if (name === 'agent_phone' && !/^[0-9]{7,15}$/.test(value)) {
+                return 'Please enter a valid Phone number.';
             }
 
             if (name === 'agent_email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {

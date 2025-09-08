@@ -273,7 +273,7 @@ if (isset($_POST['updateSupplierBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -460,8 +460,8 @@ if (isset($_POST['updateSupplierBTN'])) {
                 return 'Please fill in all fields.';
             }
 
-            if (name === 'customer_phone' && !/^[0-9]{10,12}$/.test(value)) {
-                return 'Phone number must contain only numbers and atleast 10 to 12 digits.';
+            if (name === 'customer_phone' && !/^[0-9]{7,15}$/.test(value)) {
+                return 'Please enter a validPhone number.';
             }
 
             if (name === 'customer_email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {

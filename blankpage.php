@@ -196,7 +196,7 @@
                             <a class="dropdown-item" href="profile.php"> <i class="me-2" data-feather="user"></i> My Profile</a>
                             <a class="dropdown-item" href="generalsettings.php"><i class="me-2" data-feather="settings"></i>Settings</a>
                             <hr class="m-0">
-                            <a class="dropdown-item logout pb-0" href="signin.php"><img src="assets/img/icons/log-out.svg" class="me-2" alt="img">Logout</a>
+                            <a class="dropdown-item logout pb-0" href="signout.php"><img src="assets/img/icons/log-out.svg" class="me-2" alt="img">Logout</a>
                         </div>
                     </div>
                 </li>
@@ -208,7 +208,7 @@
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="generalsettings.php">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
 

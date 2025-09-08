@@ -114,7 +114,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -221,7 +221,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                         // Get purchase details
                         $purchase_query = $conn->prepare("SELECT 
                                                 purchases.*, 
-                                                suppliers.supplierId, suppliers.supplierName, suppliers.supplierEmail, suppliers.supplierPhone, suppliers.supplierAccountNumber, suppliers.supplierAccountHolder,
+                                                suppliers.supplierId, suppliers.supplierName, suppliers.supplierEmail, suppliers.supplierPhone, suppliers.supplierAccountNumber, suppliers.supplierAccountHolder, suppliers.bankName,
                                                 u1.username AS purchaser,
                                                 u2.username AS updater
                                             FROM purchases
@@ -286,7 +286,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                 <div class="col-lg-4">
                                     <div class="card">
                                         <div class="card-header">
-                                            <h5 class="card-title">Purchase Statistics</h5>
+                                            <h5 class="card-title">Purchase Information</h5>
                                         </div>
                                         <div class="card-body">
                                             <div class="table-responsive">

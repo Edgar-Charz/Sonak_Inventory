@@ -180,7 +180,7 @@ if (isset($_POST['addAgentBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -411,12 +411,12 @@ if (isset($_POST['addAgentBTN'])) {
                                                         </div>
                                                         <div class="modal-body">
                                                             <div class="row">
-                                                                <div class="col-lg-6 col-sm-12 col-12">
+                                                                <!-- <div class="col-lg-6 col-sm-12 col-12">
                                                                     <div class="form-group">
-                                                                        <label>User ID</label>
+                                                                        <label>Agent ID</label>
                                                                         <p class="form-control"><?= $agent_id; ?></p>
                                                                     </div>
-                                                                </div>
+                                                                </div> -->
                                                                 <div class="col-lg-6 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>User Name</label>
@@ -583,8 +583,8 @@ if (isset($_POST['addAgentBTN'])) {
 
             // Phone validation
             if ((name === 'agent_phone' || name === 'edit_agent_phone')) {
-                if (!/^0\d{9}$/.test(value)) {
-                    return 'Phone number must start with 0 and be exactly 10 digits.';
+                if (!/^[0-9]{7,15}$/.test(value)) {
+                    return 'Please enter a valid Phone number.';
                 }
             }
 

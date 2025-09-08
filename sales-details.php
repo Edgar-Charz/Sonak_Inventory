@@ -113,7 +113,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -283,7 +283,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <div class="col-lg-6">
                                 <div class="card">
                                     <div class="card-header">
-                                        <h5 class="card-title">Order Statistics</h5>
+                                        <h5 class="card-title">Order Information</h5>
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive">

@@ -2,6 +2,10 @@
 include 'includes/db_connection.php';
 include 'includes/session.php';
 
+// Time zone setting
+$time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
+$current_time = $time->format("Y-m-d H:i:s");
+
 // Ensure user is logged in
 if (!isset($_SESSION['id'])) {
     header("Location: login.php");
@@ -22,9 +26,11 @@ if (isset($_POST['submit_btn'])) {
     $email = trim($_POST['email']);
     $phone = trim($_POST['phone']);
     $username = trim($_POST['username']);
+    $newPassword = trim($_POST['password']);
 
-    // --- Update Profile Picture if provided ---
-    $newFileName = $user_row['userPhoto']; // Keep old photo if no new upload
+    // Update Profile Picture if provided 
+    $newFileName = $user_row['userPhoto'];
+
     if (isset($_FILES["profile_photo"]) && $_FILES["profile_photo"]["error"] != UPLOAD_ERR_NO_FILE) {
         $targetDir = "assets/img/profiles/";
         $imageFileType = strtolower(pathinfo($_FILES["profile_photo"]["name"], PATHINFO_EXTENSION));
@@ -35,7 +41,7 @@ if (isset($_POST['submit_btn'])) {
             $newFilePath = $targetDir . $newFileName;
 
             if (move_uploaded_file($_FILES["profile_photo"]["tmp_name"], $newFilePath)) {
-                $_SESSION['profilePicture'] = $newFileName; // Update session immediately
+                $_SESSION['profilePicture'] = $newFileName;
             } else {
                 echo "<script>
                     document.addEventListener('DOMContentLoaded', function () {
@@ -60,11 +66,14 @@ if (isset($_POST['submit_btn'])) {
         }
     }
 
+    // Hash new password if provided, else keep existing
+    $password = !empty($newPassword) ? password_hash($newPassword, PASSWORD_DEFAULT) : $user_row['userPassword'];
+
     // Update user data
     $update_stmt = $conn->prepare('UPDATE users 
-                                   SET username = ?, userPhone = ?, userEmail = ?, userPhoto = ? 
+                                   SET username = ?, userPhone = ?, userEmail = ?, userPassword = ?, userPhoto = ?, updated_at = ? 
                                    WHERE userId = ?');
-    $update_stmt->bind_param('ssssi', $username, $phone, $email, $newFileName, $user_id);
+    $update_stmt->bind_param('ssssssi', $username, $phone, $email, $password, $newFileName, $current_time, $user_id);
 
     if ($update_stmt->execute()) {
         echo "<script>
@@ -72,7 +81,7 @@ if (isset($_POST['submit_btn'])) {
                 Swal.fire({
                     title: 'Success',
                     text: 'Profile updated successfully!',
-                    timer: 1500,
+                    timer: 5000,
                     showConfirmButton: true
                 }).then(() => {
                     window.location.href = 'profile.php';
@@ -191,7 +200,7 @@ if (isset($_POST['submit_btn'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -290,7 +299,7 @@ if (isset($_POST['submit_btn'])) {
                                         </div>
                                         <div class="profile-contentname">
                                             <h2><?= ($user_row['username']) ?></h2>
-                                            <h4>Update your photo and personal details.</h4>
+                                            <h4>Update your Photo and Personal details.</h4>
                                         </div>
                                     </div>
                                     <!-- <div class="ms-auto">
@@ -319,6 +328,12 @@ if (isset($_POST['submit_btn'])) {
                                     <div class="form-group">
                                         <label>User Name</label>
                                         <input type="text" id="username" name="username" value="<?= $user_row['username']; ?>" data-original="<?= $user_row['username']; ?>">
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 col-sm-12">
+                                    <div class="form-group">
+                                        <label>New Password</label>
+                                        <input type="password" id="password" name="password" placeholder="Enter new password (Leave blank to keep current password)">
                                     </div>
                                 </div>
                                 <div class="col-12">
@@ -386,10 +401,10 @@ if (isset($_POST['submit_btn'])) {
 
                 // Phone validation (digits only, 7–15 chars)
                 if (input.name === 'phone') {
-                    const phoneRegex = /^[0-9]{10,15}$/;
+                    const phoneRegex = /^[0-9]{7,15}$/;
                     if (!phoneRegex.test(value)) {
                         isValid = false;
-                        errorMessage = 'Please enter a valid phone number (10–15 digits).';
+                        errorMessage = 'Please enter a valid Phone number.';
                     }
                 }
             });

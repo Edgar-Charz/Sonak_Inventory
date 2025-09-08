@@ -180,6 +180,7 @@ if (isset($_POST['addSaleBTN'])) {
     }
 }
 
+// Function to generate Invoice Number
 function generateInvoiceNumber($conn)
 {
     $query = "SELECT invoiceNumber 
@@ -192,7 +193,7 @@ function generateInvoiceNumber($conn)
 
     if ($result && $result->num_rows > 0) {
         $row = $result->fetch_assoc();
-        $lastNumber = intval(substr($row['invoiceNumber'], 6)); // Extract numeric part after 'SNK-P'
+        $lastNumber = intval(substr($row['invoiceNumber'], 6)); // Extract numeric part after 'SNK-S'
         $nextNumber = $lastNumber + 1;
     } else {
         $nextNumber = 1; // Start from 1 if no previous entry
@@ -303,7 +304,7 @@ function generateInvoiceNumber($conn)
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>

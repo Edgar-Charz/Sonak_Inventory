@@ -183,7 +183,7 @@ if (isset($_POST['addCustomerBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -404,7 +404,7 @@ if (isset($_POST['addCustomerBTN'])) {
 
                                             <!-- View Customer Modal -->
                                             <div class="modal fade" id="viewCustomer<?= $customer_id; ?>" tabindex="-1" aria-labelledby="viewCustomerLabel<?= $customer_id; ?>" aria-hidden="true">
-                                                <div class="modal-dialog modal-lg">
+                                                <div class="modal-dialog modal-xl">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
                                                             <h5 class="modal-title">Customer Details</h5>
@@ -412,33 +412,51 @@ if (isset($_POST['addCustomerBTN'])) {
                                                         </div>
                                                         <div class="modal-body">
                                                             <div class="row">
-                                                                <div class="col-lg-6 col-sm-12 col-12">
+                                                                <!-- <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>Customer ID</label>
                                                                         <p class="form-control"><?= $customer_id; ?></p>
                                                                     </div>
-                                                                </div>
-                                                                <div class="col-lg-6 col-sm-12 col-12">
+                                                                </div> -->
+                                                                <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>Customer Name</label>
                                                                         <p class="form-control"><?= $customer_row['customerName']; ?></p>
                                                                     </div>
                                                                 </div>
-                                                                <div class="col-lg-6 col-sm-12 col-12">
+                                                                <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>Phone</label>
                                                                         <p class="form-control"><?= $customer_row['customerPhone']; ?></p>
                                                                     </div>
                                                                 </div>
-                                                                <div class="col-lg-6 col-sm-12 col-12">
+                                                                <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>Email</label>
                                                                         <p class="form-control"><?= $customer_row['customerEmail']; ?></p>
                                                                     </div>
                                                                 </div>
+                                                                <div class="col-lg-4 col-sm-12 col-12">
+                                                                    <div class="form-group">
+                                                                        <label>Bank</label>
+                                                                        <p class="form-control"><?= $customer_row['bankName']; ?></p>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-lg-4 col-sm-12 col-12">
+                                                                    <div class="form-group">
+                                                                        <label>Account Number</label>
+                                                                        <p class="form-control"><?= $customer_row['customerAccountNumber']; ?></p>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="col-lg-4 col-sm-12 col-12">
+                                                                    <div class="form-group">
+                                                                        <label>Account Holder</label>
+                                                                        <p class="form-control"><?= $customer_row['customerAccountHolder']; ?></p>
+                                                                    </div>
+                                                                </div>
                                                                 <div class="col-lg-6 col-sm-12 col-12">
                                                                     <div class="form-group">
-                                                                        <label>Role</label>
+                                                                        <label>Address</label>
                                                                         <p class="form-control"><?= $customer_row['customerAddress']; ?></p>
                                                                     </div>
                                                                 </div>
@@ -625,8 +643,8 @@ if (isset($_POST['addCustomerBTN'])) {
                 return 'Name fields should contain letters, spaces and commas only.';
             }
 
-            if (name === 'customer_phone' && !/^0[0-9]{9}$/.test(value)) {
-                return 'Phone number must start with 0 and contain 10 digits.';
+            if (name === 'customer_phone' && !/^[0-9]{7,15}$/.test(value)) {
+                return 'Please enter a valid Phone number.';
             }
 
             if (name === 'customer_email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {

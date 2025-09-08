@@ -115,7 +115,7 @@
                  <div class="dropdown-menu dropdown-menu-right">
                      <a class="dropdown-item" href="profile.php">My Profile</a>
                      <a class="dropdown-item" href="#">Settings</a>
-                     <a class="dropdown-item" href="signin.php">Logout</a>
+                     <a class="dropdown-item" href="signout.php">Logout</a>
                  </div>
              </div>
          </div>
@@ -247,25 +247,25 @@
                              <div class="col-md-3 mb-3">
                                  <div class="bg-light border rounded p-3 shadow-sm">
                                      <h6 class="card-title text-muted">Total Invoices</h6>
-                                     <h3 class="text-primary"><?= $totalInvoices; ?></h3>
+                                     <h3 class="text-primary" id="totalInvoices"><?= $totalInvoices; ?></h3>
                                  </div>
                              </div>
                              <div class="col-md-3 mb-3">
                                  <div class="bg-warning-subtle border rounded p-3 shadow-sm">
                                      <h6 class="card-title text-muted">Pending Invoices</h6>
-                                     <h3 class="text-warning"><?= $pendingInvoices; ?></h3>
+                                     <h3 class="text-warning" id="pendingInvoices"><?= $pendingInvoices; ?></h3>
                                  </div>
                              </div>
                              <div class="col-md-3 mb-3">
                                  <div class="bg-success-subtle border rounded p-3 shadow-sm">
                                      <h6 class="card-title text-muted">Completed Invoices</h6>
-                                     <h3 class="text-success"><?= $completedInvoices; ?></h3>
+                                     <h3 class="text-success" id="completedInvoices"><?= $completedInvoices; ?></h3>
                                  </div>
                              </div>
                              <div class="col-md-3 mb-3">
                                  <div class="bg-danger-subtle border rounded p-3 shadow-sm">
                                      <h6 class="card-title text-muted">Cancelled Invoices</h6>
-                                     <h3 class="text-danger"><?= $cancelledInvoices; ?></h3>
+                                     <h3 class="text-danger" id="cancelledInvoices"><?= $cancelledInvoices; ?></h3>
                                  </div>
                              </div>
                          </div>
@@ -285,6 +285,9 @@
                                  <div class="search-input">
                                      <a class="btn btn-searchset"><img src="assets/img/icons/search-white.svg" alt="img"></a>
                                  </div>
+                                 <!-- <div class="search-input">
+                                     <input type="text" id="searchInput" class="form-control" placeholder="Search...">
+                                 </div> -->
                              </div>
                              <div class="wordset">
                                  <ul>
@@ -332,20 +335,24 @@
                                                      <?php
                                                         $customerQuery = $conn->query("SELECT customerId, customerName FROM customers WHERE customerStatus = 1");
                                                         while ($customer = $customerQuery->fetch_assoc()) {
-                                                            $selected = ($_GET['customer_id'] ?? '') == $customer['customerId'] ? 'selected' : '';
-                                                            echo "<option value='" . $customer['customerId'] . "' $selected>" . ($customer['customerName']) . "</option>";
+                                                            $selected = (isset($_GET['customer_id']) && $_GET['customer_id'] == $customer['customerId']) ? 'selected' : '';
+                                                            echo "<option value='" . ($customer['customerId']) . "' $selected>" . ($customer['customerName']) . "</option>";
                                                         }
                                                         ?>
                                                  </select>
                                              </div>
                                          </div>
-                                         <div class="col-lg-1 col-sm-6 col-12 ms-auto">
-                                             <div class="form-group">
-                                                 <button type="submit" class="btn btn-filters ms-auto">
-                                                     <img src="assets/img/icons/search-whites.svg" alt="img">
+                                         <div class="col-lg-2 col-sm-6 col-12 ms-auto">
+                                             <div class="form-group d-flex align-items-center justify-content-end gap-2">
+                                                 <button type="submit" class="btn btn-filters">
+                                                     <img src="assets/img/icons/search-whites.svg" alt="Search">
                                                  </button>
+                                                 <a href="invoicereport.php" class="btn btn-reset">
+                                                     <img src="assets/img/icons/refresh.svg" alt="Reset">
+                                                 </a>
                                              </div>
                                          </div>
+
                                      </div>
                                  </div>
                              </div>
@@ -368,7 +375,7 @@
                                      <?php
                                         if ($result->num_rows > 0) {
                                             while ($row = $result->fetch_assoc()) {
-                                                $dueDate = date('d-m-Y', strtotime($row['orderDate'] . ' +30 days'));
+                                                $dueDate = date('Y-m-d', strtotime($row['orderDate'] . ' +30 days'));
                                                 $amount = number_format($row['total'], 2);
                                                 $paid = number_format($row['paid'], 2);
                                                 $amountDue = number_format($row['due'], 2);
@@ -382,7 +389,7 @@
                                                     $statusClass = 'bg-lightgreen';
                                                 } elseif ($row['due'] > 0 && $row['paid'] == 0) {
                                                     $status = 'UnPaid';
-                                                    $statusClass = 'bg-lightred';
+                                                    $statusClass = 'bg-lightgrey';
                                                 } elseif ($row['due'] > 0 && $row['paid'] > 0 && $today <= $dueDate) {
                                                     $status = 'Partially Paid';
                                                     $statusClass = 'bg-lightyellow';
@@ -391,7 +398,7 @@
                                                     $statusClass = 'bg-lightorange';
                                                 } else {
                                                     $status = 'Unknown';
-                                                    $statusClass = 'bg-lightgray';
+                                                    $statusClass = 'bg-lightgrey';
                                                 }
                                                 $sn++;
 
@@ -399,10 +406,10 @@
                                                 <td>" . $sn . "</td>
                                             <td>" . $row['invoiceNumber'] . "</td>
                                             <td>" . $row['customerName'] . "</td>
-                                            <td>" . $dueDate . "</td>
+                                            <td>" . date('d-m-Y', strtotime($dueDate)) . "</td>
                                             <td>" . $amount . "</td>
-                                            <td>" . $paid . "</td>
-                                            <td>" . $amountDue . "</td>
+                                            <td class='text-success'>" . $paid . "</td>
+                                            <td class='text-danger'>" . $amountDue . "</td>
                                             <td><span class='badges $statusClass'>" . $status . "</span></td>
                                           </tr>";
                                             }
@@ -420,6 +427,46 @@
              </div>
          </div>
      </div>
+     <!-- <script>
+         document.getElementById("searchInput").addEventListener("keyup", function() {
+             let searchValue = this.value.toLowerCase();
+             let rows = document.querySelectorAll("#invoiceReportTable tbody tr");
+
+             let total = 0,
+                 pending = 0,
+                 completed = 0,
+                 cancelled = 0;
+
+             rows.forEach(row => {
+                 let rowText = row.innerText.toLowerCase();
+
+                 if (rowText.includes(searchValue)) {
+                     row.style.display = "";
+
+                     total++;
+
+                     // Get status text
+                     let status = row.querySelector("td:last-child span").innerText.toLowerCase();
+
+                     if (status.includes("unpaid") || status.includes("partially paid") || status.includes("overdue")) {
+                         pending++;
+                     } else if (status.includes("fully paid")) {
+                         completed++;
+                     } else if (status.includes("cancelled")) {
+                         cancelled++;
+                     }
+                 } else {
+                     row.style.display = "none";
+                 }
+             });
+
+             // Update totals
+             document.getElementById("totalInvoices").innerText = total;
+             document.getElementById("pendingInvoices").innerText = pending;
+             document.getElementById("completedInvoices").innerText = completed;
+             document.getElementById("cancelledInvoices").innerText = cancelled;
+         });
+     </script> -->
 
 
      <script src="assets/js/jquery-3.6.0.min.js"></script>
@@ -445,35 +492,12 @@
      <script src="assets/plugins/sweetalert/sweetalerts.min.js"></script>
 
      <script src="assets/js/script.js"></script>
-     <!-- <script>
-            $(document).ready(function() {
-                $('#invoiceReportTable').DataTable({
-                    "paging": true,
-                    "searching": true,
-                    "ordering": true,
-                    "info": true
-                });
 
-                // Validate date inputs
-                $('form').submit(function(e) {
-                    let fromDate = $('input[name="from_date"]').val();
-                    let toDate = $('input[name="to_date"]').val();
-                    if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
-                        e.preventDefault();
-                        Swal.fire({
-                            title: 'Error',
-                            text: 'From Date cannot be after To Date',
-                            timer: 3000
-                        });
-                    }
-                });
-            });
-        </script> -->
      <script>
          $(document).ready(function() {
              if ($("#invoiceReportTable").length > 0) {
                  if (!$.fn.DataTable.isDataTable("#invoiceReportTable")) {
-                     $("#invoiceReportTable").DataTable({
+                     let table = $("#invoiceReportTable").DataTable({
                          destroy: true,
                          bFilter: true,
                          sDom: "fBtlpi",
@@ -488,8 +512,42 @@
                          initComplete: function(settings, json) {
                              $(".dataTables_filter").appendTo("#tableSearch");
                              $(".dataTables_filter").appendTo(".search-input");
+                             $(".dataTables_filter input").attr("id", "searchInput");
                          }
                      });
+
+                     // Listen to search, pagination, and sorting
+                     table.on("draw", function() {
+                         let total = 0,
+                             pending = 0,
+                             completed = 0,
+                             cancelled = 0;
+
+                         // Only visible rows after search/pagination
+                         table.rows({
+                             search: "applied"
+                         }).every(function() {
+                             total++;
+                             let status = $(this.node()).find("td:last-child span").text().toLowerCase();
+
+                             if (status.includes("unpaid") || status.includes("partially paid") || status.includes("overdue")) {
+                                 pending++;
+                             } else if (status.includes("fully paid")) {
+                                 completed++;
+                             } else if (status.includes("cancelled")) {
+                                 cancelled++;
+                             }
+                         });
+
+                         // Update counters
+                         $("#totalInvoices").text(total);
+                         $("#pendingInvoices").text(pending);
+                         $("#completedInvoices").text(completed);
+                         $("#cancelledInvoices").text(cancelled);
+                     });
+
+                     // Trigger once on page load
+                     table.draw();
                  }
              }
          });

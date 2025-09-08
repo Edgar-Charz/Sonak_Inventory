@@ -158,8 +158,8 @@ if ($total_quotations_result->num_rows > 0) {
                                 </span>
                                 <div class="profilesets">
                                     <?php if (isset($_SESSION['username']) && isset($_SESSION['userRole'])) { ?>
-                                        <h6><?= htmlspecialchars($_SESSION['username']) ?></h6>
-                                        <h5><?= htmlspecialchars($_SESSION['userRole']) ?></h5>
+                                        <h6><?= ($_SESSION['username']) ?></h6>
+                                        <h5><?= ($_SESSION['userRole']) ?></h5>
                                     <?php } else { ?>
                                         <h6>Guest</h6>
                                         <h5>Visitor</h5>
@@ -184,7 +184,7 @@ if ($total_quotations_result->num_rows > 0) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>

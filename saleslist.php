@@ -180,7 +180,7 @@ if (isset($_POST['paymentBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -444,12 +444,12 @@ if (isset($_POST['paymentBTN'])) {
                                                                 Update Payment
                                                             </a>
                                                         </li>
-                                                        <li>
+                                                        <!-- <li>
                                                             <a href="download-invoice.php?invoiceNumber=<?= $invoice_number; ?>" class="dropdown-item">
                                                                 <img src="assets/img/icons/download.svg" class="me-2" alt="img">
                                                                 Download PDF
                                                             </a>
-                                                        </li>
+                                                        </li> -->
 
                                                         <?php if ($order_row['orderStatus'] == 0): ?>
                                                             <li>
@@ -783,7 +783,15 @@ if (isset($_POST['paymentBTN'])) {
                     param: 'response',
                     value: 'error',
                     title: 'Error!',
-                    text: 'Failed to reactivate the Order'
+                    text: decodeURIComponent(new URLSearchParams(window.location.search).get('msg') || 'Failed to reactivate the Order'),
+                    icon: 'error'
+                },
+                {
+                    param: 'response',
+                    value: 'insufficient',
+                    title: 'Insufficient Stock',
+                    text: decodeURIComponent(new URLSearchParams(window.location.search).get('msg') || ''),
+                    icon: 'error'
                 }
             ];
 
@@ -793,7 +801,7 @@ if (isset($_POST['paymentBTN'])) {
                     Swal.fire({
                         title: alert.title,
                         text: alert.text,
-                        timer: 3000,
+                        // timer: 3000,
                         showConfirmButton: true
                     }).then(() => {
                         // Remove the URL param after showing alert

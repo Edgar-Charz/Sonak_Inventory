@@ -46,7 +46,7 @@ if (isset($_POST['signupBTN'])) {
             $password = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $conn->prepare("INSERT INTO `users`(`username`, `userPhone`, `userEmail`, `userRole`, `userPassword`, `created_at`, `updated_at`)  
                                                         VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssssss",$username, $phone_number, $email,  $role,  $password, $current_time, $current_time);
+            $stmt->bind_param("sssssss", $username, $phone_number, $email,  $role,  $password, $current_time, $current_time);
 
             if ($stmt->execute()) {
                 echo "<script>
@@ -184,7 +184,7 @@ if (isset($_POST['signupBTN'])) {
                                         <select name="role" class="form-control" required>
                                             <option value="" disabled selected>Select Role</option>
                                             <option>Admin</option>
-                                            <option>Storekeeper</option>
+                                            <option>Technician</option>
                                         </select>
                                     </div>
                                     <div class="form-login">
@@ -256,7 +256,7 @@ if (isset($_POST['signupBTN'])) {
                     /[A-Z]/.test(value) &&
                     /[a-z]/.test(value) &&
                     /[0-9]/.test(value)
-                    // && /[!@#$%^&*(),.?":{}|<>]/.test(value) // optional special character check
+                    // && /[!@#$%^&*(),.?":{}|<>]/.test(value) 
                 );
                 if (!isValid) {
                     return 'Password must be at least 8 characters long and include uppercase, lowercase letters, and numbers.';

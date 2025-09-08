@@ -398,13 +398,13 @@ if (isset($_POST['addProductBTN'])) {
                                                                     <div class="card">
                                                                         <div class="card-body">
                                                                             <div class="bar-code-view text-center">
-                                                                                <h6 class="barcode-label">Product ID: <?= $product_row['productId']; ?></h6>
+                                                                                <h6 class="barcode-label">Product Name: <?= $product_row['productName']; ?></h6>
                                                                             </div>
                                                                             <div class="productdetails">
                                                                                 <ul class="product-bar">
                                                                                     <li>
-                                                                                        <h4>Product Name</h4>
-                                                                                        <h6><?= $product_row['productName']; ?></h6>
+                                                                                        <h4>Product ID</h4>
+                                                                                        <h6><?= $product_row['productId']; ?></h6>
                                                                                     </li>
                                                                                     <li>
                                                                                         <h4>Category</h4>

@@ -256,7 +256,7 @@ if (isset($_POST['updateUserBTN'])) {
                 <div class="dropdown-menu dropdown-menu-right">
                     <a class="dropdown-item" href="profile.php">My Profile</a>
                     <a class="dropdown-item" href="#">Settings</a>
-                    <a class="dropdown-item" href="signin.php">Logout</a>
+                    <a class="dropdown-item" href="signout.php">Logout</a>
                 </div>
             </div>
         </div>
@@ -438,8 +438,8 @@ if (isset($_POST['updateUserBTN'])) {
                 return 'Please fill in all fields.';
             }
 
-            if (name === 'user_phone' && !/^0[0-9]{9}$/.test(value)) {
-                return 'Phone number must start with 0 and contain 10 digits.';
+            if (name === 'user_phone' && !/^[0-9]{7,15}$/.test(value)) {
+                return 'Please enter a valid Phone number.';
             }
 
             if (name === 'user_email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
