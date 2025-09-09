@@ -214,65 +214,35 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                             </div>
                         </div>
 
-                        <div class="card" id="filter_inputs">
-                            <div class="card-body pb-0">
-                                <div class="row">
-                                    <div class="col-lg-2 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <div class="input-groupicon">
-                                                <input type="text" placeholder="From Date" class="datetimepicker">
-                                                <div class="addonset">
-                                                    <img src="assets/img/icons/calendars.svg" alt="img">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-2 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <div class="input-groupicon">
-                                                <input type="text" placeholder="To Date" class="datetimepicker">
-                                                <div class="addonset">
-                                                    <img src="assets/img/icons/calendars.svg" alt="img">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-1 col-sm-6 col-12 ms-auto">
-                                        <div class="form-group  d-flex align-items-center justify-content-end gap-2">
-                                            <a class="btn btn-filters ms-auto">
-                                                <img src="assets/img/icons/search-whites.svg" alt="img">
-                                            </a>
-                                            <a href="customerreport.php" class="btn btn-reset">
-                                                <img src="assets/img/icons/refresh.svg" alt="Reset">
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Customer Report -->
+                        <?php
+                        // Filter
+                        $conditions = [];
+                        $params = [];
+                        $types = "";
 
-                        <div class="table-responsive">
-                            <table class="table" id="customerReportTable">
-                                <thead>
-                                    <tr>
-                                        <th>CustomerID</th>
-                                        <th>Customer name </th>
-                                        <th>Amount</th>
-                                        <th>Paid</th>
-                                        <th>Amount due</th>
-                                        <th>Status</th>
-                                        <th>Payment Status</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php
-                                    $customer_report_stmt = $conn->prepare("SELECT 
-                                                                customers.customerId AS `Customer code`,
-                                                                customers.customerName AS `Customer name`,
+                        if (!empty($_GET['from_date'])) {
+                            $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
+                            $conditions[] = "orders.orderDate >= ?";
+                            $params[] = $fromDate;
+                            $types .= "s";
+                        }
+                        if (!empty($_GET['to_date'])) {
+                            $toDate = date('Y-m-d', strtotime($_GET['to_date']));
+                            $conditions[] = "orders.orderDate <= ?";
+                            $params[] = $toDate;
+                            $types .= "s";
+                        }
+
+                        $whereClause = !empty($conditions) ? implode(" AND ", $conditions) : "1=1";
+
+                        // Query
+                        $customer_report_stmt = $conn->prepare("SELECT 
+                                                                customers.customerId AS `customer_id`,
+                                                                customers.customerName AS `customer_name`,
                                                                 SUM(orders.total) AS `Amount`,
                                                                 SUM(orders.paid) AS `Paid`,
-                                                                SUM(orders.due) AS `Amount due`,
+                                                                SUM(orders.due) AS `due_amount`,
 
                                                                 -- Separate counts for each order status
                                                                 SUM(CASE WHEN orders.orderStatus = 0 THEN 1 ELSE 0 END) AS `Pending Orders`,
@@ -288,20 +258,81 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 
                                                             FROM customers 
                                                             LEFT JOIN orders ON orders.customerId = customers.customerId
+                                                            WHERE $whereClause
                                                             GROUP BY customers.customerId, customers.customerName;
                                                 ");
-                                    $customer_report_stmt->execute();
-                                    $customer_report_result = $customer_report_stmt->get_result();
+                        if (!empty($params)) {
+                            $customer_report_stmt->bind_param($types, ...$params);
+                        }
+                        $customer_report_stmt->execute();
+                        $customer_report_result = $customer_report_stmt->get_result();
+                        ?>
+
+                        <form method="GET" action="customerreport.php">
+                            <div class="card" id="filter_inputs">
+                                <div class="card-body pb-0">
+                                    <div class="row">
+                                        <div class="col-lg-2 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <div class="input-groupicon">
+                                                    <input type="text" name="from_date" value="<?= $_GET['from_date'] ?? '' ?>" placeholder="From Date" class="datetimepicker">
+                                                    <div class="addonset">
+                                                        <img src="assets/img/icons/calendars.svg" alt="img">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-2 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <div class="input-groupicon">
+                                                    <input type="text" name="to_date" value="<?= $_GET['to_date'] ?? '' ?>" placeholder="To Date" class="datetimepicker">
+                                                    <div class="addonset">
+                                                        <img src="assets/img/icons/calendars.svg" alt="img">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-1 col-sm-6 col-12 ms-auto">
+                                            <div class="form-group  d-flex align-items-center justify-content-end gap-2">
+                                                <button type="submit" class="btn btn-filters ms-auto">
+                                                    <img src="assets/img/icons/search-whites.svg" alt="img">
+                                                </button>
+                                                <a href="customerreport.php" class="btn btn-reset">
+                                                    <img src="assets/img/icons/refresh.svg" alt="Reset">
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div class="table-responsive">
+                            <table class="table" id="customerReportTable">
+                                <thead>
+                                    <tr>
+                                        <th>CustomerID</th>
+                                        <th>Customer name </th>
+                                        <th>Amount</th>
+                                        <th>Paid</th>
+                                        <th>Due Amount</th>
+                                        <th>Status</th>
+                                        <th>Payment Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
                                     if ($customer_report_result->num_rows > 0) {
                                         while ($customer_report = $customer_report_result->fetch_assoc()) {
-                                            $customer_id = $customer_report['Customer code'];
+                                            $customer_id = $customer_report['customer_id'];
                                     ?>
                                             <tr>
-                                                <td class="text-center"><?= $customer_report['Customer code']; ?></td>
-                                                <td><?= $customer_report['Customer name']; ?></td>
+                                                <td class="text-center"><?= $customer_report['customer_id']; ?></td>
+                                                <td><?= $customer_report['customer_name']; ?></td>
                                                 <td class="text-center"><?= number_format($customer_report['Amount'], 2); ?></td>
                                                 <td class="text-success text-center"><?= number_format($customer_report['Paid'], 2); ?></td>
-                                                <td class="text-danger text-center"><?= number_format($customer_report['Amount due'], 2); ?></td>
+                                                <td class="text-danger text-center"><?= number_format($customer_report['due_amount'], 2); ?></td>
 
                                                 <td>
                                                     <span class="badges bg-success"><?= $customer_report['Completed Orders']; ?> Completed</span>
@@ -327,25 +358,20 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                                                 <td> <span class="badges <?= $badgeClass; ?>"><?= $paymentStatus; ?></span></td>
                                                 <td class="text-center">
                                                     <div class="d-flex justify-content-center">
-                                                        <div class="dropdown">
-                                                            <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false" class="dropset">
-                                                                <i class="fa fa-ellipsis-v"></i>
+                                                        <div class='btn-group btn-group-sm'>
+                                                            <a href='customer_report_details.php?customerId=<?= $customer_id ?>&from_date=<?= urlencode($_GET['from_date'] ?? '') ?>&to_date=<?= urlencode($_GET['to_date'] ?? '') ?>' class='btn btn-outline-primary btn-sm' title='View Report'>
+                                                                <i class='fas fa-eye text-dark'>
+                                                                    View
+                                                                </i>
                                                             </a>
-                                                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                                                <!-- View Button -->
-                                                                <li>
-                                                                    <a href="customer_report_details.php?customerId=<?= $customer_id; ?>" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewAgent<?= $agent_id; ?>">
-                                                                        <img src="assets/img/icons/eye.svg" alt="View" style="width: 16px; margin-right: 6px;">
-                                                                        View
-                                                                    </a>
-                                                                </li>
-                                                            </ul>
                                                         </div>
                                                     </div>
                                                 </td>
                                             </tr>
                                     <?php
                                         }
+                                    } else {
+                                        echo "<tr><td colspan='8' class='text-center'>No records found</td></tr>";
                                     }
                                     ?>
                                 </tbody>

@@ -480,7 +480,7 @@ if ($total_quotations_result->num_rows > 0) {
                                                 <th>Reference#</th>
                                                 <th>Customer Name</th>
                                                 <th>Date</th>
-                                                <th>Status</th>
+                                                <th>Amount</th>
                                             </tr>
                                         </thead>
                                         <tbody>

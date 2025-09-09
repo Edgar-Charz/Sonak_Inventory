@@ -27,10 +27,10 @@ if (isset($_POST['updateProductBTN'])) {
     $product_selling_price = $_POST['product_selling_price'];
     $product_description = trim($_POST['product_description']);
     $product_tax = $_POST['product_tax'];
-    $product_status = $_POST['product_status'];
+    // $product_status = $_POST['product_status'];
 
     // Get current product data to compare for changes
-    $current_data_query = "SELECT productName, categoryId, productType, unitId, quantity, quantityAlert, buyingPrice, sellingPrice, notes, tax, productStatus FROM products WHERE productId = ?";
+    $current_data_query = "SELECT productName, categoryId, productType, unitId, quantity, quantityAlert, buyingPrice, sellingPrice, notes, tax FROM products WHERE productId = ?";
     $current_data_stmt = $conn->prepare($current_data_query);
     $current_data_stmt->bind_param("i", $product_id);
     $current_data_stmt->execute();
@@ -49,8 +49,8 @@ if (isset($_POST['updateProductBTN'])) {
         $current_data['buyingPrice'] == $product_buying_price &&
         $current_data['sellingPrice'] == $product_selling_price &&
         $current_data['notes'] == $product_description &&
-        $current_data['tax'] == $product_tax &&
-        $current_data['productStatus'] == $product_status
+        $current_data['tax'] == $product_tax 
+        // && $current_data['productStatus'] == $product_status
     ) {
 
         echo "<script>
@@ -88,9 +88,9 @@ if (isset($_POST['updateProductBTN'])) {
                  </script>";
         } else {
             // Proceed with the update
-            $update_product_query = "UPDATE products SET productName=?, categoryId=?, productType=?, unitId=?, quantity=?, quantityAlert=?, buyingPrice=?, sellingPrice=?, notes=?, tax=?, productStatus=?, updated_at=? WHERE productId=?";
+            $update_product_query = "UPDATE products SET productName=?, categoryId=?, productType=?, unitId=?, quantity=?, quantityAlert=?, buyingPrice=?, sellingPrice=?, notes=?, tax=?, updated_at=? WHERE productId=?";
             $update_product_stmt = $conn->prepare($update_product_query);
-            $update_product_stmt->bind_param("siisiiddssdsi", $product_name, $product_category, $product_type, $product_unit, $product_quantity, $product_quantity_alert, $product_buying_price, $product_selling_price, $product_description, $product_tax, $product_status, $current_time, $product_id);
+            $update_product_stmt->bind_param("siisiiddsssi", $product_name, $product_category, $product_type, $product_unit, $product_quantity, $product_quantity_alert, $product_buying_price, $product_selling_price, $product_description, $product_tax, $current_time, $product_id);
 
             if ($update_product_stmt->execute()) {
                 if ($update_product_stmt->affected_rows > 0) {
@@ -407,7 +407,7 @@ if (isset($_POST['updateProductBTN'])) {
                                     </div>
                                 </div>
 
-                                <div class="col-lg-3 col-sm-6 col-12">
+                                <!-- <div class="col-lg-3 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Status</label>
                                         <select class="form-control select" name="product_status">
@@ -416,7 +416,7 @@ if (isset($_POST['updateProductBTN'])) {
                                             <option value="0" <?= $product_row['productStatus'] == 0 ? 'selected' : ''; ?>>Out Of Stock</option>
                                         </select>
                                     </div>
-                                </div>
+                                </div> -->
 
                                 <div class="col-lg-12">
                                     <div class="form-group">

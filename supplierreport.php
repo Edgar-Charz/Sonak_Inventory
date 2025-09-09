@@ -184,17 +184,6 @@ include 'includes/session.php';
                 <div class="card">
                     <div class="card-body">
                         <div class="tabs-set">
-                            <ul class="nav nav-tabs" id="myTab" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" id="purchase-tab" data-bs-toggle="tab" data-bs-target="#purchase" type="button" role="tab" aria-controls="purchase" aria-selected="true">Purchase</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="payment-tab" data-bs-toggle="tab" data-bs-target="#payment" type="button" role="tab" aria-controls="payment" aria-selected="false">Payment</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="return-tab" data-bs-toggle="tab" data-bs-target="#return" type="button" role="tab" aria-controls="return" aria-selected="false">Return</button>
-                                </li>
-                            </ul>
                             <div class="tab-content" id="myTabContent">
                                 <div class="tab-pane fade show active" id="purchase" role="tabpanel" aria-labelledby="purchase-tab">
                                     <div class="table-top">
@@ -229,36 +218,46 @@ include 'includes/session.php';
                                     // Filter
                                     $conditions = [];
                                     $params = [];
-                                    $types = [];
+                                    $types = "";
 
                                     if (!empty($_GET['from_date'])) {
                                         $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
-                                        $conditions[] = "purchases.purchase >= ?";
+                                        $conditions[] = "purchases.purchaseDate >= ?";
                                         $params[] = $fromDate;
                                         $types .= "s";
                                     }
-                                    if(!empty($_GET['to_date'])) {
+                                    if (!empty($_GET['to_date'])) {
                                         $toDate = date('Y-m-d', strtotime($_GET['to_date']));
                                         $conditions[] = "purchases.purchaseDate <= ?";
                                         $params[] = $toDate;
                                         $types .= "s";
                                     }
 
-                                    $whereClause = !empty($conditions) ? implode("AND", $conditions) : "1=1";
+                                    $whereClause = !empty($conditions) ? implode(" AND ", $conditions) : "1=1";
 
                                     // Query
-                                    $supplier_purchase_stmt = $conn->prepare("SELECT purchases.purchaseNumber, purchases.purchaseDate, suppliers.*, purchase_details.*, products.productName
-                                                                                            FROM purchases, suppliers, purchase_details, products
-                                                                                            WHERE purchases.purchaseNumber = purchase_details.purchaseNumber 
-                                                                                                AND purchases.supplierId = suppliers.supplierId
-                                                                                                AND purchase_details.productId = products.productId
+                                    $supplier_purchase_stmt = $conn->prepare("SELECT suppliers.supplierId,
+                                                                                            COUNT(purchases.purchaseNumber) AS total_purchases, 
+                                                                                            SUM(purchases.totalProducts) AS total_products, 
+                                                                                            SUM(purchases.totalAmount) AS total_amount,
+                                                                                            suppliers.supplierName AS supplier_name,
+
+                                                                                            -- Counts for status
+                                                                                            SUM(CASE WHEN purchases.purchaseStatus = 0 THEN 1 ELSE 0 END) AS pending_purchases,
+                                                                                            SUM(CASE WHEN purchases.purchaseStatus = 1 THEN 1 ELSE 0 END) AS completed_purchases,
+                                                                                            SUM(CASE WHEN purchases.purchaseStatus = 2 THEN 1 ELSE 0 END) AS cancelled_purchases
+
+                                                                                            FROM purchases, suppliers
+                                                                                            WHERE purchases.supplierId = suppliers.supplierId                                                                                                
                                                                                                 AND $whereClause
+                                                                                            GROUP BY suppliers.supplierId    
                                                                                             ORDER BY purchases.purchaseUId DESC");
                                     if (!empty($params)) {
-                                        $supplier_purchase_stmt->bind_param($types, $params);
+                                        $supplier_purchase_stmt->bind_param($types, ...$params);
                                     }
                                     $supplier_purchase_stmt->execute();
                                     $supplier_purchase_result = $supplier_purchase_stmt->get_result();
+                                    $sn = 0;
                                     ?>
                                     <form method="GET" action="supplierreport.php">
                                         <div class="card" id="filter_inputs">
@@ -286,9 +285,9 @@ include 'includes/session.php';
                                                     </div>
                                                     <div class="col-lg-1 col-sm-6 col-12 ms-auto">
                                                         <div class="form-group  d-flex align-items-center justify-content-end gap-2">
-                                                            <a class="btn btn-filters ms-auto">
+                                                            <button type="submit" class="btn btn-filters ms-auto">
                                                                 <img src="assets/img/icons/search-whites.svg" alt="img">
-                                                            </a>
+                                                            </button>
                                                             <a href="supplierreport.php" class="btn btn-reset">
                                                                 <img src="assets/img/icons/refresh.svg" alt="Reset">
                                                             </a>
@@ -303,31 +302,47 @@ include 'includes/session.php';
                                         <table class="table" id="purchaseReportTable">
                                             <thead>
                                                 <tr>
-                                                    <th>Purchased Date</th>
-                                                    <th>Product Name</th>
-                                                    <th>Purchased Amount</th>
+                                                    <th>#</th>
+                                                    <th>Supplier Name</th>
+                                                    <th>Total Purchases</th>
                                                     <th>Purchased QTY</th>
-                                                    <th>Paid</th>
-                                                    <th>Balance</th>
+                                                    <th>Purchased Amount</th>
                                                     <th>Status</th>
+                                                    <th class="text-center">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <?php
                                                 if ($supplier_purchase_result->num_rows > 0) {
                                                     while ($row = $supplier_purchase_result->fetch_assoc()) {
+                                                        $supplier_id = $row['supplierId'];
+
                                                         echo "<tr>
-                                                    <td>" . date('d-m-Y', strtotime($row['purchaseDate'])) . "</td>
-                                                    <td>" . $row['productName'] . "</td>
-                                                    <td>" . number_format($row['totalCost']) . "</td>
-                                                    <td>" . $row['quantity'] . "</td>
-                                                    <td>" . $row['purchaseDate'] . "</td>
-                                                    <td>" . $row['purchaseDate'] . "</td>
-                                                    <td><span class='badges bg-lightgrey''>" . $row['purchaseDate'] . "</span></td>
+                                                    <td>" . ++$sn . "</td>
+                                                    <td>" . $row['supplier_name'] . "</td>
+                                                    <td>" . $row['total_purchases'] . "</td>
+                                                    <td>" . $row['total_products'] . "</td>
+                                                    <td>" . number_format($row['total_amount'], 2) . "</td>
+                                                    <td><span class='badges bg-lightgreen'>" . $row['completed_purchases'] . " " . " Completed " . "</span>
+                                                        <span class='badges bg-lightyellow'>" . $row['pending_purchases'] . " " . " Pending " . "</span>
+                                                        <span class='badges bg-lightred'>" . $row['cancelled_purchases'] . " " . " Cancelled " . "</span>
+                                                    </td>
+                                                    <td class='text-center'>                                                    
+                                                        <div class='btn-group btn-group-sm'>
+                                                            <a href='supplier_report_details.php?supplierId=" . $supplier_id .
+                                                            "&from_date=" . urlencode($_GET['from_date'] ?? '') .
+                                                            "&to_date=" . urlencode($_GET['to_date'] ?? '') .
+                                                            "' class='btn btn-outline-primary btn-sm' title='View Report'>
+                                                                <i class='fas fa-eye text-dark'> 
+                                                                    View
+                                                                </i> 
+                                                            </a>
+                                                        </div>
+                                                    </td>
                                                 </tr>";
                                                     }
                                                 } else {
-                                                    echo "<tr><td colspan='7' class='text-center'></td></tr>";
+                                                    echo "<tr><td colspan='7' class='text-center'>No records found.</td></tr>";
                                                 }
                                                 $supplier_purchase_stmt->close();
                                                 ?>
@@ -336,204 +351,6 @@ include 'includes/session.php';
                                     </div>
                                 </div>
 
-                                <div class="tab-pane fade" id="payment" role="tabpanel">
-                                    <div class="table-top">
-                                        <div class="search-set">
-                                            <div class="search-path">
-                                                <a class="btn btn-filter" id="filter_search2">
-                                                    <img src="assets/img/icons/filter.svg" alt="img">
-                                                    <span><img src="assets/img/icons/closes.svg" alt="img"></span>
-                                                </a>
-                                            </div>
-                                            <div class="search-input">
-                                                <a class="btn btn-searchset"><img src="assets/img/icons/search-white.svg" alt="img"></a>
-                                            </div>
-                                        </div>
-                                        <div class="wordset">
-                                            <ul>
-                                                <li>
-                                                    <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
-                                                </li>
-                                                <li>
-                                                    <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
-                                                </li>
-                                                <li>
-                                                    <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    <div class="card" id="filter_inputs2">
-                                        <div class="card-body pb-0">
-                                            <div class="row">
-                                                <div class="col-lg-2 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <div class="input-groupicon">
-                                                            <input type="text" placeholder="From Date" class="datetimepicker">
-                                                            <div class="addonset">
-                                                                <img src="assets/img/icons/calendars.svg" alt="img">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-lg-2 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <div class="input-groupicon">
-                                                            <input type="text" placeholder="To Date" class="datetimepicker">
-                                                            <div class="addonset">
-                                                                <img src="assets/img/icons/calendars.svg" alt="img">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-lg-1 col-sm-6 col-12 ms-auto">
-                                                    <div class="form-group">
-                                                        <a class="btn btn-filters ms-auto"><img src="assets/img/icons/search-whites.svg" alt="img"></a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="table-responsive">
-                                        <table class="table" id="purchasePaymentReportTable">
-                                            <thead>
-                                                <tr>
-                                                    <th>
-                                                        <label class="checkboxs">
-                                                            <input type="checkbox">
-                                                            <span class="checkmarks"></span>
-                                                        </label>
-                                                    </th>
-                                                    <th>DATE</th>
-                                                    <th>Purchase</th>
-                                                    <th>Reference</th>
-                                                    <th>Supplier name </th>
-                                                    <th>Amount</th>
-                                                    <th>Paid</th>
-                                                    <th>paid by</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td>
-                                                        <label class="checkboxs">
-                                                            <input type="checkbox">
-                                                            <span class="checkmarks"></span>
-                                                        </label>
-                                                    </td>
-                                                    <td>2022-03-10 </td>
-                                                    <td>PR_1001</td>
-                                                    <td>INV/PR_1001</td>
-                                                    <td>Thomas21</td>
-                                                    <td>1500.00</td>
-                                                    <td>1500.00</td>
-                                                    <td>Cash</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="tab-pane fade" id="return" role="tabpanel">
-                                    <div class="table-top">
-                                        <div class="search-set">
-                                            <div class="search-path">
-                                                <a class="btn btn-filter" id="filter_search1">
-                                                    <img src="assets/img/icons/filter.svg" alt="img">
-                                                    <span><img src="assets/img/icons/closes.svg" alt="img"></span>
-                                                </a>
-                                            </div>
-                                            <div class="search-input">
-                                                <a class="btn btn-searchset"><img src="assets/img/icons/search-white.svg" alt="img"></a>
-                                            </div>
-                                        </div>
-                                        <div class="wordset">
-                                            <ul>
-                                                <li>
-                                                    <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
-                                                </li>
-                                                <li>
-                                                    <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
-                                                </li>
-                                                <li>
-                                                    <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    <div class="card" id="filter_inputs1">
-                                        <div class="card-body pb-0">
-                                            <div class="row">
-                                                <div class="col-lg-2 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <div class="input-groupicon">
-                                                            <input type="text" placeholder="From Date" class="datetimepicker">
-                                                            <div class="addonset">
-                                                                <img src="assets/img/icons/calendars.svg" alt="img">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-lg-2 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <div class="input-groupicon">
-                                                            <input type="text" placeholder="To Date" class="datetimepicker">
-                                                            <div class="addonset">
-                                                                <img src="assets/img/icons/calendars.svg" alt="img">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-lg-1 col-sm-6 col-12 ms-auto">
-                                                    <div class="form-group">
-                                                        <a class="btn btn-filters ms-auto"><img src="assets/img/icons/search-whites.svg" alt="img"></a>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="table-responsive">
-                                        <table class="table" id="purchaseReturnTable">
-                                            <thead>
-                                                <tr>
-                                                    <th>
-                                                        <label class="checkboxs">
-                                                            <input type="checkbox">
-                                                            <span class="checkmarks"></span>
-                                                        </label>
-                                                    </th>
-                                                    <th>Reference</th>
-                                                    <th>Supplier name </th>
-                                                    <th>Amount</th>
-                                                    <th>Paid</th>
-                                                    <th>Amount due</th>
-                                                    <th>Status</th>
-                                                    <th>Paument Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td>
-                                                        <label class="checkboxs">
-                                                            <input type="checkbox">
-                                                            <span class="checkmarks"></span>
-                                                        </label>
-                                                    </td>
-                                                    <td>RT_1001</td>
-                                                    <td>Thomas21</td>
-                                                    <td>1500.00</td>
-                                                    <td>1500.00</td>
-                                                    <td>1500.00</td>
-                                                    <td><span class="badges bg-lightgreen">Completed</span></td>
-                                                    <td><span class="badges bg-lightgreen">Paid</span></td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -649,32 +466,6 @@ include 'includes/session.php';
             }
         });
     </script>
-    <script>
-        $(document).ready(function() {
-            if ($("#purchaseReturnTable").length > 0) {
-                if (!$.fn.DataTable.isDataTable("#purchaseReturnTable")) {
-                    $("#purchaseReturnTable").DataTable({
-                        destroy: true,
-                        bFilter: true,
-                        sDom: "fBtlpi",
-                        pagingType: "numbers",
-                        ordering: true,
-                        language: {
-                            search: " ",
-                            sLengthMenu: "_MENU_",
-                            searchPlaceholder: "Search...",
-                            info: "_START_ - _END_ of _TOTAL_ items"
-                        },
-                        initComplete: function(settings, json) {
-                            $(".dataTables_filter").appendTo("#tableSearch");
-                            $(".dataTables_filter").appendTo(".search-input");
-                        }
-                    });
-                }
-            }
-        });
-    </script>
-
 </body>
 
 </html>

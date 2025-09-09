@@ -2,15 +2,15 @@
 include 'includes/db_connection.php';
 include 'includes/session.php';
 
-if (!isset($_GET['customerId'])) {
-    echo "Invalid Customer ID";
+if (!isset($_GET['supplierId'])) {
+    echo "Invalid Supplier ID";
     exit;
 }
 // Get user id from session
 $user_id = $_SESSION["id"];
 
-// Get customer id
-$customer_id = $_GET['customerId'];
+// Get supplier id
+$supplier_id = $_GET['supplierId'];
 
 // Set timezone
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
@@ -169,8 +169,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                                 <li><a href="salesreport.php">Sales Report</a></li>
                                 <li><a href="invoicereport.php">Invoice Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
-                                <li><a href="supplierreport.php">Supplier Report</a></li>
-                                <li><a href="customerreport.php" class="active">Customer Report</a></li>
+                                <li><a href="supplierreport.php" class="active">Supplier Report</a></li>
+                                <li><a href="customerreport.php">Customer Report</a></li>
                             </ul>
                         </li>
                         <li class="submenu">
@@ -187,43 +187,41 @@ $current_time = $time->format("Y-m-d H:i:s");
             <div class="content">
                 <div class="page-header">
                     <div class="page-title">
-                        <h4>Customer Report Details</h4>
-                        <h6>View Customer Report Details</h6>
+                        <h4>Supplier Report Details</h4>
+                        <h6>View Supplier Report Details</h6>
                     </div>
                     <div class="page-btn">
-                        <a href="customerreport.php" class="btn btn-added"><img src="assets/img/icons/card-list.svg" alt="image">&nbsp; Customer Reports</a>
+                        <a href="supplierreport.php" class="btn btn-added"><img src="assets/img/icons/card-list.svg" alt="image">&nbsp; Supplier Reports</a>
                     </div>
                 </div>
                 <?php
                 // Filter conditions
-                $whereClause = "customers.customerId = '$customer_id'";
+                $whereClause = "suppliers.supplierId = '$supplier_id'";
 
                 if (!empty($_GET['from_date'])) {
                     $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
-                    $whereClause .= " AND orders.orderDate >= '$fromDate'";
+                    $whereClause .= " AND purchases.purchaseDate >= '$fromDate'";
                 }
                 if (!empty($_GET['to_date'])) {
                     $toDate = date('Y-m-d', strtotime($_GET['to_date']));
-                    $whereClause .= " AND orders.orderDate <= '$toDate'";
+                    $whereClause .= " AND purchases.purchaseDate <= '$toDate'";
                 }
 
-                // Get customer information and order statistics
-                $customer_query = $conn->query("SELECT 
-                                    customers.*,
-                                    COUNT(orders.invoiceNumber) AS total_orders,
-                                    SUM(CASE WHEN orders.orderStatus = 1 THEN 1 ELSE 0 END) AS completed_orders,
-                                    SUM(CASE WHEN orders.orderStatus = 0 THEN 1 ELSE 0 END) AS pending_orders,
-                                    SUM(CASE WHEN orders.orderStatus = 2 THEN 1 ELSE 0 END) AS cancelled_orders,
-                                    SUM(orders.total) AS total_amount,
-                                    SUM(orders.paid) AS total_paid,
-                                    SUM(orders.due) AS total_due
-                                FROM customers 
-                                LEFT JOIN orders ON customers.customerId = orders.customerId
+                // Get supplier information and purchase statistics
+                $supplier_query = $conn->query("SELECT 
+                                    suppliers.*,
+                                    COUNT(purchases.purchaseNumber) AS total_purchases,
+                                    SUM(CASE WHEN purchases.purchaseStatus = 1 THEN 1 ELSE 0 END) AS completed_purchases,
+                                    SUM(CASE WHEN purchases.purchaseStatus = 0 THEN 1 ELSE 0 END) AS pending_purchases,
+                                    SUM(CASE WHEN purchases.purchaseStatus = 2 THEN 1 ELSE 0 END) AS cancelled_purchases,
+                                    SUM(purchases.totalAmount) AS total_amount
+                                FROM suppliers 
+                                LEFT JOIN purchases ON suppliers.supplierId = purchases.supplierId
                                 WHERE $whereClause
-                                GROUP BY customers.customerId");
+                                GROUP BY suppliers.supplierId");
 
-                if ($customer_query->num_rows > 0) {
-                    $customer = $customer_query->fetch_assoc();
+                if ($supplier_query->num_rows > 0) {
+                    $supplier = $supplier_query->fetch_assoc();
                 ?>
 
                     <div class="row">
@@ -231,7 +229,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <div class="col-lg-6">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="card-title">Customer Information</h5>
+                                    <h5 class="card-title">Supplier Information</h5>
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
@@ -239,27 +237,27 @@ $current_time = $time->format("Y-m-d H:i:s");
                                             <tbody>
                                                 <tr>
                                                     <td><strong>Name:</strong></td>
-                                                    <td><?= ($customer['customerName']); ?></td>
+                                                    <td><?= ($supplier['supplierName']); ?></td>
                                                 </tr>
                                                 <tr>
                                                     <td><strong>Email:</strong></td>
                                                     <td>
-                                                        <a href="mailto:<?= $customer['customerEmail']; ?>">
-                                                            <?= ($customer['customerEmail']); ?>
+                                                        <a href="mailto:<?= $supplier['supplierEmail']; ?>">
+                                                            <?= ($supplier['supplierEmail']); ?>
                                                         </a>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td><strong>Phone:</strong></td>
                                                     <td>
-                                                        <a href="tel:<?= $customer['customerPhone']; ?>">
-                                                            <?= ($customer['customerPhone']); ?>
+                                                        <a href="tel:<?= $supplier['supplierPhone']; ?>">
+                                                            <?= ($supplier['supplierPhone']); ?>
                                                         </a>
                                                     </td>
                                                 </tr>
                                                 <tr>
                                                     <td><strong>Address:</strong></td>
-                                                    <td><?= ($customer['customerAddress']); ?></td>
+                                                    <td><?= ($supplier['supplierAddress']); ?></td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -272,27 +270,27 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <div class="col-lg-6">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="card-title">Order Statistics</h5>
+                                    <h5 class="card-title">Purchase Statistics</h5>
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
                                         <table class="table table-striped mb-0">
                                             <tbody>
                                                 <tr>
-                                                    <td><strong>Total Orders:</strong></td>
-                                                    <td><span class="badge bg-primary" style="font-size: 14px;"><?= $customer['total_orders']; ?></span></td>
+                                                    <td><strong>Total Purchases:</strong></td>
+                                                    <td><span class="badge bg-primary" style="font-size: 14px;"><?= $supplier['total_purchases']; ?></span></td>
                                                 </tr>
                                                 <tr>
                                                     <td><strong>Completed:</strong></td>
-                                                    <td><span class="badge bg-success"><?= $customer['completed_orders']; ?></span></td>
+                                                    <td><span class="badge bg-success"><?= $supplier['completed_purchases']; ?></span></td>
                                                 </tr>
                                                 <tr>
                                                     <td><strong>Pending:</strong></td>
-                                                    <td><span class="badge bg-warning"><?= $customer['pending_orders']; ?></span></td>
+                                                    <td><span class="badge bg-warning"><?= $supplier['pending_purchases']; ?></span></td>
                                                 </tr>
                                                 <tr>
                                                     <td><strong>Cancelled:</strong></td>
-                                                    <td><span class="badge bg-danger"><?= $customer['cancelled_orders']; ?></span></td>
+                                                    <td><span class="badge bg-danger"><?= $supplier['cancelled_purchases']; ?></span></td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -315,11 +313,11 @@ $current_time = $time->format("Y-m-d H:i:s");
                                             <tbody>
                                                 <tr>
                                                     <td><strong>Total Amount:</strong></td>
-                                                    <td class="text-primary"><strong>Tsh: <?= number_format($customer['total_amount'], 2); ?></strong></td>
-                                                    <td><strong>Total Paid:</strong></td>
-                                                    <td class="text-success"><strong>Tsh: <?= number_format($customer['total_paid'], 2); ?></strong></td>
+                                                    <td class="text-primary"><strong>Tsh: <?= number_format($supplier['total_amount'], 2); ?></strong></td>
+                                                    <!-- <td><strong>Total Paid:</strong></td>
+                                                    <td class="text-success"><strong>Tsh: <?= number_format($supplier['total_paid'], 2); ?></strong></td>
                                                     <td><strong>Total Due:</strong></td>
-                                                    <td class="text-danger"><strong>Tsh: <?= number_format($customer['total_due'], 2); ?></strong></td>
+                                                    <td class="text-danger"><strong>Tsh: <?= number_format($supplier['total_due'], 2); ?></strong></td> -->
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -334,7 +332,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <div class="col-lg-12">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="card-title">Order History</h5>
+                                    <h5 class="card-title">Purchase History</h5>
                                     <?php
                                     if (!empty($_GET['from_date']) && !empty($_GET['to_date'])) {
                                         echo "<span style='color: #212529; font-weight: 500;'>
@@ -374,20 +372,15 @@ $current_time = $time->format("Y-m-d H:i:s");
                                         </div>
                                     </div>
                                     <div class="table-responsive">
-                                        <table class="table mb-0" id="customerReportDetailsTable">
+                                        <table class="table mb-0" id="supplierReportDetailsTable">
                                             <thead>
                                                 <tr>
                                                     <th>#</th>
-                                                    <th>Invoice No.</th>
+                                                    <th>Purchase No.</th>
                                                     <th>Date</th>
-                                                    <th>Product Name</th>
+                                                    <th>Product</th>
                                                     <th>Quantity</th>
-                                                    <th>SubTotal</th>
-                                                    <th>VAT</th>
-                                                    <th>Discount</th>
-                                                    <th>Total</th>
-                                                    <th>Paid</th>
-                                                    <th>Due</th>
+                                                    <th>Purchased Amount</th>
                                                     <th>Status</th>
                                                     <th>Actions</th>
                                                 </tr>
@@ -395,34 +388,34 @@ $current_time = $time->format("Y-m-d H:i:s");
                                             <tbody>
                                                 <?php
                                                 // Filter conditions
-                                                $whereClause = "orders.customerId = '$customer_id'";
+                                                $whereClause = "purchases.supplierId = '$supplier_id'";
 
                                                 if (!empty($_GET['from_date'])) {
                                                     $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
-                                                    $whereClause .= " AND orders.orderDate >= '$fromDate'";
+                                                    $whereClause .= " AND purchases.purchaseDate >= '$fromDate'";
                                                 }
                                                 if (!empty($_GET['to_date'])) {
                                                     $toDate = date('Y-m-d', strtotime($_GET['to_date']));
-                                                    $whereClause .= " AND orders.orderDate <= '$toDate'";
+                                                    $whereClause .= " AND purchases.purchaseDate <= '$toDate'";
                                                 }
 
-                                                // Get order details and products
+                                                // Get purchase details and products
                                                 $details_query = $conn->query("SELECT 
-                                                                orders.*,
-                                                                order_details.*, 
+                                                                purchases.*,
+                                                                purchase_details.*, 
                                                                 products.productName,
-                                                                customers.customerId
-                                                            FROM orders
-                                                            JOIN customers ON orders.customerId = customers.customerId
-                                                            JOIN order_details ON orders.invoiceNumber = order_details.invoiceNumber
-                                                            JOIN products ON order_details.productId = products.productId
+                                                                suppliers.supplierId
+                                                            FROM purchases
+                                                            JOIN suppliers ON purchases.supplierId = suppliers.supplierId
+                                                            JOIN purchase_details ON purchases.purchaseNumber = purchase_details.purchaseNumber
+                                                            JOIN products ON purchase_details.productId = products.productId
                                                             WHERE $whereClause
-                                                            ORDER BY orders.invoiceNumber DESC");
+                                                            ORDER BY purchases.purchaseNumber DESC");
                                                 $sn = 1;
                                                 while ($detail = $details_query->fetch_assoc()) {
                                                     // Determine status badge
                                                     $statusBadge = '';
-                                                    switch ($detail['orderStatus']) {
+                                                    switch ($detail['purchaseStatus']) {
                                                         case 0:
                                                             $statusBadge = '<span class="badges bg-warning">Pending</span>';
                                                             break;
@@ -436,26 +429,20 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                 ?>
                                                     <tr>
                                                         <td><?= $sn++; ?></td>
-                                                        <td><?= $detail['invoiceNumber']; ?></td>
-                                                        <td><?= date('M d, Y', strtotime($detail['orderDate'])); ?></td>
+                                                        <td><?= $detail['purchaseNumber']; ?></td>
+                                                        <td><?= date('M d, Y', strtotime($detail['purchaseDate'])); ?></td>
                                                         <td><?= ($detail['productName']); ?></td>
                                                         <td><?= $detail['quantity']; ?></td>
-                                                        <td><?= number_format($detail['subTotal'], 2); ?></td>
-                                                        <td><?= $detail['vat']; ?>%</td>
-                                                        <td>-</td>
-                                                        <td><strong><?= number_format($detail['total'], 2); ?></strong></td>
-                                                        <td class="text-success"><strong><?= number_format($detail['paid'], 2); ?></strong></td>
-                                                        <td class="text-danger"><strong><?= number_format($detail['due'], 2); ?></strong></td>
+                                                        <td><strong><?= number_format($detail['totalCost'], 2); ?></strong></td>
                                                         <td><?= $statusBadge; ?></td>
                                                         <td>
                                                             <div class="btn-group btn-group-sm">
-                                                                <a href="sales-details.php?invoiceNumber=<?= $detail['invoiceNumber']; ?>" class="btn btn-outline-primary btn-sm" title="View Details">
+                                                                <a href="viewpurchase.php?purchaseNumber=<?= $detail['purchaseNumber']; ?>" class="btn btn-outline-primary btn-sm" title="View Details">
                                                                     <i class="fas fa-eye text-dark">
                                                                         View
                                                                     </i> 
                                                                 </a>
                                                             </div>
-
                                                         </td>
                                                     </tr>
                                                 <?php } ?>
@@ -463,7 +450,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                 <?php if ($details_query->num_rows == 0): ?>
                                                     <tr>
                                                         <td colspan="13" class="text-center py-4">
-                                                            <p class="text-muted">No orders found for this customer.</p>
+                                                            <p class="text-muted">No purchases found for this supplier.</p>
                                                         </td>
                                                     </tr>
                                                 <?php endif; ?>
@@ -477,7 +464,7 @@ $current_time = $time->format("Y-m-d H:i:s");
 
                 <?php
                 } else {
-                    echo '<div class="alert alert-warning">Customer not found.</div>';
+                    echo '<div class="alert alert-warning">Supplier not found.</div>';
                 }
                 ?>
             </div>
@@ -505,9 +492,9 @@ $current_time = $time->format("Y-m-d H:i:s");
 
         <script>
             $(document).ready(function() {
-                if ($("#customerReportDetailsTable").length > 0) {
-                    if (!$.fn.DataTable.isDataTable("#customerReportDetailsTable")) {
-                        $("#customerReportDetailsTable").DataTable({
+                if ($("#supplierReportDetailsTable").length > 0) {
+                    if (!$.fn.DataTable.isDataTable("#supplierReportDetailsTable")) {
+                        $("#supplierReportDetailsTable").DataTable({
                             destroy: true,
                             bFilter: true,
                             sDom: "fBtlpi",

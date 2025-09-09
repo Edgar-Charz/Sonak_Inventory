@@ -496,7 +496,7 @@ if (isset($_POST['updateUnitBTN'])) {
                                     <table class="table" id="categoryTable">
                                         <thead>
                                             <tr>
-                                                <th>Category Code</th>
+                                                <th>Category ID</th>
                                                 <th>Category Name</th>
                                                 <th>Action</th>
                                             </tr>
@@ -542,7 +542,7 @@ if (isset($_POST['updateUnitBTN'])) {
                                                     </tr>
                                                     <!-- Edit Category Modal -->
                                                     <div class="modal fade" id="editCategoryModal<?= $category_id; ?>" tabindex="-1" aria-labelledby="editCategoryModalLabel<?= $category_id; ?>" aria-hidden="true">
-                                                        <div class="modal-dialog">
+                                                        <div class="modal-dialog modal-dialog-centered">
                                                             <div class="modal-content">
                                                                 <form method="POST" action="">
                                                                     <div class="modal-header">
@@ -581,7 +581,7 @@ if (isset($_POST['updateUnitBTN'])) {
                         </div>
                         <!-- Add Category Modal -->
                         <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-labelledby="addCategoryModalLabel" aria-hidden="true">
-                            <div class="modal-dialog">
+                            <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
                                     <div class="modal-header">
                                         <h5 class="modal-title" id="addCategoryModalLabel">Add New Category</h5>
@@ -597,9 +597,9 @@ if (isset($_POST['updateUnitBTN'])) {
                                                 <label for="categoryName" class="form-label">Category Name</label>
                                                 <input type="text" class="form-control" id="categoryName" name="categoryName" required>
                                             </div>
-                                            <div class="modal-footer">
-                                                <button type="submit" class="btn btn-primary" name="addBTN">Save</button>
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <div class="submit-section">
+                                                <button type="submit" class="btn btn-primary save-category submit-btn" name="addBTN">Save</button>
+                                                <!-- <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button> -->
                                             </div>
                                         </form>
                                     </div>
@@ -699,7 +699,7 @@ if (isset($_POST['updateUnitBTN'])) {
 
                                                     <!-- Edit Unit Modal -->
                                                     <div class="modal fade" id="editUnitModal<?= $unit_id; ?>" tabindex="-1" aria-labelledby="editUnitModalLabel<?= $unit_id; ?>" aria-hidden="true">
-                                                        <div class="modal-dialog">
+                                                        <div class="modal-dialog modal-dialog-centered">
                                                             <div class="modal-content">
                                                                 <form method="POST" action="">
                                                                     <div class="modal-header">
@@ -736,7 +736,7 @@ if (isset($_POST['updateUnitBTN'])) {
                         </div>
                         <!-- Add Unit Modal -->
                         <div class="modal fade" id="addUnitModal" tabindex="-1" aria-labelledby="addUnitModalLabel" aria-hidden="true">
-                            <div class="modal-dialog">
+                            <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
                                     <form method="POST" action="">
                                         <div class="modal-header">

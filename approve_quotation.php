@@ -722,7 +722,7 @@ function generateInvoiceNumber($conn)
                             Swal.fire({
                                 title: 'Warning',
                                 text: 'Quantity cannot exceed available stock!',
-                                icon: 'warning',
+                                // icon: 'warning',
                                 timer: 3000
                             });
                         }
@@ -797,7 +797,7 @@ function generateInvoiceNumber($conn)
                         Swal.fire({
                             title: 'Warning',
                             text: 'Pay amount cannot exceed the grand total!',
-                            icon: 'warning',
+                            // icon: 'warning',
                             timer: 3000
                         });
                     } else if (enteredPay < 0) {
@@ -805,7 +805,7 @@ function generateInvoiceNumber($conn)
                         Swal.fire({
                             title: 'Warning',
                             text: 'Pay amount cannot be negative!',
-                            icon: 'warning',
+                            // icon: 'warning',
                             timer: 3000
                         });
                     }

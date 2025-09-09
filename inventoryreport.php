@@ -258,7 +258,7 @@ include 'includes/session.php';
                                         <th>Product Name</th>
                                         <th>Category</th>
                                         <th>Unit</th>
-                                        <th>Brand</th>
+                                        <!-- <th>Brand</th> -->
                                         <th>BuyingPrice</th>
                                         <th>SellingPrice</th>
                                         <th>Instock Qty</th>
@@ -282,7 +282,7 @@ include 'includes/session.php';
                                                 <td> <?= $row['productName']; ?> </td>
                                                 <td> <?= $row['categoryName']; ?> </td>
                                                 <td> <?= $row['unitName']; ?> </td>
-                                                <td> <?= $row['productType']; ?> </td>
+                                                <!-- <td> <?= $row['productType']; ?> </td> -->
                                                 <td> <?= number_format($row['buyingPrice'], 2); ?> </td>
                                                 <td> <?= number_format($row['sellingPrice'], 2); ?> </td>
                                                 <td> <?= $row['quantity']; ?> </td>
