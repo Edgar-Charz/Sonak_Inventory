@@ -6,70 +6,240 @@ include 'includes/session.php';
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
-// Check if add product button was clicked
-if (isset($_POST['addProductBTN'])) {
-    $product_name = $_POST['product_name'];
-    $product_category = $_POST['product_category'];
-    $product_type = $_POST['product_type'];
-    $product_unit = $_POST['product_unit'];
-    $product_quantity = $_POST['product_quantity'];
-    $product_quantity_alert = $_POST['product_quantity_alert'];
-    $product_buying_price = $_POST['product_buying_price'];
-    $product_selling_price = $_POST['product_selling_price'];
-    $product_tax = $_POST['product_tax'];
-    $product_description = $_POST['product_description'];
+try {
+    if (isset($_POST['addProductBTN'])) {
+        // Start transaction
+        $conn->begin_transaction();
 
-    // Check if product exists
-    $check_product_stmt = $conn->prepare("SELECT * FROM products WHERE productName = ?");
-    $check_product_stmt->bind_param("s", $product_name);
-    $check_product_stmt->execute();
-    $result = $check_product_stmt->get_result();
+        $product_name = trim($_POST['product_name']);
+        $product_category = $_POST['product_category'];
+        $product_type = $_POST['product_type'];
+        $product_unit = $_POST['product_unit'];
+        $product_quantity = str_replace(',', '', $_POST['product_quantity']);
+        $product_quantity_alert = str_replace(',', '', $_POST['product_quantity_alert']);
+        $product_buying_price = str_replace(',', '', $_POST['product_buying_price']);
+        $product_selling_price = str_replace(',', '', $_POST['product_selling_price']);
+        $product_tax = $_POST['product_tax'];
+        $product_description = $_POST['product_description'];
 
-    if ($result->num_rows > 0) {
-        // Product already exists
-        echo "<script>
-            document.addEventListener('DOMContentLoaded', function () {
-                Swal.fire({
-                    title: 'Error!',
-                    text: 'Product with this name already exists!'
-                }).then(function(){
-                    window.location.href = 'productlist.php';
-               });
-            });
-        </script>";
-        exit;
-    } else {
-        // Insert new product 
-        $insert_product_stmt = $conn->prepare("INSERT INTO `products`(`categoryId`, `unitId`, `productName`, `productType`, `quantity`, `buyingPrice`, `sellingPrice`, `quantityAlert`, `tax`, `notes`, `created_at`, `updated_at`) 
-                                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $insert_product_stmt->bind_param("iissssssssss", $product_category, $product_unit, $product_name, $product_type, $product_quantity, $product_buying_price, $product_selling_price, $product_quantity_alert, $product_tax, $product_description, $current_time, $current_time);
+        // Check if product exists
+        $check_product_stmt = $conn->prepare("SELECT 1 FROM products WHERE LOWER(productName) = LOWER(?) LIMIT 1");
+        $check_product_stmt->bind_param("s", $product_name);
+        $check_product_stmt->execute();
+        $check_product_stmt->store_result();
 
-        if ($insert_product_stmt->execute()) {
+        if ($check_product_stmt->num_rows > 0) {
+            $conn->rollback();
             echo "<script>
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
-                        title: 'Success',
-                        text: 'Product added successfully!'
+                        icon: 'error',
+                        title: 'Error!',
+                        text: 'Product with this name already exists!'
                     }).then(function(){
                         window.location.href = 'productlist.php';
                    });
                 });
             </script>";
         } else {
+            // Insert new product
+            $insert_product_stmt = $conn->prepare("INSERT INTO `products`
+                (`productCategoryId`, `productUnitId`, `productName`, `productType`, `productQuantity`, 
+                 `productBuyingPrice`, `productSellingPrice`, `productQuantityAlert`, `productTax`, 
+                 `productNotes`, `created_at`, `updated_at`) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $insert_product_stmt->bind_param(
+                "iissssssssss",
+                $product_category,
+                $product_unit,
+                $product_name,
+                $product_type,
+                $product_quantity,
+                $product_buying_price,
+                $product_selling_price,
+                $product_quantity_alert,
+                $product_tax,
+                $product_description,
+                $current_time,
+                $current_time
+            );
+
+            if ($insert_product_stmt->execute()) {
+                $conn->commit();
+                echo "<script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: 'Product added successfully!'
+                        }).then(function(){
+                            window.location.href = 'productlist.php';
+                       });
+                    });
+                </script>";
+            } else {
+                $conn->rollback();
+                echo "<script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error adding product. Please try again.'
+                        }).then(function(){
+                            window.location.href = 'productlist.php';
+                       });
+                    });
+                </script>";
+            }
+        }
+    } else if (isset($_POST['updateProductBTN'])) {
+        // Start transaction
+        $conn->begin_transaction();
+
+        $product_id = $_POST['product_id'];
+        $product_name = trim($_POST['product_name']);
+        $product_category = $_POST['product_category'];
+        $product_type = trim($_POST['product_type']);
+        $product_unit = $_POST['product_unit'];
+        $product_quantity = str_replace(',', '', $_POST['product_quantity']);
+        $product_quantity_alert = str_replace(',', '', $_POST['product_quantity_alert']);
+        $product_buying_price = str_replace(',', '', $_POST['product_buying_price']);
+        $product_selling_price = str_replace(',', '', $_POST['product_selling_price']);
+        $product_description = trim($_POST['product_description']);
+        $product_tax = $_POST['product_tax'];
+
+        // Get current product data
+        $current_data_stmt = $conn->prepare("SELECT productName, productCategoryId, productType, productUnitId,
+                                                     productQuantity, productQuantityAlert, productBuyingPrice,
+                                                     productSellingPrice, productNotes, productTax
+                                              FROM products WHERE productId = ?");
+        $current_data_stmt->bind_param("i", $product_id);
+        $current_data_stmt->execute();
+        $current_result = $current_data_stmt->get_result();
+        $current_data = $current_result->fetch_assoc();
+
+        // No changes made
+        if (
+            $current_data &&
+            $current_data['productName'] == $product_name &&
+            $current_data['productCategoryId'] == $product_category &&
+            $current_data['productType'] == $product_type &&
+            $current_data['productUnitId'] == $product_unit &&
+            $current_data['productQuantity'] == $product_quantity &&
+            $current_data['productQuantityAlert'] == $product_quantity_alert &&
+            $current_data['productBuyingPrice'] == $product_buying_price &&
+            $current_data['productSellingPrice'] == $product_selling_price &&
+            $current_data['productNotes'] == $product_description &&
+            $current_data['productTax'] == $product_tax
+        ) {
+            $conn->rollback();
             echo "<script>
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
-                        title: 'Error',
-                        text: 'Error adding product. Please try again.'
-                    }).then(function(){
+                        icon: 'info',
+                        title: 'Info',
+                        text: 'No changes were made to the product.',
+                        timer: 5000,
+                        timerProgressBar: true
+                    }).then(function() {
                         window.location.href = 'productlist.php';
-                   });
+                    });
                 });
-            </script>";
+             </script>";
+        } else {
+            // Check if new product name exists in another product
+            $check_name_stmt = $conn->prepare("SELECT productId FROM products WHERE LOWER(productName) = LOWER(?) AND productId != ?");
+            $check_name_stmt->bind_param("si", $product_name, $product_id);
+            $check_name_stmt->execute();
+            $name_result = $check_name_stmt->get_result();
+
+            if ($name_result->num_rows > 0) {
+                $conn->rollback();
+                echo "<script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        Swal.fire({
+                            icon: 'error',
+                            text: 'Product name already exists for another product.',
+                            title: 'Error',
+                            timer: 5000,
+                            timerProgressBar: true
+                        }).then(function() {
+                            window.location.href = 'editproduct.php?id=$product_id';
+                        });
+                    });
+                 </script>";
+            } else {
+                // Proceed with update
+                $update_product_stmt = $conn->prepare("UPDATE products 
+                    SET productName = ?, productCategoryId = ?, productType = ?, productUnitId = ?, 
+                        productQuantity = ?, productQuantityAlert = ?, productBuyingPrice = ?, 
+                        productSellingPrice = ?, productNotes = ?, productTax = ?, updated_at=? 
+                    WHERE productId=?");
+
+                $update_product_stmt->bind_param(
+                    "sissiiddsssi",
+                    $product_name,
+                    $product_category,
+                    $product_type,
+                    $product_unit,
+                    $product_quantity,
+                    $product_quantity_alert,
+                    $product_buying_price,
+                    $product_selling_price,
+                    $product_description,
+                    $product_tax,
+                    $current_time,
+                    $product_id
+                );
+
+                if ($update_product_stmt->execute()) {
+                    $conn->commit();
+                    echo "<script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            Swal.fire({
+                                icon: 'success',
+                                text: 'Product updated successfully.',
+                                title: 'Success',
+                                timer: 5000,
+                                timerProgressBar: true
+                            }).then(function() {
+                                window.location.href = 'productlist.php';
+                            });
+                        });
+                      </script>";
+                } else {
+                    $conn->rollback();
+                    echo "<script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            Swal.fire({
+                                icon: 'error',
+                                text: 'Error updating product. Please try again.',
+                                title: 'Error'
+                            }).then(function() {
+                                window.location.href = 'productlist.php';
+                            });
+                        });
+                    </script>";
+                }
+            }
         }
     }
+} catch (Exception $e) {
+    $conn->rollback();
+    echo "<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            Swal.fire({
+                icon: 'error',
+                title: 'Exception',
+                text: 'An unexpected error occurred: " . $e->getMessage() . "'
+            }).then(function(){
+                window.location.href = 'productlist.php';
+           });
+        });
+    </script>";
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -189,7 +359,7 @@ if (isset($_POST['addProductBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -218,9 +388,9 @@ if (isset($_POST['addProductBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -267,15 +437,15 @@ if (isset($_POST['addProductBTN'])) {
                             </div>
                             <div class="wordset">
                                 <ul>
-                                    <li>
+                                    <!-- <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
-                                    </li>
-                                    <li>
+                                    </li> -->
+                                    <!-- <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
                                     </li>
                                     <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                    </li>
+                                    </li> -->
                                 </ul>
                             </div>
                         </div>
@@ -284,17 +454,17 @@ if (isset($_POST['addProductBTN'])) {
                             <table class="table" id="productTable">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
+                                        <th>S/N</th>
                                         <th>ProductName</th>
                                         <th>Category</th>
                                         <th>Unit</th>
-                                        <th>Type</th>
-                                        <th>Qty</th>
+                                        <!-- <th>Type</th> -->
+                                        <th class="text-center">Quantity</th>
                                         <th>Buying</th>
                                         <th>Selling</th>
-                                        <th>Tax</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
+                                        <th class="text-center">Tax</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -302,13 +472,14 @@ if (isset($_POST['addProductBTN'])) {
                                     // Fetch all products data from the database
                                     $products_query = $conn->query("SELECT products.*, categories.categoryName, units.unitName
                                                                                 FROM products, categories, units
-                                                                                WHERE categories.categoryId = products.categoryId 
-                                                                                AND units.unitId = products.unitId");
+                                                                                WHERE categories.categoryId = products.productCategoryId 
+                                                                                AND units.unitId = products.productUnitId");
+                                    $sn = 0;
                                     if ($products_query->num_rows > 0) {
                                         while ($product_row = $products_query->fetch_assoc()) {
                                             $product_id = $product_row['productId'];
-                                            $quantity = $product_row['quantity'];
-                                            $quantityAlert = $product_row['quantityAlert'] ?? 0;
+                                            $quantity = $product_row['productQuantity'];
+                                            $quantityAlert = $product_row['productQuantityAlert'] ?? 0;
                                             $currentStatus = $product_row['productStatus'];
 
                                             $newStatus = $currentStatus;
@@ -329,18 +500,19 @@ if (isset($_POST['addProductBTN'])) {
 
                                                 $product_row['productStatus'] = $newStatus;
                                             }
+                                            $sn++;
                                     ?>
                                             <tr>
-                                                <td><?= $product_row['productId']; ?></td>
+                                                <td><?= $sn; ?></td>
                                                 <td><?= $product_row['productName']; ?></td>
                                                 <td><?= $product_row['categoryName']; ?></td>
                                                 <td><?= $product_row['unitName']; ?></td>
-                                                <td><?= $product_row['productType']; ?></td>
-                                                <td><?= $product_row['quantity']; ?></td>
-                                                <td><?= number_format($product_row['buyingPrice'], 2); ?></td>
-                                                <td><?= number_format($product_row['sellingPrice'], 2); ?></td>
-                                                <td><?= $product_row['tax']; ?>%</td>
-                                                <td>
+                                                <!-- <td><?= $product_row['productType']; ?></td> -->
+                                                <td class="text-center"><?= $product_row['productQuantity']; ?></td>
+                                                <td><?= number_format($product_row['productBuyingPrice'], 2); ?></td>
+                                                <td><?= number_format($product_row['productSellingPrice'], 2); ?></td>
+                                                <td class="text-center"><?= $product_row['productTax']; ?>%</td>
+                                                <td class="text-center">
                                                     <?php if ($product_row['productStatus'] == "0") : ?>
                                                         <span class="badges bg-lightred">OutOfStock</span>
                                                     <?php elseif ($product_row['productStatus'] == "1"): ?>
@@ -366,18 +538,22 @@ if (isset($_POST['addProductBTN'])) {
 
                                                                 <!-- Edit Button -->
                                                                 <li>
-                                                                    <a href="editproduct.php?id=<?= $product_id; ?>" class="dropdown-item">
+                                                                    <!-- <a href="editproduct.php?id=<?= $product_id; ?>" class="dropdown-item">
                                                                         <img src="assets/img/icons/edit.svg" alt="Edit" style="width: 16px; margin-right: 6px;">
                                                                         Edit
-                                                                    </a>
+                                                                    </a> -->
+                                                                    <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#editProduct<?= $product_id; ?>">
+                                                                        <img src="assets/img/icons/edit.svg" alt="View" style="width: 16px; margin-right: 6px;">
+                                                                        Edit
+                                                                    </button>
                                                                 </li>
                                                                 <!-- Delete Button -->
-                                                                <li>
+                                                                <!-- <li>
                                                                     <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $product_id; ?>)">
                                                                         <img src="assets/img/icons/delete.svg" alt="Delete" style="width: 16px; margin-right: 6px;">
                                                                         Delete
                                                                     </button>
-                                                                </li>
+                                                                </li> -->
                                                             </ul>
                                                         </div>
                                                     </div>
@@ -386,79 +562,200 @@ if (isset($_POST['addProductBTN'])) {
 
                                             <!-- View Product Modal -->
                                             <div class="modal fade" id="viewProduct<?= $product_id; ?>" tabindex="-1" aria-labelledby="viewProductModalLabel" aria-hidden="true">
-                                                <div class="modal-dialog modal-lg">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="viewProductModalLabel"><?= $product_row['productName']; ?></h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">x</button>
+                                                <div class="modal-dialog modal-xl">
+                                                    <div class="modal-content shadow-lg rounded-3">
+                                                        <div class="modal-header bg-secondary text-white">
+                                                            <h5 class="modal-title fw-bold" id="viewProductModalLabel">
+                                                                <?= $product_row['productName']; ?>
+                                                            </h5>
+                                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close">x</button>
                                                         </div>
+
                                                         <div class="modal-body">
-                                                            <div class="row">
-                                                                <div class="col-lg-12 col-sm-12">
-                                                                    <div class="card">
-                                                                        <div class="card-body">
-                                                                            <div class="bar-code-view text-center">
-                                                                                <h6 class="barcode-label">Product Name: <?= $product_row['productName']; ?></h6>
+                                                            <div class="container-fluid">
+                                                                <div class="row g-4">
+
+                                                                    <!-- Product Info -->
+                                                                    <div class="col-12">
+                                                                        <div class="card border-0 shadow-sm">
+                                                                            <div class="card-body">
+                                                                                <h6 class="text-uppercase text-muted mb-3">Product Information</h6>
+                                                                                <div class="row">
+                                                                                    <div class="col-md-6">
+                                                                                        <p><strong>Product ID:</strong> <?= $product_row['productId']; ?></p>
+                                                                                        <p><strong>Category:</strong> <?= $product_row['categoryName']; ?></p>
+                                                                                        <p><strong>Type:</strong> <?= $product_row['productType']; ?></p>
+                                                                                        <p><strong>Unit:</strong> <?= $product_row['unitName']; ?></p>
+                                                                                        <p><strong>Quantity:</strong> <?= $product_row['productQuantity']; ?></p>
+                                                                                    </div>
+                                                                                    <div class="col-md-6">
+                                                                                        <p><strong>Minimum Qty:</strong> <?= $product_row['productQuantityAlert']; ?></p>
+                                                                                        <p><strong>Buying Price:</strong> <?= number_format($product_row['productBuyingPrice'], 2); ?></p>
+                                                                                        <p><strong>Selling Price:</strong> <?= number_format($product_row['productSellingPrice'], 2); ?></p>
+                                                                                        <p><strong>Tax:</strong> <?= $product_row['productTax']; ?>%</p>
+                                                                                        <p>
+                                                                                            <strong>Status:</strong>
+                                                                                            <span class="badge 
+                                                                                                <?= $product_row['productStatus'] == 0 ? 'bg-danger' : ($product_row['productStatus'] == 1 ? 'bg-success' : 'bg-warning text-dark'); ?>">
+                                                                                                <?= $product_row['productStatus'] == 0 ? 'Out Of Stock' : ($product_row['productStatus'] == 1 ? 'Available' : 'Low Stock'); ?>
+                                                                                            </span>
+                                                                                        </p>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <hr>
+                                                                                <p><strong>Description:</strong><br><?= $product_row['productNotes']; ?></p>
                                                                             </div>
-                                                                            <div class="productdetails">
-                                                                                <ul class="product-bar">
-                                                                                    <li>
-                                                                                        <h4>Product ID</h4>
-                                                                                        <h6><?= $product_row['productId']; ?></h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Category</h4>
-                                                                                        <h6><?= $product_row['categoryName']; ?></h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Type</h4>
-                                                                                        <h6><?= $product_row['productType']; ?></h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Unit</h4>
-                                                                                        <h6><?= $product_row['unitName']; ?></h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Quantity</h4>
-                                                                                        <h6><?= $product_row['quantity']; ?></h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Minimum Qty</h4>
-                                                                                        <h6><?= $product_row['quantityAlert']; ?></h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Buying Price</h4>
-                                                                                        <h6><?= number_format($product_row['buyingPrice'], 2); ?></h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Selling Price</h4>
-                                                                                        <h6><?= number_format($product_row['sellingPrice'], 2); ?></h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Tax</h4>
-                                                                                        <h6><?= $product_row['tax']; ?>%</h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Status</h4>
-                                                                                        <h6>
-                                                                                            <?= $product_row['productStatus'] == 0 ? 'OutOfStock' : ($product_row['productStatus'] == 1 ? 'Available' : 'LowStock'); ?>
-                                                                                        </h6>
-                                                                                    </li>
-                                                                                    <li>
-                                                                                        <h4>Description</h4>
-                                                                                        <h6><?= $product_row['notes']; ?></h6>
-                                                                                    </li>
-                                                                                </ul>
+                                                                        </div>
+                                                                    </div>
+
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Footer -->
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- /View Product Modal -->
+
+                                            <!-- Edit Product Modal -->
+                                            <div class="modal fade" id="editProduct<?= $product_id; ?>" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
+                                                <div class="modal-dialog modal-xl">
+                                                    <div class="modal-content shadow-lg rounded-3">
+                                                        <div class="modal-header bg-secondary text-white">
+                                                            <h5 class="modal-title fw-bold" id="editProductModalLabel">
+                                                                <?= $product_row['productName']; ?>
+                                                            </h5>
+                                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close">x</button>
+                                                        </div>
+
+                                                        <form action="" method="POST" id="update-product-form" enctype="multipart/form-data">
+                                                            <div class="modal-body">
+                                                                <div class="card">
+                                                                    <div class="card-body">
+                                                                        <?php
+                                                                        // Select all products data
+                                                                        $product_query = $conn->query("SELECT products.*, categories.categoryName, units.unitName
+                                                                                                                FROM products 
+                                                                                                                INNER JOIN categories ON products.productCategoryId = categories.categoryId
+                                                                                                                INNER JOIN units ON products.productUnitId = units.unitId
+                                                                                                                WHERE products.productId = '$product_id'");
+                                                                        $product_row = $product_query->fetch_assoc();
+                                                                        ?>
+                                                                        <div class="row">
+                                                                            <input type="hidden" name="product_id" value="<?= $product_id; ?>">
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Product Name</label>
+                                                                                    <input type="text" name="product_name" class="form-control" value="<?= $product_row['productName']; ?>" required>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Category</label>
+                                                                                    <select class="form-control select" name="product_category" required>
+                                                                                        <option value="<?= $product_row['productCategoryId']; ?>"><?= $product_row['categoryName']; ?></option>
+                                                                                        <?php
+                                                                                        // Add other category options
+                                                                                        $categories_query = $conn->query("SELECT * FROM categories WHERE categoryId != '{$product_row['productCategoryId']}'");
+                                                                                        while ($category = $categories_query->fetch_assoc()) {
+                                                                                            echo "<option value='{$category['categoryId']}'>{$category['categoryName']}</option>";
+                                                                                        }
+                                                                                        ?>
+                                                                                    </select>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Type</label>
+                                                                                    <input type="text" name="product_type" class="form-control" value="<?= $product_row['productType']; ?>">
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Unit</label>
+                                                                                    <select class="form-control select" name="product_unit" required>
+                                                                                        <option value="<?= $product_row['productUnitId']; ?>"><?= $product_row['unitName']; ?></option>
+                                                                                        <?php
+                                                                                        // Add other unit options
+                                                                                        $units_query = $conn->query("SELECT * FROM units WHERE unitId != '{$product_row['productUnitId']}'");
+                                                                                        while ($unit = $units_query->fetch_assoc()) {
+                                                                                            echo "<option value='{$unit['unitId']}'>{$unit['unitName']}</option>";
+                                                                                        }
+                                                                                        ?>
+                                                                                    </select>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Quantity</label>
+                                                                                    <input type="text" name="product_quantity" class="form-control quantity" value="<?= number_format($product_row['productQuantity']); ?>" required>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Quantity Alert</label>
+                                                                                    <input type="text" name="product_quantity_alert" class="form-control quantity" value="<?= number_format($product_row['productQuantityAlert']); ?>" required>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Buying Price</label>
+                                                                                    <input type="text" step="0.01" name="product_buying_price" class="form-control price" value="<?= number_format($product_row['productBuyingPrice']); ?>">
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Selling Price</label>
+                                                                                    <input type="text" step="0.01" name="product_selling_price" class="form-control price" value="<?= number_format($product_row['productSellingPrice']); ?>">
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Tax</label>
+                                                                                    <input type="number" step="0.01" name="product_tax" class="form-control" value="<?= number_format($product_row['productTax']); ?>">
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="col-lg-12">
+                                                                                <div class="form-group">
+                                                                                    <label>Description</label>
+                                                                                    <textarea class="form-control" name="product_description"><?= $product_row['productNotes']; ?></textarea>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
+
+                                                            <div class="col-lg-12">
+                                                                <div class="modal-footer">
+                                                                    <button type="submit" name="updateProductBTN" class="btn btn-submit me-2">Save changes</button>
+                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                                </div>
+                                                            </div>
+
+                                                        </form>
+                                                        <!-- /Edit Product Form -->
+
                                                     </div>
                                                 </div>
                                             </div>
-                                            <!-- /View Product Modal -->
+
+                                            <!--/ Edit Product Modal -->
                                     <?php
                                         }
                                     }
@@ -473,15 +770,16 @@ if (isset($_POST['addProductBTN'])) {
                 <div class="modal fade" id="addProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
                     <div class="modal-dialog modal-xl">
                         <div class="modal-content">
-                            <div class="modal-header">
+                            <div class="modal-header bg-secondary text-white">
                                 <h5 class="modal-title" id="addProductModalLabel">Add Product</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">x</button>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close">x</button>
                             </div>
-                            <div class="modal-body">
-                                <!-- Add Product form -->
-                                <div class="card">
-                                    <div class="card-body">
-                                        <form action="" method="POST" id="product-form" enctype="multipart/form-data">
+
+                            <!-- Add Product form -->
+                            <form action="" method="POST" id="product-form" enctype="multipart/form-data">
+                                <div class="modal-body">
+                                    <div class="card">
+                                        <div class="card-body">
                                             <div class="row">
                                                 <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
@@ -511,11 +809,7 @@ if (isset($_POST['addProductBTN'])) {
                                                 <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Product Type</label>
-                                                        <select class="select" name="product_type">
-                                                            <option value="" selected disabled>Choose Brand</option>
-                                                            <option>Samsung</option>
-                                                            <option>Panasonic</option>
-                                                        </select>
+                                                        <input type="text" name="product_type" class="form-control">
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-3 col-sm-6 col-12">
@@ -540,68 +834,51 @@ if (isset($_POST['addProductBTN'])) {
                                                 <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Quantity</label>
-                                                        <input type="text" name="product_quantity" required>
+                                                        <input type="text" name="product_quantity" class="form-control quantity" required>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Quantity Alert</label>
-                                                        <input type="text" name="product_quantity_alert">
+                                                        <input type="text" name="product_quantity_alert" class="form-control quantity">
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Buying Price</label>
-                                                        <input type="text" name="product_buying_price" required>
+                                                        <input type="text" name="product_buying_price" class="form-control price" required>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Selling Price</label>
-                                                        <input type="text" name="product_selling_price" required>
+                                                        <input type="text" name="product_selling_price" class="form-control price" required>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-3 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Tax</label>
-                                                        <input type="text" name="product_tax">
+                                                        <input type="number" name="product_tax" class="form-control">
                                                     </div>
                                                 </div>
-                                                <!-- <div class="col-lg-3 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <label>Discount Type</label>
-                                                        <select class="select" name="product_discount">
-                                                            <option>Percentage</option>
-                                                            <option>10%</option>
-                                                            <option>20%</option>
-                                                        </select>
-                                                    </div>
-                                                </div> -->
-                                                <!-- <div class="col-lg-3 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <label> Status</label>
-                                                        <select class="select">
-                                                            <option>Closed</option>
-                                                            <option>Open</option>
-                                                        </select>
-                                                    </div>
-                                                </div> -->
                                                 <div class="col-lg-12">
                                                     <div class="form-group">
                                                         <label>Description</label>
                                                         <textarea name="product_description" class="form-control"></textarea>
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-12">
-                                                    <button type="submit" name="addProductBTN" class="btn btn-submit me-2">Submit</button>
-                                                    <button type="reset" class="btn btn-cancel">Cancel</button>
-                                                </div>
                                             </div>
-                                        </form>
+
+                                        </div>
                                     </div>
                                 </div>
-                                <!-- End of add Product form -->
-                            </div>
+
+                                <div class="modal-footer">
+                                    <button type="submit" name="addProductBTN" class="btn btn-submit me-2">Submit</button>
+                                    <button type="reset" class="btn btn-cancel">Cancel</button>
+                                </div>
+                            </form>
+                            <!-- End of add Product form -->
                         </div>
                     </div>
                 </div>
@@ -609,6 +886,75 @@ if (isset($_POST['addProductBTN'])) {
             </div>
         </div>
     </div>
+    <script>
+        // Format numbers with commas and optional decimals
+        function numberFormatter(number, decimals = 0) {
+            if (number === null || number === "null" || number === "") {
+                return "";
+            }
+
+            try {
+                let value = parseFloat(number);
+                if (isNaN(value)) return "";
+                return value.toLocaleString(undefined, {
+                    minimumFractionDigits: decimals,
+                    maximumFractionDigits: decimals
+                });
+            } catch (e) {
+                console.error("Invalid number format:", number, e);
+                return "";
+            }
+        }
+
+        // Debounce utility
+        function debounce(fn, delay) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.price, .quantity').forEach(input => {
+
+                // Prevent letters and symbols from being typed
+                input.addEventListener('input', () => {
+                    input.value = input.value.replace(/[^0-9.]/g, '');
+                    formatInput();
+                });
+
+                // Debounced formatter for each input
+                const formatInput = debounce(() => {
+                    let raw = input.value.replace(/,/g, '');
+
+                    if (input.classList.contains('price')) {
+                        input.value = numberFormatter(raw, 2);
+                    } else {
+                        input.value = numberFormatter(raw, 0);
+                    }
+                }, 1000);
+
+                // Format on blur (immediate)
+                input.addEventListener('blur', () => {
+                    let raw = input.value.replace(/,/g, '');
+                    if (input.classList.contains('price')) {
+                        input.value = numberFormatter(raw, 2);
+                    } else {
+                        input.value = numberFormatter(raw, 0);
+                    }
+                });
+
+                // Format initial values on page load
+                let initial = input.value.replace(/,/g, '');
+                if (input.classList.contains('price')) {
+                    input.value = numberFormatter(initial, 2);
+                } else {
+                    input.value = numberFormatter(initial, 0);
+                }
+            });
+        });
+    </script>
 
     <script>
         // Function to capitalize
@@ -632,20 +978,11 @@ if (isset($_POST['addProductBTN'])) {
                 return 'Name fields should contain letters only.';
             }
 
-
-            if ((name === 'product_quantity' || name === 'product_quantity_alert') && !/^[1-9]\d*$/.test(value)) {
-                return 'Quantity contains only numbers.';
-            }
-
             if (name === 'product_tax' && !/^[0-9]+$/.test(value)) {
                 return 'Tax contains only numbers.';
             }
 
-            if ((name === 'product_buying_price' || name === 'product_selling_price') && !/^\d+(\.\d{1,2})?$/.test(value)) {
-                return 'Invalid Price. Please enter a valid monetary amount.';
-            }
-
-            if ((name === 'product_category' || name === 'product_unit' || name === 'product_type') && value === '') {
+            if ((name === 'product_category' || name === 'product_unit') && value === '') {
                 return 'Please select an option.';
             }
             return true;
@@ -658,6 +995,7 @@ if (isset($_POST['addProductBTN'])) {
                 if (result !== true) {
                     event.preventDefault();
                     Swal.fire({
+                        icon: 'error',
                         title: 'Error!!',
                         text: result
                     });
@@ -670,6 +1008,7 @@ if (isset($_POST['addProductBTN'])) {
         // Function to confirm product deletion 
         function confirmDelete(productId) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
                 text: "This action cannot be undone.",
                 showCancelButton: true,
@@ -691,6 +1030,7 @@ if (isset($_POST['addProductBTN'])) {
 
             if (status === 'success') {
                 Swal.fire({
+                    icon: 'success',
                     title: 'Deleted!',
                     text: 'Product has been deleted successfully.',
                     timer: 3000,
@@ -703,6 +1043,7 @@ if (isset($_POST['addProductBTN'])) {
             }
             if (status === 'error') {
                 Swal.fire({
+                    icon: 'error',
                     title: 'Error!',
                     text: 'Failed to delete the product.',
                     timer: 3000,

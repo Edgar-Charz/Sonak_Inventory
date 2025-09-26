@@ -125,7 +125,7 @@ include 'includes/session.php';
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -154,9 +154,9 @@ include 'includes/session.php';
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php" class="active">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -181,6 +181,30 @@ include 'includes/session.php';
                     </div>
                 </div>
 
+                <?php if (!empty($_GET['from_date']) || !empty($_GET['to_date'])): ?>
+                    <div class="card mt-3 border-info shadow-sm">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0 text-info fw-semibold">
+                                    <i class="bi bi-funnel-fill me-1"></i> Applied Filters
+                                </h6>
+                                <a href="<?php echo basename($_SERVER['PHP_SELF']); ?>" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </a>
+                            </div>
+                            <ul class="mb-0 ps-0" style="list-style: none;">
+                                <?php if (!empty($_GET['from_date'])): ?>
+                                    <li><strong>From:</strong> <?= $_GET['from_date']; ?></li>
+                                <?php endif; ?>
+
+                                <?php if (!empty($_GET['to_date'])): ?>
+                                    <li><strong>To:</strong> <?= $_GET['to_date']; ?></li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <div class="card">
                     <div class="card-body">
                         <div class="tabs-set">
@@ -200,7 +224,7 @@ include 'includes/session.php';
                                         </div>
                                         <div class="wordset">
                                             <ul>
-                                                <li>
+                                                <!-- <li>
                                                     <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
                                                 </li>
                                                 <li>
@@ -208,7 +232,7 @@ include 'includes/session.php';
                                                 </li>
                                                 <li>
                                                     <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                                </li>
+                                                </li> -->
                                             </ul>
                                         </div>
                                     </div>
@@ -236,22 +260,25 @@ include 'includes/session.php';
                                     $whereClause = !empty($conditions) ? implode(" AND ", $conditions) : "1=1";
 
                                     // Query
-                                    $supplier_purchase_stmt = $conn->prepare("SELECT suppliers.supplierId,
-                                                                                            COUNT(purchases.purchaseNumber) AS total_purchases, 
-                                                                                            SUM(purchases.totalProducts) AS total_products, 
-                                                                                            SUM(purchases.totalAmount) AS total_amount,
-                                                                                            suppliers.supplierName AS supplier_name,
+                                    $supplier_purchase_stmt = $conn->prepare("SELECT 
+                                                                                    suppliers.supplierId,
+                                                                                    suppliers.supplierName AS supplier_name,
+                                                                                    COUNT(DISTINCT purchases.purchaseNumber) AS total_purchases, 
+                                                                                    SUM(purchase_details.purchaseDetailQuantity) AS total_products, 
+                                                                                    SUM(purchase_details.purchaseDetailTotalCost) AS total_amount,
 
-                                                                                            -- Counts for status
-                                                                                            SUM(CASE WHEN purchases.purchaseStatus = 0 THEN 1 ELSE 0 END) AS pending_purchases,
-                                                                                            SUM(CASE WHEN purchases.purchaseStatus = 1 THEN 1 ELSE 0 END) AS completed_purchases,
-                                                                                            SUM(CASE WHEN purchases.purchaseStatus = 2 THEN 1 ELSE 0 END) AS cancelled_purchases
+                                                                                    -- Status counts
+                                                                                    COUNT(DISTINCT CASE WHEN purchases.purchaseStatus = 0 THEN purchases.purchaseNumber END) AS pending_purchases,
+                                                                                    COUNT(DISTINCT CASE WHEN purchases.purchaseStatus = 1 THEN purchases.purchaseNumber END) AS completed_purchases,
+                                                                                    COUNT(DISTINCT CASE WHEN purchases.purchaseStatus = 2 THEN purchases.purchaseNumber END) AS cancelled_purchases
 
-                                                                                            FROM purchases, suppliers
-                                                                                            WHERE purchases.supplierId = suppliers.supplierId                                                                                                
-                                                                                                AND $whereClause
-                                                                                            GROUP BY suppliers.supplierId    
-                                                                                            ORDER BY purchases.purchaseUId DESC");
+                                                                                FROM purchases 
+                                                                                JOIN suppliers ON purchases.purchaseSupplierId = suppliers.supplierId
+                                                                                JOIN purchase_details ON purchases.purchaseNumber = purchase_details.purchaseDetailPurchaseNumber
+                                                                                WHERE $whereClause
+                                                                                GROUP BY suppliers.supplierId
+                                                                                ORDER BY total_purchases DESC;
+                                                                                ");
                                     if (!empty($params)) {
                                         $supplier_purchase_stmt->bind_param($types, ...$params);
                                     }
@@ -288,15 +315,12 @@ include 'includes/session.php';
                                                             <button type="submit" class="btn btn-filters ms-auto">
                                                                 <img src="assets/img/icons/search-whites.svg" alt="img">
                                                             </button>
-                                                            <a href="supplierreport.php" class="btn btn-reset">
-                                                                <img src="assets/img/icons/refresh.svg" alt="Reset">
-                                                            </a>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </form>
+                                    </form> 
 
                                     <div class="table-responsive">
                                         <table class="table" id="purchaseReportTable">
@@ -304,10 +328,10 @@ include 'includes/session.php';
                                                 <tr>
                                                     <th>#</th>
                                                     <th>Supplier Name</th>
-                                                    <th>Total Purchases</th>
-                                                    <th>Purchased QTY</th>
-                                                    <th>Purchased Amount</th>
-                                                    <th>Status</th>
+                                                    <th class="text-center">Total Purchases</th>
+                                                    <th class="text-center">Purchased QTY</th>
+                                                    <th class="text-center">Purchased Amount</th>
+                                                    <th class="text-center">Purchases Status</th>
                                                     <th class="text-center">Action</th>
                                                 </tr>
                                             </thead>
@@ -320,12 +344,13 @@ include 'includes/session.php';
                                                         echo "<tr>
                                                     <td>" . ++$sn . "</td>
                                                     <td>" . $row['supplier_name'] . "</td>
-                                                    <td>" . $row['total_purchases'] . "</td>
-                                                    <td>" . $row['total_products'] . "</td>
-                                                    <td>" . number_format($row['total_amount'], 2) . "</td>
-                                                    <td><span class='badges bg-lightgreen'>" . $row['completed_purchases'] . " " . " Completed " . "</span>
+                                                    <td class='text-center'>" . number_format($row['total_purchases']) . "</td>
+                                                    <td class='text-center'>" . number_format($row['total_products']) . "</td>
+                                                    <td class='text-center'>" . number_format($row['total_amount'], 2) . "</td>
+                                                    <td class='text-center'>
+                                                        <span class='badges bg-lightgreen'>" . $row['completed_purchases'] . " " . " Completed " . "</span>
                                                         <span class='badges bg-lightyellow'>" . $row['pending_purchases'] . " " . " Pending " . "</span>
-                                                        <span class='badges bg-lightred'>" . $row['cancelled_purchases'] . " " . " Cancelled " . "</span>
+                                                        <span class='badges bg-lightgrey'>" . $row['cancelled_purchases'] . " " . " Cancelled " . "</span>
                                                     </td>
                                                     <td class='text-center'>                                                    
                                                         <div class='btn-group btn-group-sm'>

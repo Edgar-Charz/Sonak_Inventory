@@ -73,7 +73,7 @@ if ($total_purchases_result->num_rows > 0) {
 };
 
 // Total sales
-$total_sales_stmt = $conn->prepare('SELECT COUNT(invoiceNumber) AS total_orders FROM orders');
+$total_sales_stmt = $conn->prepare('SELECT COUNT(orderInvoiceNumber) AS total_orders FROM orders');
 $total_sales_stmt->execute();
 $total_sales_result = $total_sales_stmt->get_result();
 if ($total_sales_result->num_rows > 0) {
@@ -84,7 +84,7 @@ if ($total_sales_result->num_rows > 0) {
 };
 
 // Total quotations
-$total_quotations_stmt = $conn->prepare('SELECT COUNT(referenceNumber) AS total_quotations FROM quotations');
+$total_quotations_stmt = $conn->prepare('SELECT COUNT(quotationReferenceNumber) AS total_quotations FROM quotations');
 $total_quotations_stmt->execute();
 $total_quotations_result = $total_quotations_stmt->get_result();
 if ($total_quotations_result->num_rows > 0) {
@@ -207,7 +207,7 @@ if ($total_quotations_result->num_rows > 0) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -236,9 +236,9 @@ if ($total_quotations_result->num_rows > 0) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -292,7 +292,7 @@ if ($total_quotations_result->num_rows > 0) {
                             </div>
                             <div class="dash-widgetcontent">
                                 <h5><span class="counters" data-count="<?= $total_products; ?>"></span></h5>
-                                <h6>Products</h6>
+                                <h6>Equipments</h6>
                             </div>
                         </div>
                     </div>
@@ -374,8 +374,8 @@ if ($total_quotations_result->num_rows > 0) {
                                         <i class="fa fa-ellipsis-v"></i>
                                     </a>
                                     <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                        <li><a href="saleslist.php" class="dropdown-item">Orders List</a></li>
-                                        <li><a href="add-sales.php" class="dropdown-item">Add Orders</a></li>
+                                        <li><a href="saleslist.php" class="dropdown-item">Sales List</a></li>
+                                        <!-- <li><a href="add-sales.php" class="dropdown-item">Add Sales</a></li> -->
                                     </ul>
                                 </div>
                             </div>
@@ -384,11 +384,11 @@ if ($total_quotations_result->num_rows > 0) {
                                     <table class="table datatable">
                                         <thead>
                                             <tr>
-                                                <th>UID</th>
+                                                <th>S/N</th>
                                                 <th>Invoice#</th>
-                                                <th>Customer</th>
+                                                <th>Customer Name</th>
                                                 <th>Order Date</th>
-                                                <th>Status</th>
+                                                <th class="text-center">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -398,20 +398,23 @@ if ($total_quotations_result->num_rows > 0) {
                                                                                                 FROM
                                                                                                     `orders`, customers
                                                                                                 WHERE
-                                                                                                    orders.customerId = customers.customerId
+                                                                                                    orders.orderCustomerId = customers.customerId
                                                                                                 ORDER BY
                                                                                                     `created_at`
                                                                                                 DESC
                                                                                                 LIMIT 5");
                                             $recently_added_orders->execute();
                                             $recently_added_orders = $recently_added_orders->get_result();
+                                            $sn = 0;
+
                                             while ($row = $recently_added_orders->fetch_assoc()) {
                                                 $order_uid = $row["orderUId"];
-                                                $invoice_number = $row["invoiceNumber"];
+                                                $invoice_number = $row["orderInvoiceNumber"];
                                                 $currentStatus = $row["orderStatus"];
-                                                $due_amount = $row["due"];
+                                                $due_amount = $row["orderDueAmount"];
+                                                $sn++;
 
-                                                if ($currentStatus != 2) {
+                                                if ($currentStatus != 2 && $currentStatus != 3) {
                                                     $newStatus = $currentStatus;
 
                                                     if ($due_amount == 0) {
@@ -421,7 +424,7 @@ if ($total_quotations_result->num_rows > 0) {
                                                     }
 
                                                     if ($newStatus != $currentStatus) {
-                                                        $update_query = $conn->prepare("UPDATE orders SET orderStatus = ? WHERE invoiceNumber = ?");
+                                                        $update_query = $conn->prepare("UPDATE orders SET orderStatus = ? WHERE orderInvoiceNumber = ?");
                                                         $update_query->bind_param("is", $newStatus, $invoice_number);
                                                         $update_query->execute();
                                                         $update_query->close();
@@ -429,19 +432,22 @@ if ($total_quotations_result->num_rows > 0) {
                                                         $row["orderStatus"] = $newStatus;
                                                     }
                                                 }
+
                                             ?>
                                                 <tr>
-                                                    <td><?= $row['orderUId']; ?></td>
-                                                    <td><?= $row['invoiceNumber']; ?></td>
+                                                    <td><?= $sn; ?></td>
+                                                    <td><?= $row['orderInvoiceNumber']; ?></td>
                                                     <td><?= $row['customerName']; ?></td>
                                                     <td><?= date('d-m-Y', strtotime($row['orderDate'])); ?></td>
-                                                    <td>
+                                                    <td class="text-center">
                                                         <?php if ($row["orderStatus"] == "0") : ?>
                                                             <span class="badges bg-lightyellow">Pending</span>
                                                         <?php elseif ($row["orderStatus"] == "1"): ?>
                                                             <span class="badges bg-lightgreen">Completed</span>
+                                                        <?php elseif ($row["orderStatus"] == "2"): ?>
+                                                            <span class="badges bg-lightgrey">Cancelled</span>
                                                         <?php else: ?>
-                                                            <span class="badges bg-lightred">Cancelled</span>
+                                                            <span class="badges bg-lightred">Deleted</span>
                                                         <?php endif; ?>
                                                     </td>
                                                 </tr>
@@ -476,11 +482,11 @@ if ($total_quotations_result->num_rows > 0) {
                                     <table class="table datatable">
                                         <thead>
                                             <tr>
-                                                <th>SNo</th>
+                                                <th>S/N</th>
                                                 <th>Reference#</th>
                                                 <th>Customer Name</th>
                                                 <th>Date</th>
-                                                <th>Amount</th>
+                                                <th class="text-center">Amount</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -492,24 +498,103 @@ if ($total_quotations_result->num_rows > 0) {
                                                                                             quotations,
                                                                                             customers
                                                                                         WHERE
-                                                                                            quotations.customerId = customers.customerId 
+                                                                                            quotations.quotationCustomerId = customers.customerId 
                                                                                             AND 
                                                                                             quotationStatus = 0
                                                                                         LIMIT 5");
                                             $pending_quotations_stmt->execute();
                                             $pending_quotations = $pending_quotations_stmt->get_result();
-                                            $sn = 0;
-                                            while ($row = $pending_quotations->fetch_assoc()) {
-                                                $sn++;
+                                            if ($pending_quotations->num_rows > 0) {
+                                                $sn = 0;
+                                                while ($row = $pending_quotations->fetch_assoc()) {
+                                                    $sn++;
                                             ?>
-                                                <tr>
-                                                    <td> <?= $sn; ?> </td>
-                                                    <td> <?= $row['referenceNumber']; ?> </td>
-                                                    <td> <?= $row['customerName']; ?> </td>
-                                                    <td> <?= date('d-m-Y', strtotime($row['quotationDate'])); ?> </td>
-                                                    <td> <?= number_format($row['totalAmount'], 2); ?> </td>
-                                                </tr>
+                                                    <tr>
+                                                        <td> <?= $sn; ?> </td>
+                                                        <td> <?= $row['quotationReferenceNumber']; ?> </td>
+                                                        <td> <?= $row['customerName']; ?> </td>
+                                                        <td> <?= date('d-m-Y', strtotime($row['quotationDate'])); ?> </td>
+                                                        <td class="text-center"> <?= number_format($row['quotationTotalAmount'], 2); ?> </td>
+                                                    </tr>
                                             <?php
+                                                }
+                                            }
+                                            ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="row">
+                    <!-- Recently added purchases -->
+                    <div class="col-lg-6 col-sm-12 col-12 d-flex">
+                        <div class="card flex-fill">
+                            <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                                <h4 class="card-title mb-0">Recently Added Purchases</h4>
+                                <div class="dropdown">
+                                    <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false" class="dropset">
+                                        <i class="fa fa-ellipsis-v"></i>
+                                    </a>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                        <li><a href="purchaselist.php" class="dropdown-item">Purchases List</a></li>
+                                        <li><a href="addpurchase.php" class="dropdown-item">Purchase Add</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive dataview">
+                                    <table class="table datatable">
+                                        <thead>
+                                            <tr>
+                                                <th>S/N</th>
+                                                <th>Purchase#</th>
+                                                <th>Supplier Name</th>
+                                                <th>Purchase Date</th>
+                                                <th class="text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                            // Prepare and execute the query
+                                            $stmt = $conn->prepare("SELECT 
+                                                                                    purchases.purchaseNumber, purchases.purchaseDate, purchases.purchaseStatus, suppliers.supplierName
+                                                                                FROM 
+                                                                                    purchases, suppliers 
+                                                                                WHERE 
+                                                                                    purchases.purchaseSupplierId = suppliers.supplierId
+                                                                                ORDER BY 
+                                                                                    purchases.purchaseDate DESC
+                                                                                LIMIT 5");
+                                            $stmt->execute();
+                                            $result = $stmt->get_result();
+
+                                            if ($result->num_rows > 0) {
+                                                $sn = 1;
+                                                while ($row = $result->fetch_assoc()) {
+                                            ?>
+                                                    <tr>
+                                                        <td><?= $sn++; ?></td>
+                                                        <td><?= $row['purchaseNumber']; ?></td>
+                                                        <td><?= $row['supplierName']; ?></td>
+                                                        <td><?= date('d-m-Y', strtotime($row['purchaseDate'])) ?></td>
+                                                        <td class="text-center">
+                                                            <?php if ($row["purchaseStatus"] == "0") : ?>
+                                                                <span class="badges bg-lightyellow">Pending</span>
+                                                            <?php elseif ($row["purchaseStatus"] == "1"): ?>
+                                                                <span class="badges bg-lightgreen">Completed</span>
+                                                            <?php elseif ($row["purchaseStatus"] == "2"): ?>
+                                                                <span class="badges bg-lightgrey">Cancelled</span>
+                                                            <?php else: ?>
+                                                                <span class="badges bg-lightred">Deleted</span>
+                                                            <?php endif; ?>
+                                                        </td>
+                                                    </tr>
+                                            <?php
+                                                }
                                             }
                                             ?>
                                         </tbody>
@@ -519,109 +604,50 @@ if ($total_quotations_result->num_rows > 0) {
                         </div>
                     </div>
 
-
-
-                    <div class="row">
-
-                        <!-- Recently added purchases -->
-                        <div class="col-lg-6 col-sm-12 col-12 d-flex">
-                            <div class="card flex-fill">
-                                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
-                                    <h4 class="card-title mb-0">Recently Added Purchases</h4>
-                                    <div class="dropdown">
-                                        <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false" class="dropset">
-                                            <i class="fa fa-ellipsis-v"></i>
-                                        </a>
-                                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                            <li><a href="purchaselist.php" class="dropdown-item">Purchases List</a></li>
-                                            <li><a href="addpurchase.php" class="dropdown-item">Purchase Add</a></li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <div class="table-responsive dataview">
-                                        <table class="table datatable">
-                                            <thead>
-                                                <tr>
-                                                    <th>UID</th>
-                                                    <th>Purchase#</th>
-                                                    <th>Purchase Date</th>
-                                                    <th>Total Amount</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php
-                                                // Fetch 4 recently added purchases
-                                                $recently_added_purchases = $conn->prepare("SELECT *
-                                                                                                FROM
-                                                                                                    `purchases`
-                                                                                                ORDER BY
-                                                                                                    `created_at`
-                                                                                                DESC
-                                                                                                LIMIT 5");
-                                                $recently_added_purchases->execute();
-                                                $recently_added_purchases = $recently_added_purchases->get_result();
-                                                while ($row = $recently_added_purchases->fetch_assoc()) {
-                                                ?>
-                                                    <tr>
-                                                        <td><?= $row['purchaseUId']; ?></td>
-                                                        <td><?= $row['purchaseNumber']; ?></td>
-                                                        <td><?= date('d-m-Y', strtotime($row['purchaseDate'])); ?></td>
-                                                        <td><?= number_format($row['totalAmount'], 2); ?> </td>
-                                                    </tr>
-                                                <?php
-                                                }
-                                                ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                    <!-- Quantity Alert -->
+                    <div class="col-lg-6 col-sm-12 col-12 d-flex">
+                        <div class="card flex-fill">
+                            <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                                <h4 class="card-title mb-0">Products Quantity Alert</h4>
+                                <div class="dropdown">
+                                    <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false" class="dropset">
+                                        <i class="fa fa-ellipsis-v"></i>
+                                    </a>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                        <li><a href="productlist.php" class="dropdown-item">Products List</a></li>
+                                        <!-- <li><a href="addquotation.php" class="dropdown-item">Add Quotation</a></li> -->
+                                    </ul>
                                 </div>
                             </div>
-                        </div>
+                            <div class="card-body">
 
-                        <!-- Quantity Alert -->
-                        <div class="col-lg-6 col-sm-12 col-12 d-flex">
-                            <div class="card flex-fill">
-                                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
-                                    <h4 class="card-title mb-0">Products Quantity Alert</h4>
-                                    <div class="dropdown">
-                                        <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false" class="dropset">
-                                            <i class="fa fa-ellipsis-v"></i>
-                                        </a>
-                                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                            <li><a href="productlist.php" class="dropdown-item">Products List</a></li>
-                                            <!-- <li><a href="addquotation.php" class="dropdown-item">Add Quotation</a></li> -->
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-
-                                    <div class="table-responsive dataview">
-                                        <table class="table datatable">
-                                            <thead>
-                                                <tr>
-                                                    <th>SNo</th>
-                                                    <th>Product Name</th>
-                                                    <th>Quantity</th>
-                                                    <th>LastUpdated</th>
-                                                    <th>Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php
-                                                $quantity_alert_stmt = $conn->prepare("SELECT *
+                                <div class="table-responsive dataview">
+                                    <table class="table datatable">
+                                        <thead>
+                                            <tr>
+                                                <th>S/N</th>
+                                                <th>Product Name</th>
+                                                <th class="text-center">Quantity</th>
+                                                <th>LastUpdated</th>
+                                                <th class="text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                            $quantity_alert_stmt = $conn->prepare("SELECT *
                                                                                         FROM
                                                                                             products
                                                                                         ORDER BY 
-                                                                                            quantity ASC
+                                                                                            productQuantity ASC
                                                                                         LIMIT 5");
-                                                $quantity_alert_stmt->execute();
-                                                $quantity_alerts = $quantity_alert_stmt->get_result();
+                                            $quantity_alert_stmt->execute();
+                                            $quantity_alerts = $quantity_alert_stmt->get_result();
+                                            if ($quantity_alerts->num_rows > 0) {
                                                 $sn = 0;
                                                 while ($row = $quantity_alerts->fetch_assoc()) {
                                                     $product_id = $row['productId'];
-                                                    $quantity = $row['quantity'];
-                                                    $quantityAlert = $row['quantityAlert'] ?? 0;
+                                                    $quantity = $row['productQuantity'];
+                                                    $quantityAlert = $row['productQuantityAlert'] ?? 0;
                                                     $currentStatus = $row['productStatus'];
 
                                                     $newStatus = $currentStatus;
@@ -643,13 +669,13 @@ if ($total_quotations_result->num_rows > 0) {
                                                         $row['productStatus'] = $newStatus;
                                                     }
                                                     $sn++;
-                                                ?>
+                                            ?>
                                                     <tr>
                                                         <td> <?= $sn; ?> </td>
                                                         <td> <?= $row['productName']; ?> </td>
-                                                        <td> <?= $row['quantity']; ?> </td>
+                                                        <td class="text-center"> <?= $row['productQuantity']; ?> </td>
                                                         <td> <?= date('d-m-Y', strtotime($row['updated_at'])); ?> </td>
-                                                        <td>
+                                                        <td class="text-center">
                                                             <?php if ($row['productStatus'] == "0") : ?>
                                                                 <span class="badges bg-lightred">OutOfStock</span>
                                                             <?php elseif ($row['productStatus'] == "1"): ?>
@@ -659,81 +685,32 @@ if ($total_quotations_result->num_rows > 0) {
                                                             <?php endif; ?>
                                                         </td>
                                                     </tr>
-                                                <?php
+                                            <?php
                                                 }
-                                                ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                            }
+                                            ?>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <script src="assets/js/jquery-3.6.0.min.js"></script>
-                <script src="assets/js/feather.min.js"></script>
-                <script src="assets/js/jquery.slimscroll.min.js"></script>
-                <script src="assets/js/jquery.dataTables.min.js"></script>
-                <script src="assets/js/dataTables.bootstrap4.min.js"></script>
-                <script src="assets/js/bootstrap.bundle.min.js"></script>
-                <script src="assets/plugins/apexchart/apexcharts.min.js"></script>
-                <script src="assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
-                <script src="assets/js/script.js"></script>
-
-                <!-- ApexCharts script to render Student & Class chart -->
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const chartData = <?php echo json_encode($chart_data); ?>;
-                        const options = {
-                            series: [{
-                                name: 'Count',
-                                data: chartData.values
-                            }],
-                            chart: {
-                                type: 'bar',
-                                height: 300
-                            },
-                            plotOptions: {
-                                bar: {
-                                    horizontal: false,
-                                    columnWidth: '40%',
-                                    endingShape: 'flat',
-                                    distributed: true // Distribute colors across data points
-                                }
-                            },
-                            dataLabels: {
-                                enabled: false
-                            },
-                            colors: ['#5afa20ff', '#fc4c72ff'],
-                            xaxis: {
-                                categories: chartData.labels,
-                                title: {
-                                    text: 'Category'
-                                }
-                            },
-                            yaxis: {
-                                title: {
-                                    text: 'Count'
-                                },
-                                min: 0
-                            },
-                            tooltip: {
-                                y: {
-                                    formatter: function(val) {
-                                        return val;
-                                    }
-                                }
-                            },
-                            legend: {
-                                show: false // Optional: Hide legend since we have one series
-                            }
-                        };
-                        const chart = new ApexCharts(document.querySelector("#sales_charts"), options);
-                        chart.render();
-                    });
-                </script>
             </div>
+        </div>
+    </div>
+
+    <script src="assets/js/jquery-3.6.0.min.js"></script>
+    <script src="assets/js/feather.min.js"></script>
+    <script src="assets/js/jquery.slimscroll.min.js"></script>
+    <script src="assets/js/jquery.dataTables.min.js"></script>
+    <script src="assets/js/dataTables.bootstrap4.min.js"></script>
+    <script src="assets/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/plugins/apexchart/apexcharts.min.js"></script>
+    <script src="assets/plugins/sweetalert/sweetalert2.all.min.js"></script>
+    <script src="assets/js/script.js"></script>
+
+
 </body>
 
 </html>

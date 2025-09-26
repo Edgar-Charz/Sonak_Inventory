@@ -21,152 +21,181 @@ if (isset($_POST['updateAgentBTN'])) {
     $agent_email = trim($_POST['agent_email']);
     $agent_status = $_POST['agent_status'];
 
-    // Get current agent data to compare for changes
-    $current_data_query = "SELECT `agentName`, `agentEmail`, `agentPhone`, `agentStatus` 
-                                    FROM agents WHERE agentId = ?";
-    $current_data_stmt = $conn->prepare($current_data_query);
-    $current_data_stmt->bind_param("i", $agentId);
-    $current_data_stmt->execute();
-    $current_result = $current_data_stmt->get_result();
-    $current_data = $current_result->fetch_assoc();
+    // Existing accounts
+    $existing_account_uids = $_POST['existing_account_uid'] ?? [];
+    $existing_account_holders = $_POST['existing_agent_account_holder'] ?? [];
+    $existing_account_numbers = $_POST['existing_agent_account_number'] ?? [];
+    $existing_bank_names = $_POST['existing_agent_bank_name'] ?? [];
 
-    // Check if no changes were made
-    if (
-        $current_data &&
-        $current_data['agentName'] == $agent_name &&
-        $current_data['agentPhone'] == $agent_phone &&
-        $current_data['agentEmail'] == $agent_email &&
-        $current_data['agentStatus'] == $agent_status
-    ) {
+    // New added accounts
+    $new_account_holders = $_POST['agent_account_holder'] ?? [];
+    $new_account_numbers = $_POST['agent_account_number'] ?? [];
+    $new_bank_names = $_POST['agent_bank_name'] ?? [];
 
-        echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        text: 'No changes were made to the agent.',
-                        title: 'Info!',
-                        timer: 5000,
-                        timerProgressBar: true
-                    }).then(function() {
-                        window.location.href = 'agentlist.php';
-                    });
-                });
-             </script>";
-    } else {
+    // Removed accounts
+    $delete_accounts = $_POST['delete_existing_account'] ?? [];
+
+    // Enable MySQLi exceptions
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+    // Begin transaction
+    $conn->begin_transaction();
+
+    try {
         // Check if email already exists for another agent
-        $check_email_query = "SELECT agentId FROM agents WHERE agentEmail = ? AND agentId != ?";
+        $check_email_query = "SELECT agentId 
+                                    FROM 
+                                        agents 
+                                    WHERE 
+                                        (agentName = ? OR agentEmail = ?) 
+                                    AND agentId != ?";
         $check_email_stmt = $conn->prepare($check_email_query);
-        $check_email_stmt->bind_param("si", $agent_email, $agentId);
+        $check_email_stmt->bind_param("ssi", $agent_name, $agent_email, $agentId);
         $check_email_stmt->execute();
         $email_result = $check_email_stmt->get_result();
 
         if ($email_result->num_rows > 0) {
-            echo "<script>
-                    document.addEventListener('DOMContentLoaded', function () {
-                        Swal.fire({
-                            text: 'Email address already exists for another agent.',
-                            title: 'Error!',
-                            timer: 5000,
-                            timerProgressBar: true
-                        }).then(function() {
-                            window.location.href = 'editagent.php?id=$agentId';
-                        });
-                    });
-                 </script>";
-        } else {
-            // Check if agentname already exists for another agent
-            $check_agentname_query = "SELECT agentId FROM agents WHERE agentName = ? AND agentId != ?";
-            $check_agentname_stmt = $conn->prepare($check_agentname_query);
-            $check_agentname_stmt->bind_param("si", $agentName, $agentId);
-            $check_agentname_stmt->execute();
-            $agentname_result = $check_agentname_stmt->get_result();
+            throw new Exception("The agent name or email already exists with another agent.");
+        }
 
-            if ($agentname_result->num_rows > 0) {
-                echo "<script>
-                        document.addEventListener('DOMContentLoaded', function () {
-                            Swal.fire({
-                                text: 'Username already exists for another agent.',
-                                title: 'Error!',
-                                timer: 5000,
-                                timerProgressBar: true
-                            }).then(function() {
-                                window.location.href = 'editagent.php?id=$agentId';
-                            });
-                        });
-                     </script>";
-            } else {
-                // Check if phone number already exists for another agent
-                $check_phone_query = "SELECT agentId FROM agents WHERE agentPhone = ? AND agentId != ?";
-                $check_phone_stmt = $conn->prepare($check_phone_query);
-                $check_phone_stmt->bind_param("si", $agent_phone, $agentId);
-                $check_phone_stmt->execute();
-                $phone_result = $check_phone_stmt->get_result();
+        // Proceed with the agent update
+        $update_agent_query = "UPDATE agents 
+                        SET agentName=?, agentPhone=?, agentEmail=?, agentStatus=?, updated_at=? 
+                        WHERE agentId=?";
+        $update_agent_stmt = $conn->prepare($update_agent_query);
+        $update_agent_stmt->bind_param("sssssi", $agent_name, $agent_phone, $agent_email, $agent_status, $current_time, $agentId);
+        $update_agent_stmt->execute();
 
-                if ($phone_result->num_rows > 0) {
-                    echo "<script>
-                            document.addEventListener('DOMContentLoaded', function () {
-                                Swal.fire({
-                                    text: 'Phone number already exists for another agent.',
-                                    title: 'Error!',
-                                    timer: 5000,
-                                    timerProgressBar: true
-                                }).then(function() {
-                                    window.location.href = 'editagent.php?id=$agentId';
-                                });
-                            });
-                         </script>";
-                } else {
-                    // Proceed with the update
-                    $update_agent_query = "UPDATE agents 
-                                                SET agentName=?, agentPhone=?, agentEmail=?, agentStatus=?, updated_at=? 
-                                                WHERE agentId=?";
-                    $update_agent_stmt = $conn->prepare($update_agent_query);
-                    $update_agent_stmt->bind_param("sssssi", $agent_name, $agent_phone, $agent_email, $agent_status, $current_time, $agentId);
+        // Update existing accounts
+        for ($i = 0; $i < count($existing_account_uids); $i++) {
+            $account_uid = $existing_account_uids[$i];
 
-                    if ($update_agent_stmt->execute()) {
-                        if ($update_agent_stmt->affected_rows > 0) {
-                            echo "<script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        Swal.fire({
-                                            text: 'Agent updated successfully.',
-                                            title: 'Success',
-                                            timer: 5000,
-                                            timerProgressBar: true
-                                        }).then(function() {
-                                            window.location.href = 'agentlist.php';
-                                        });
-                                    });
-                                  </script>";
-                        } else {
-                            echo "<script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        Swal.fire({
-                                            text: 'No changes were made to the agent.',
-                                            title: 'Info',
-                                            timer: 5000,
-                                            timerProgressBar: true
-                                        }).then(function() {
-                                            window.location.href = 'agentlist.php';
-                                        });
-                                    });
-                                  </script>";
-                        }
-                    } else {
-                        echo "<script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    Swal.fire({
-                                        text: 'Error updating agent: " . $conn->error . "',
-                                        title: 'Error',
-                                        timer: 5000,
-                                        timerProgressBar: true
-                                    });
-                                });
-                            </script>";
-                    }
+            if (in_array($account_uid, $delete_accounts)) continue;
+
+            $update_account_query = "UPDATE bank_accounts 
+                                        SET bankAccountHolderName=?, bankAccountNumber=?, bankAccountBankName=?, updated_at=? 
+                                        WHERE bankAccountUId=?";
+            $update_account_stmt = $conn->prepare($update_account_query);
+            $update_account_stmt->bind_param(
+                "ssssi",
+                $existing_account_holders[$i],
+                $existing_account_numbers[$i],
+                $existing_bank_names[$i],
+                $current_time,
+                $account_uid
+            );
+            $update_account_stmt->execute();
+        }
+
+        // Delete marked accounts
+        if (!empty($delete_accounts)) {
+            $placeholders = implode(',', array_fill(0, count($delete_accounts), '?'));
+            $types = str_repeat('i', count($delete_accounts));
+            $update_query = "UPDATE bank_accounts SET bankAccountStatus = 0 WHERE bankAccountUId IN ($placeholders)";
+            $update_stmt = $conn->prepare($update_query);
+            $update_stmt->bind_param($types, ...$delete_accounts);
+            $update_stmt->execute();
+        }
+
+        // Insert new accounts
+        $insert_account = $conn->prepare("INSERT INTO bank_accounts
+            (bankAccountAgentId, bankAccountBankName, bankAccountHolderName, bankAccountNumber, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?)");
+
+        for ($i = 0; $i < count($new_account_holders); $i++) {
+            $account_holder = trim($new_account_holders[$i]);
+            $account_number = trim($new_account_numbers[$i]);
+            $bank_name  = trim($new_bank_names[$i]);
+
+            if (!empty($account_holder) && !empty($account_number) && !empty($bank_name)) {
+
+                // Check for duplicate account number
+                $check_account_query = "SELECT bankAccountUId FROM bank_accounts WHERE bankAccountNumber = ? AND bankAccountAgentId != ?";
+                $check_account_stmt = $conn->prepare($check_account_query);
+                $check_account_stmt->bind_param("si", $account_number, $agentId);
+                $check_account_stmt->execute();
+                $check_result = $check_account_stmt->get_result();
+
+                if ($check_result->num_rows > 0) {
+                    throw new Exception("Bank account number '$account_number' already exists for another agent.");
                 }
+
+                $insert_account->bind_param(
+                    "isssss",
+                    $agentId,
+                    $bank_name,
+                    $account_holder,
+                    $account_number,
+                    $current_time,
+                    $current_time
+                );
+                $insert_account->execute();
             }
         }
+
+        // Commit transaction
+        $conn->commit();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    text: 'Agent updated successfully.',
+                    title: 'Success',
+                    icon: 'success',
+                    timer: 5000,
+                    timerProgressBar: true
+                }).then(function() {
+                    window.location.href = 'agentlist.php';
+                });
+            });
+        </script>";
+    } catch (mysqli_sql_exception $e) {
+        $conn->rollback();
+
+        if ($e->getCode() == 1062) {
+            // Duplicate entry error
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Duplicate Account',
+                        text: 'That bank account number already exists.',
+                    }).then(function() {
+                        window.location.href = 'editagent.php?id=" . $agentId . "';
+                    });
+                });
+            </script>";
+        } else {
+            // Other database error
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Database Error',
+                        text: 'Error updating agent: " . addslashes($e->getMessage()) . "',
+                    }).then(function() {
+                        window.location.href = 'editagent.php?id=" . $agentId . "';
+                    });
+                });
+            </script>";
+        }
+    } catch (Exception $e) {
+        $conn->rollback();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: '" . addslashes($e->getMessage()) . "',
+                }).then(function() {
+                    window.location.href = 'editagent.php?id=" . $agentId . "';
+                });
+            });
+        </script>";
     }
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -287,7 +316,7 @@ if (isset($_POST['updateAgentBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -316,9 +345,9 @@ if (isset($_POST['updateAgentBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -349,16 +378,22 @@ if (isset($_POST['updateAgentBTN'])) {
 
                 <!-- Update Agent Form -->
                 <div class="card">
-                    <div class="card-body">
-                        <?php
-                        // Fetch agent data
-                        $agent_stmt = $conn->prepare("SELECT * FROM agents WHERE agentId = ?");
-                        $agent_stmt->bind_param("i", $agent_id);
-                        $agent_stmt->execute();
-                        $agent_result = $agent_stmt->get_result();
-                        $agent_row = $agent_result->fetch_assoc();
-                        ?>
-                        <form action="" method="POST" id="update-agent-form" enctype="multipart/form-data">
+                    <form action="" method="POST" id="update-agent-form" enctype="multipart/form-data">
+                        <div class="card-body">
+                            <?php
+                            // Fetch agent data
+                            $agent_stmt = $conn->prepare("SELECT * FROM agents WHERE agentId = ?");
+                            $agent_stmt->bind_param("i", $agent_id);
+                            $agent_stmt->execute();
+                            $agent_result = $agent_stmt->get_result();
+                            $agent_row = $agent_result->fetch_assoc();
+
+                            // Fetch supplier bank accounts
+                            $accounts_query = $conn->prepare("SELECT * FROM bank_accounts WHERE bankAccountAgentId = ?");
+                            $accounts_query->bind_param("i", $agent_id);
+                            $accounts_query->execute();
+                            $accounts_result = $accounts_query->get_result();
+                            ?>
                             <div class="row">
                                 <input type="hidden" name="agentId" value="<?= $agent_id; ?>">
 
@@ -367,6 +402,8 @@ if (isset($_POST['updateAgentBTN'])) {
                                         <label>Agent Name</label>
                                         <input type="text" name="agent_name" value="<?= $agent_row['agentName']; ?>" required>
                                     </div>
+                                </div>
+                                <div class="col-lg-6 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Email</label>
                                         <input type="text" name="agent_email" value="<?= $agent_row['agentEmail']; ?>" required>
@@ -377,6 +414,8 @@ if (isset($_POST['updateAgentBTN'])) {
                                         <label>Mobile</label>
                                         <input type="text" name="agent_phone" value="<?= $agent_row['agentPhone']; ?>" required>
                                     </div>
+                                </div>
+                                <div class="col-lg-6 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Status</label>
                                         <select name="agent_status" class="form-control" required>
@@ -385,13 +424,48 @@ if (isset($_POST['updateAgentBTN'])) {
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-lg-12">
+
+                                <!-- Bank Accounts Section -->
+                                <div class="col-12">
+                                    <label>Bank Accounts</label>
+                                    <div id="accounts-wrapper">
+                                        <?php
+                                        if ($accounts_result->num_rows > 0) {
+                                            while ($acc = $accounts_result->fetch_assoc()) { ?>
+                                                <div class="row account-row mb-2" data-account-id="<?= $acc['bankAccountUId']; ?>">
+                                                    <input type="hidden" name="existing_account_uid[]" value="<?= $acc['bankAccountUId']; ?>">
+                                                    <div class="col-lg-4 col-sm-6 col-12">
+                                                        <input type="text" name="existing_agent_account_holder[]" class="form-control"
+                                                            value="<?= $acc['bankAccountHolderName']; ?>" required>
+                                                    </div>
+                                                    <div class="col-lg-4 col-sm-6 col-12">
+                                                        <input type="text" name="existing_agent_account_number[]" class="form-control"
+                                                            value="<?= $acc['bankAccountNumber']; ?>" required>
+                                                    </div>
+                                                    <div class="col-lg-3 col-sm-6 col-12">
+                                                        <select name="existing_agent_bank_name[]" class="form-control" required>
+                                                            <option value="NMB" <?= $acc['bankAccountBankName'] == 'NMB' ? 'selected' : ''; ?>>NMB</option>
+                                                            <option value="CRDB" <?= $acc['bankAccountBankName'] == 'CRDB' ? 'selected' : ''; ?>>CRDB</option>
+                                                            <option value="NBC" <?= $acc['bankAccountBankName'] == 'NBC' ? 'selected' : ''; ?>>NBC</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-lg-1 col-sm-6 col-12 d-flex align-items-center">
+                                                        <button type="button" class="btn btn-danger btn-sm remove-account-existing">&times;</button>
+                                                    </div>
+                                                </div>
+                                        <?php }
+                                        } ?>
+                                    </div>
+                                    <button type="button" class="btn btn-success btn-sm mt-2" id="add-account">+ Add Account</button>
+                                </div>
+
+                                <div class="col-lg-12 mt-3">
                                     <button type="submit" name="updateAgentBTN" class="btn btn-submit me-2">Submit</button>
                                     <button type="reset" class="btn btn-cancel">Cancel</button>
                                 </div>
                             </div>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
                 <!-- /Update Agent Form -->
 
@@ -400,6 +474,63 @@ if (isset($_POST['updateAgentBTN'])) {
     </div>
 
     <script>
+        // Function to capitalize
+        function capitalizeFirstLetter(input) {
+            if (typeof input.value !== 'string' || input.value.length === 0) return;
+            input.value = input.value.toLowerCase()
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+
+        // Add new bank account row
+        document.getElementById('add-account').addEventListener('click', function() {
+            let wrapper = document.getElementById('accounts-wrapper');
+            let row = document.createElement('div');
+            row.classList.add('row', 'account-row', 'mb-2');
+            row.innerHTML = `
+            <div class="col-lg-4 col-sm-6 col-12">
+                <input type="text" name="agent_account_holder[]" class="form-control" placeholder="Account Holder Name" required>
+            </div>
+            <div class="col-lg-4 col-sm-6 col-12">
+                <input type="text" name="agent_account_number[]" class="form-control" placeholder="Account Number" required>
+            </div>
+            <div class="col-lg-3 col-sm-6 col-12">
+                <select name="agent_bank_name[]" class="form-control" required>
+                    <option value="" selected disabled>Choose Bank</option>
+                    <option>NMB</option>
+                    <option>CRDB</option>
+                    <option>NBC</option>
+                </select>
+            </div>
+            <div class="col-lg-1 col-sm-6 col-12 d-flex align-items-center">
+                <button type="button" class="btn btn-danger btn-sm remove-account">&times;</button>
+            </div>`;
+            wrapper.appendChild(row);
+
+            // Remove new row
+            row.querySelector('.remove-account').addEventListener('click', function() {
+                row.remove();
+            });
+        });
+
+        // Remove existing account
+        document.querySelectorAll('.remove-account-existing').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                let row = this.closest('.account-row');
+                let accountId = row.getAttribute('data-account-id');
+
+                // Mark for deletion
+                let input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'delete_existing_account[]';
+                input.value = accountId;
+                row.appendChild(input);
+
+                row.style.display = 'none';
+            });
+        });
+
         // Form inputs Validation
         function validateInput(input) {
             var name = input.getAttribute('name');

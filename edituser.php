@@ -22,140 +22,103 @@ if (isset($_POST['updateUserBTN'])) {
     $user_role = trim($_POST['user_role']);
     $user_status = $_POST['user_status'];
 
-    // Get current user data to compare for changes
-    $current_data_query = "SELECT username, userPhone, userEmail, userRole, userStatus FROM users WHERE userId = ?";
-    $current_data_stmt = $conn->prepare($current_data_query);
-    $current_data_stmt->bind_param("i", $userId);
-    $current_data_stmt->execute();
-    $current_result = $current_data_stmt->get_result();
-    $current_data = $current_result->fetch_assoc();
+    try {
+        // Start transaction
+        $conn->begin_transaction();
 
-    // Check if no changes were made
-    if (
-        $current_data &&
-        $current_data['username'] == $username &&
-        $current_data['userPhone'] == $user_phone &&
-        $current_data['userEmail'] == $user_email &&
-        $current_data['userRole'] == $user_role &&
-        $current_data['userStatus'] == $user_status
-    ) {
+        // Get current user data
+        $current_data_stmt = $conn->prepare("SELECT username, userPhone, userEmail, userRole, userStatus FROM users WHERE userId = ?");
+        $current_data_stmt->bind_param("i", $userId);
+        $current_data_stmt->execute();
+        $current_data = $current_data_stmt->get_result()->fetch_assoc();
 
-        echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
+        if (
+            $current_data &&
+            $current_data['username'] == $username &&
+            $current_data['userPhone'] == $user_phone &&
+            $current_data['userEmail'] == $user_email &&
+            $current_data['userRole'] == $user_role &&
+            $current_data['userStatus'] == $user_status
+        ) {
+            throw new Exception("no_changes");
+        }
+
+        // Check for duplicate email
+        $check_email_stmt = $conn->prepare("SELECT userId FROM users WHERE userEmail = ? AND userId != ?");
+        $check_email_stmt->bind_param("si", $user_email, $userId);
+        $check_email_stmt->execute();
+
+        if ($check_email_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Email address already exists for another user.");
+        }
+
+        // Check for duplicate username
+        $check_username_stmt = $conn->prepare("SELECT userId FROM users WHERE username = ? AND userId != ?");
+        $check_username_stmt->bind_param("si", $username, $userId);
+        $check_username_stmt->execute();
+
+        if ($check_username_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Username already exists for another user.");
+        }
+
+        // Check for duplicate phone
+        $check_phone_stmt = $conn->prepare("SELECT userId FROM users WHERE userPhone = ? AND userId != ?");
+        $check_phone_stmt->bind_param("si", $user_phone, $userId);
+        $check_phone_stmt->execute();
+
+        if ($check_phone_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Phone number already exists for another user.");
+        }
+
+        // Proceed with update
+        $update_user_stmt = $conn->prepare("UPDATE users SET username = ?, userPhone = ?, userEmail = ?, userRole = ?, userStatus = ?, updated_at = ? WHERE userId = ?");
+        $update_user_stmt->bind_param("ssssssi", $username, $user_phone, $user_email, $user_role, $user_status, $current_time, $userId);
+        $update_user_stmt->execute();
+
+        if ($update_user_stmt->affected_rows > 0) {
+            $conn->commit();
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
                     Swal.fire({
-                        text: 'No changes were made to the user.',
+                        text: 'User updated successfully.',
                         timer: 5000,
                         timerProgressBar: true
                     }).then(function() {
                         window.location.href = 'userlist.php';
                     });
                 });
-             </script>";
-    } else {
-        // Check if email already exists for another user
-        $check_email_query = "SELECT userId FROM users WHERE userEmail = ? AND userId != ?";
-        $check_email_stmt = $conn->prepare($check_email_query);
-        $check_email_stmt->bind_param("si", $user_email, $userId);
-        $check_email_stmt->execute();
-        $email_result = $check_email_stmt->get_result();
-
-        if ($email_result->num_rows > 0) {
-            echo "<script>
-                    document.addEventListener('DOMContentLoaded', function () {
-                        Swal.fire({
-                            text: 'Email address already exists for another user.',
-                            timer: 5000,
-                            timerProgressBar: true
-                        }).then(function() {
-                            window.location.href = 'edituser.php?id=$userId';
-                        });
-                    });
-                 </script>";
+            </script>";
         } else {
-            // Check if username already exists for another user
-            $check_username_query = "SELECT userId FROM users WHERE username = ? AND userId != ?";
-            $check_username_stmt = $conn->prepare($check_username_query);
-            $check_username_stmt->bind_param("si", $username, $userId);
-            $check_username_stmt->execute();
-            $username_result = $check_username_stmt->get_result();
+            throw new Exception("No changes were made to the user.");
+        }
+    } catch (Exception $e) {
+        $conn->rollback();
 
-            if ($username_result->num_rows > 0) {
-                echo "<script>
-                        document.addEventListener('DOMContentLoaded', function () {
-                            Swal.fire({
-                                text: 'Username already exists for another user.',
-                                timer: 5000,
-                                timerProgressBar: true
-                            }).then(function() {
-                                window.location.href = 'edituser.php?id=$userId';
-                            });
-                        });
-                     </script>";
-            } else {
-                // Check if phone number already exists for another user
-                $check_phone_query = "SELECT userId FROM users WHERE userPhone = ? AND userId != ?";
-                $check_phone_stmt = $conn->prepare($check_phone_query);
-                $check_phone_stmt->bind_param("si", $user_phone, $userId);
-                $check_phone_stmt->execute();
-                $phone_result = $check_phone_stmt->get_result();
-
-                if ($phone_result->num_rows > 0) {
-                    echo "<script>
-                            document.addEventListener('DOMContentLoaded', function () {
-                                Swal.fire({
-                                    text: 'Phone number already exists for another user.',
-                                    timer: 5000,
-                                    timerProgressBar: true
-                                }).then(function() {
-                                    window.location.href = 'edituser.php?id=$userId';
-                                });
-                            });
-                         </script>";
-                } else {
-                    // Proceed with the update
-                    $update_user_query = "UPDATE users SET username=?, userPhone=?, userEmail=?, userRole=?, userStatus=?, updated_at=? WHERE userId=?";
-                    $update_user_stmt = $conn->prepare($update_user_query);
-                    $update_user_stmt->bind_param("ssssssi", $username, $user_phone, $user_email, $user_role, $user_status, $current_time, $userId);
-
-                    if ($update_user_stmt->execute()) {
-                        if ($update_user_stmt->affected_rows > 0) {
-                            echo "<script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        Swal.fire({
-                                            text: 'User updated successfully.',
-                                            timer: 5000,
-                                            timerProgressBar: true
-                                        }).then(function() {
-                                            window.location.href = 'userlist.php';
-                                        });
-                                    });
-                                  </script>";
-                        } else {
-                            echo "<script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        Swal.fire({
-                                            text: 'No changes were made to the user.',
-                                            timer: 5000,
-                                            timerProgressBar: true
-                                        }).then(function() {
-                                            window.location.href = 'userlist.php';
-                                        });
-                                    });
-                                  </script>";
-                        }
-                    } else {
-                        echo "<script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    Swal.fire({
-                                        text: 'Error updating user: " . $conn->error . "',
-                                        timer: 5000,
-                                        timerProgressBar: true
-                                    });
-                                });
-                            </script>";
-                    }
-                }
-            }
+        // Handle specific "no changes" alert
+        if ($e->getMessage() === "no_changes") {
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Changes',
+                        text: 'You didn\\'t modify any user details.'                        
+                    }).then(function() {
+                        window.location.href = 'userlist.php';
+                    });
+                });
+            </script>";
+        } else {
+            echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: '" . $e->getMessage() . "'
+                }).then(function() {
+                    window.location.href = 'edituser.php?id=$userId';
+                });
+            });
+        </script>";
         }
     }
 }
@@ -279,7 +242,7 @@ if (isset($_POST['updateUserBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -308,9 +271,9 @@ if (isset($_POST['updateUserBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>

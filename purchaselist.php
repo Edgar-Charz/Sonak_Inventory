@@ -128,7 +128,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -157,9 +157,9 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -205,15 +205,15 @@ $current_time = $time->format("Y-m-d H:i:s");
                             </div>
                             <div class="wordset">
                                 <ul>
-                                    <li>
+                                    <!-- <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
-                                    </li>
-                                    <li>
+                                    </li> -->
+                                    <!-- <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
                                     </li>
                                     <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                    </li>
+                                    </li> -->
                                 </ul>
                             </div>
                         </div>
@@ -269,17 +269,15 @@ $current_time = $time->format("Y-m-d H:i:s");
                                 <thead>
                                     <tr>
                                         <th>S/N</th>
-                                        <th>PurchaseNo.</th>
-                                        <th>Date</th>
-                                        <th>TrackingNo.</th>
+                                        <th>Purchase #</th>
+                                        <th>Purchase Date</th>
                                         <th>Supplier</th>
-                                        <th>Agent</th>
-                                        <!-- <th>Product</th> -->
+                                        <th>Total Products</th>
+                                        <th>Grand Total (Tsh)</th>
                                         <th>CreatedBy</th>
                                         <th>UpdatedBy</th>
-                                        <th>Grand Total</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -287,19 +285,19 @@ $current_time = $time->format("Y-m-d H:i:s");
                                     // Fetch all purchases 
                                     $purchases_query = $conn->query("SELECT 
                                                                                 purchases.*, 
-                                                                                purchase_details.*, 
+                                                                                SUM(purchase_details.purchaseDetailTotalCost) AS totalPurchaseAmount,
+                                                                                SUM(purchase_details.purchaseDetailQuantity) AS totalPurchaseQuantity, 
                                                                                 suppliers.supplierName, 
-                                                                                agents.agentName, 
                                                                                 products.productName, 
                                                                                 u1.username AS creater,
                                                                                 u2.username AS updater
                                                                             FROM purchases
-                                                                            JOIN purchase_details ON purchases.purchaseNumber = purchase_details.purchaseNumber
-                                                                            JOIN suppliers ON suppliers.supplierId = purchases.supplierId
-                                                                            LEFT JOIN agents ON agents.agentId = purchase_details.agentId
-                                                                            JOIN products ON products.productId = purchase_details.productId
-                                                                            JOIN users AS u1 ON purchases.createdBy = u1.userId
-                                                                            JOIN users AS u2 ON purchases.updatedBy = u2.userId
+                                                                            JOIN purchase_details ON purchases.purchaseNumber = purchase_details.purchaseDetailPurchaseNumber
+                                                                            JOIN suppliers ON suppliers.supplierId = purchases.purchaseSupplierId
+                                                                            LEFT JOIN agents ON agents.agentId = purchase_details.purchaseDetailAgentId
+                                                                            JOIN products ON products.productId = purchase_details.purchaseDetailProductId
+                                                                            JOIN users AS u1 ON purchases.purchaseCreatedBy = u1.userId
+                                                                            JOIN users AS u2 ON purchases.purchaseUpdatedBy = u2.userId
                                                                             GROUP BY purchases.purchaseNumber
                                                                             ORDER BY purchases.purchaseUId DESC;");
                                     if ($purchases_query->num_rows > 0) {
@@ -310,21 +308,21 @@ $current_time = $time->format("Y-m-d H:i:s");
                                             <tr>
                                                 <td> <?= $purchase_row['purchaseUId']; ?> </td>
                                                 <td> <?= $purchase_row['purchaseNumber']; ?> </td>
-                                                <td> <?= date('d-m-Y', strtotime($purchase_row['purchaseDate'])); ?> </td>
-                                                <td> <?= !empty($purchase_row['trackingNumber']) ? $purchase_row['trackingNumber'] : 'N/A'; ?> </td>
+                                                <td> <?= date('d- m - Y', strtotime($purchase_row['purchaseDate'])); ?> </td>
                                                 <td> <?= $purchase_row['supplierName']; ?> </td>
-                                                <td> <?= !empty($purchase_row['agentName']) ? $purchase_row['agentName'] : 'N/A'; ?> </td>
-                                                <!-- <td> <?= $purchase_row['productName']; ?> </td> -->
+                                                <td style="text-align: center;"> <?= $purchase_row['totalPurchaseQuantity']; ?> </td>
+                                                <td> <?= number_format($purchase_row['totalPurchaseAmount'], 2); ?> </td>
                                                 <td> <?= $purchase_row['creater']; ?> </td>
                                                 <td> <?= $purchase_row['updater']; ?> </td>
-                                                <td> <?= number_format($purchase_row['totalAmount'], 2); ?> </td>
-                                                <td>
+                                                <td class="text-center">
                                                     <?php if ($purchase_row['purchaseStatus'] == "0") : ?>
                                                         <span class="badges bg-lightyellow">Pending</span>
                                                     <?php elseif ($purchase_row['purchaseStatus'] == "1"): ?>
                                                         <span class="badges bg-lightgreen">Completed</span>
+                                                    <?php elseif ($purchase_row['purchaseStatus'] == "2"): ?>
+                                                        <span class="badges bg-lightgrey">Cancelled</span>
                                                     <?php else: ?>
-                                                        <span class="badges bg-lightred">Cancelled</span>
+                                                        <span class="badges bg-lightred">Deleted</span>
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="text-center">
@@ -342,51 +340,58 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                     </button>
                                                                 </li> -->
                                                                 <li>
-                                                                    <a href="viewpurchase.php?purchaseNumber=<?= $purchase_number; ?>" class="dropdown-item">
+                                                                    <a href="viewpurchase.php?purchaseNumber=<?= $purchase_number; ?>&purchaseStatus=<?= $purchase_row['purchaseStatus']; ?>" class="dropdown-item">
                                                                         <img src="assets/img/icons/eye.svg" alt="View" style="width: 16px; margin-right: 6px;">
                                                                         View
                                                                     </a>
                                                                 </li>
 
-                                                                <!-- Edit Button -->
-                                                                <li>
-                                                                    <a href="editpurchase.php?purchaseNumber=<?= $purchase_number; ?>" class="dropdown-item">
-                                                                        <img src="assets/img/icons/edit.svg" alt="Edit" style="width: 16px; margin-right: 6px;">
-                                                                        Edit
-                                                                    </a>
-                                                                </li>
+                                                                <?php
+                                                                $status = $purchase_row['purchaseStatus'];
+                                                                ?>
 
-                                                                <?php if ($purchase_row['purchaseStatus'] == 0): ?>
+                                                                <?php if ($status == 0): ?>
+                                                                    <!-- Edit Button -->
+                                                                    <!-- <li>
+                                                                        <a href="editpurchase.php?purchaseNumber=<?= $purchase_number; ?>" class="dropdown-item">
+                                                                            <img src="assets/img/icons/edit.svg" alt="Edit" style="width: 16px; margin-right: 6px;">
+                                                                            Edit
+                                                                        </a>
+                                                                    </li> -->
+
+                                                                    <!-- Actions  -->
                                                                     <li>
                                                                         <button type="button" class="dropdown-item" onclick="confirmCancelPurchase(<?= $purchase_uid; ?>)">
-                                                                            <img src="assets/img/icons/cancel.svg" class="me-2" alt="img">
+                                                                            <img src="assets/img/icons/cancel.svg" class="me-2" alt="Cancel">
                                                                             Cancel
                                                                         </button>
                                                                     </li>
                                                                     <li>
                                                                         <button type="button" class="dropdown-item" onclick="confirmCompletePurchase(<?= $purchase_uid; ?>)">
-                                                                            <img src="assets/img/icons/check.svg" class="me-2" alt="img">
+                                                                            <img src="assets/img/icons/check.svg" class="me-2" alt="Complete">
                                                                             Complete
                                                                         </button>
                                                                     </li>
+                                                                <?php endif; ?>
 
-                                                                <?php elseif ($purchase_row['purchaseStatus'] == 2): ?>
+                                                                <!-- Reactivate-->
+                                                                <?php if ($status == 2): ?>
                                                                     <li>
                                                                         <button type="button" class="dropdown-item" onclick="confirmReactivatePurchase(<?= $purchase_uid; ?>)">
-                                                                            <img src="assets/img/icons/refresh.svg" class="me-2" alt="img">
+                                                                            <img src="assets/img/icons/refresh.svg" class="me-2" alt="Reactivate">
                                                                             Reactivate
                                                                         </button>
                                                                     </li>
 
+                                                                    <!-- Delete Button: -->
+                                                                    <li>
+                                                                        <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $purchase_uid; ?>)">
+                                                                            <img src="assets/img/icons/delete.svg" alt="Delete" style="width: 16px; margin-right: 6px;">
+                                                                            Delete
+                                                                        </button>
+                                                                    </li>
                                                                 <?php endif; ?>
 
-                                                                <!-- Delete Button -->
-                                                                <li>
-                                                                    <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $purchase_uid; ?>)">
-                                                                        <img src="assets/img/icons/delete.svg" alt="Delete" style="width: 16px; margin-right: 6px;">
-                                                                        Delete
-                                                                    </button>
-                                                                </li>
 
                                                             </ul>
                                                         </div>
@@ -586,6 +591,7 @@ $current_time = $time->format("Y-m-d H:i:s");
         // Function to confirm purchase deletion 
         function confirmDelete(purchaseUId) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
                 text: "This action cannot be undone.",
                 showCancelButton: true,
@@ -603,6 +609,7 @@ $current_time = $time->format("Y-m-d H:i:s");
         // Function to confirm purchase completion
         function confirmCompletePurchase(purchaseUId) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
                 text: "This action cannot be undone.",
                 showCancelButton: true,
@@ -620,6 +627,7 @@ $current_time = $time->format("Y-m-d H:i:s");
         // Function to confirm purchase cancellation
         function confirmCancelPurchase(purchaseUId) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
                 text: "This action cannot be undone.",
                 showCancelButton: true,
@@ -637,6 +645,7 @@ $current_time = $time->format("Y-m-d H:i:s");
         // Function to confirm purchase reactivation
         function confirmReactivatePurchase(purchaseUId) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
                 text: "This action cannot be undone.",
                 showCancelButton: true,
@@ -654,105 +663,113 @@ $current_time = $time->format("Y-m-d H:i:s");
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
 
-            // Sweetalerts for delete, cancel, complete and reactivation
-            const alerts = [{
-                    param: 'status',
-                    value: 'success',
+            const status = urlParams.get('status');
+            const message = urlParams.get('message');
+            const response = urlParams.get('response');
+            const msg = urlParams.get('msg');
+            const errorMsg = urlParams.get("errorMsg");
+
+            // Delete
+            if (status === 'deleted') {
+                Swal.fire({
                     title: 'Deleted!',
-                    text: 'Order has been deleted successfully.'
-                },
-                {
-                    param: 'status',
-                    value: 'error',
+                    text: 'Order has been deleted successfully.',
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('status');
+                });
+            }
+            if (status === 'error') {
+                Swal.fire({
                     title: 'Error!',
-                    text: 'Failed to delete the Order'
-                },
-                {
-                    param: 'message',
-                    value: 'completed',
+                    text: errorMsg ? decodeURIComponent(errorMsg) : 'Failed to delete the Order.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('status');
+                    clearParam('msg');
+                });
+            }
+
+            // Complete
+            if (message === 'completed') {
+                Swal.fire({
                     title: 'Completed!',
-                    text: 'Purchase completed successfully.'
-                },
-                {
-                    param: 'message',
-                    value: 'error',
+                    text: 'Purchase completed successfully.',
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('message');
+                });
+            }
+            if (message === 'error') {
+                Swal.fire({
                     title: 'Error!',
-                    text: 'Failed to cancel the Order'
-                },
-                {
-                    param: 'response',
-                    value: 'reactivated',
+                    text: errorMsg ? decodeURIComponent(errorMsg) : 'Failed to complete the Order.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('message');
+                    clearParam('errorMsg');
+                });
+            }
+
+            // Reactivate
+            if (response === 'reactivated') {
+                Swal.fire({
                     title: 'Reactivated!',
-                    text: 'Purchase has been reactivated successfully.'
-                },
-                {
-                    param: 'response',
-                    value: 'error',
+                    text: 'Purchase has been reactivated successfully.',
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('response');
+                });
+            }
+            if (response === 'error') {
+                Swal.fire({
                     title: 'Error!',
-                    text: 'Failed to reactivate the Purchase'
-                },
-                {
-                    param: 'msg',
-                    value: 'cancelled',
+                    text: errorMsg ? decodeURIComponent(errorMsg) : 'Failed to reactivate the Purchase.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('response');
+                });
+            }
+
+            // Cancel
+            if (msg === 'cancelled') {
+                Swal.fire({
                     title: 'Cancelled!',
-                    text: 'Purchase has been cancelled successfully.'
-                },
-                {
-                    param: 'msg',
-                    value: 'error',
+                    text: 'Purchase has been cancelled successfully.',
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('msg');
+                });
+            }
+            if (msg === 'error') {
+                Swal.fire({
                     title: 'Error!',
-                    text: 'Failed to cancel the Purchase'
-                }
-            ];
+                    text: 'Failed to cancel the Purchase.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('msg');
+                });
+            }
 
-            alerts.forEach(alert => {
-                const paramValue = urlParams.get(alert.param);
-                if (paramValue === alert.value) {
-                    Swal.fire({
-                        title: alert.title,
-                        text: alert.text,
-                        timer: 3000,
-                        showConfirmButton: true
-                    }).then(() => {
-                        // Remove the URL param after showing alert
-                        const url = new URL(window.location.href);
-                        url.searchParams.delete(alert.param);
-                        window.history.replaceState({}, document.title, url.pathname + url.search);
-                    });
-                }
-            });
+            // Clear parameter from URL
+            function clearParam(param) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete(param);
+                window.history.replaceState({}, document.title, url.pathname + url.search);
+            }
         });
-
-        // Trigger SweetAlert messages after redirect
-        // document.addEventListener('DOMContentLoaded', function() {
-        //     const urlParams = new URLSearchParams(window.location.search);
-        //     const status = urlParams.get('status');
-
-        //     if (status === 'success') {
-        //         Swal.fire({
-        //             title: 'Deleted!',
-        //             text: 'Purchase has been deleted successfully.',
-        //             timer: 3000,
-        //             showConfirmButton: true
-        //         }).then(() => {
-        //             const url = new URL(window.location.href);
-        //             url.searchParams.delete('status');
-        //             window.history.replaceState({}, document.title, url.pathname + url.search);
-        //         });
-        //     }
-        //     if (status === 'error') {
-        //         Swal.fire({
-        //             title: 'Error!',
-        //             text: 'Failed to delete the Purchase.',
-        //             timer: 3000,
-        //             showConfirmButton: true
-        //         }).then(() => {
-        //             const url = new URL(window.location.href);
-        //             url.searchParams.delete('status');
-        //             window.history.replaceState({}, document.title, url.pathname + url.search);
-        //         });
-        //     }
-        // });
     </script>
 
     <script src="assets/js/jquery-3.6.0.min.js"></script>

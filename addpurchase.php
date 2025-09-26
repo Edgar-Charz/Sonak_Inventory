@@ -17,78 +17,69 @@ if (isset($_POST['addPurchaseBTN'])) {
         $purchaseNumber = $_POST['purchase_number'];
         $supplierId     = $_POST['supplier_name'];
         $purchaseDate   = DateTime::createFromFormat('d-m-Y', $_POST['purchase_date'])->format('Y-m-d');
-        $totalProducts  = $_POST['total_products'];
-        $totalAmount    = $_POST['total_amount'];
-
+        $bankAccountNumber = $_POST['bank_account_number'] ?? null;
         $agentId        = $_POST['agent_name'] ?? null;
         $trackingNo     = $_POST['tracking_number'] ?? null;
-        $transportCost  = $_POST['agent_transport_cost'] ?? null;
-
-        $dateToAgent    = !empty($_POST['agent_abroad_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_abroad_date'])->format('Y-m-d') : null;
-        $dateReceivedTZ = !empty($_POST['agent_tanzania_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_tanzania_date'])->format('Y-m-d') : null;
-        $dateAtSonak    = !empty($_POST['at_sonak_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['at_sonak_date'])->format('Y-m-d') : null;
 
         $createdBy = $user_id;
         $updatedBy = $user_id;
 
-        // Check if purchaseNumber exists
-        $check_purchase_stmt = $conn->prepare("SELECT totalAmount, totalProducts FROM purchases WHERE purchaseNumber = ?");
-        $check_purchase_stmt->bind_param("s", $purchaseNumber);
-        $check_purchase_stmt->execute();
-        $check_result = $check_purchase_stmt->get_result();
-
-        if ($check_result->num_rows > 0) {
-            $row = $check_result->fetch_assoc();
-            $newTotal = $row["totalAmount"] + $totalAmount;
-            $newTotalProducts = $row["totalProducts"] + $totalProducts;
-
-            $update_purchase_stmt = $conn->prepare("UPDATE purchases
-                SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, updatedBy = ?, updated_at = ?
-                WHERE purchaseNumber = ?");
-            $update_purchase_stmt->bind_param("isidsss", $supplierId, $purchaseDate, $newTotalProducts, $newTotal, $updatedBy, $current_time, $purchaseNumber);
-            $update_purchase_stmt->execute();
-            $update_purchase_stmt->close();
-        } else {
-            $insert_purchase_stmt = $conn->prepare("INSERT INTO purchases(
-                purchaseNumber, supplierId, createdBy, updatedBy, purchaseDate, totalProducts, totalAmount, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $insert_purchase_stmt->bind_param("sssssssss", $purchaseNumber, $supplierId, $createdBy, $updatedBy, $purchaseDate, $totalProducts, $totalAmount, $current_time, $current_time);
-            $insert_purchase_stmt->execute();
-            $insert_purchase_stmt->close();
+        // Validate bank account number if provided
+        if ($bankAccountNumber) {
+            $stmt = $conn->prepare("SELECT bankAccountNumber FROM bank_accounts WHERE bankAccountNumber = ? AND bankAccountSupplierId = ?");
+            $stmt->bind_param("si", $bankAccountNumber, $supplierId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            if ($result->num_rows === 0) {
+                throw new Exception('Invalid bank account number for the selected supplier.');
+            }
+            $stmt->close();
         }
+
+        // Insert new purchase
+        $insert_purchase_stmt = $conn->prepare("INSERT INTO purchases(
+                purchaseNumber, purchaseSupplierId, purchaseSupplierAccountNumber, purchaseCreatedBy, purchaseUpdatedBy, purchaseDate, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $insert_purchase_stmt->bind_param("ssssssss", $purchaseNumber, $supplierId, $bankAccountNumber, $createdBy, $updatedBy, $purchaseDate, $current_time, $current_time);
+        $insert_purchase_stmt->execute();
+        $insert_purchase_stmt->close();
 
         // Loop over products
         foreach ($_POST['products'] as $product) {
             $productId   = $product['product_name'];
-            $quantity    = $product['quantity'];
-            $unitCost    = $product['unit_cost'];
-            $rate        = $product['rate'];
-            $totalCost   = $product['total_cost'];
+            $quantity    = str_replace(',', '', $product['quantity']);
+            $unitCost    = str_replace(',', '', $product['unit_cost']);
+            $rate        = str_replace(',', '', $product['rate']);
+            $totalCost   = str_replace(',', '', $product['total_cost']);
             $productSize = $product['product_size'] ?? null;
 
             // Check if product already exists in purchase_details
-            $check_stmt = $conn->prepare("SELECT purchaseDetailsId, quantity, totalCost 
-                FROM purchase_details 
-                WHERE purchaseNumber = ? AND productId = ?");
+            $check_stmt = $conn->prepare("SELECT purchaseDetailUId, purchaseDetailQuantity, purchaseDetailTotalCost 
+                                                    FROM 
+                                                        purchase_details 
+                                                    WHERE 
+                                                        purchaseDetailPurchaseNumber = ? AND purchaseDetailProductId = ?");
             $check_stmt->bind_param("si", $purchaseNumber, $productId);
             $check_stmt->execute();
             $result = $check_stmt->get_result();
 
             if ($result->num_rows > 0) {
                 $row = $result->fetch_assoc();
-                $newQty   = $row['quantity'] + $quantity;
-                $newTotal = $row['totalCost'] + $totalCost;
+                $newQty   = $row['purchaseDetailQuantity'] + $quantity;
+                $newTotal = $row['purchaseDetailTotalCost'] + $totalCost;
 
                 $update_stmt = $conn->prepare("UPDATE purchase_details 
-                    SET quantity = ?, totalCost = ?, updated_at = ? 
-                    WHERE purchaseDetailsId = ?");
-                $update_stmt->bind_param("idss", $newQty, $newTotal, $current_time, $row['purchaseDetailsId']);
+                                                            SET 
+                                                                purchaseDetailQuantity = ?, purchaseDetailTotalCost = ?, updated_at = ? 
+                                                            WHERE
+                                                                 quotationDetailUId= ?");
+                $update_stmt->bind_param("idsi", $newQty, $newTotal, $current_time, $row['purchaseDetailUId']);
                 $update_stmt->execute();
                 $update_stmt->close();
             } else {
                 $insert_details_stmt = $conn->prepare("INSERT INTO purchase_details(
-                    purchaseNumber, productId, agentId, trackingNumber, productSize,
-                    quantity, unitCost, rate, totalCost,
+                    purchaseDetailPurchaseNumber, purchaseDetailProductId, purchaseDetailAgentId, purchaseDetailTrackingNumber, purchaseDetailProductSize,
+                    purchaseDetailQuantity, purchaseDetailUnitCost, purchaseDetailRate, purchaseDetailTotalCost,
                     agentTransportationCost, dateToAgentAbroadWarehouse,
                     dateReceivedByAgentInCountryWarehouse, dateReceivedByCompany,
                     created_at, updated_at) 
@@ -123,27 +114,27 @@ if (isset($_POST['addPurchaseBTN'])) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
+                    icon: 'success',
                     title: 'Success!',
-                    text: 'Purchase added successfully!',                   
-                    timer: 5000,
-                    timerProgressBar: true
+                    text: 'Purchase added successfully!'
                 }).then(function(){
-                    window.location.href = 'addpurchase.php';
+                    window.location.href = 'purchaselist.php';
                 });
             });
         </script>";
     } catch (Exception $e) {
         $conn->rollback();
+
         echo "<script>
-            document.addEventListener('DOMContentLoaded', function () {
-                Swal.fire({
-                    title: 'Error!',
-                    text: 'Transaction failed: " . $conn->error . "',
-                    icon: 'error',
-                    timer: 5000
-                });
+        document.addEventListener('DOMContentLoaded', function () {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: 'Transaction failed: " . addslashes($e->getMessage()) . "',
+                icon: 'error'
             });
-        </script>";
+        });
+    </script>";
     }
 }
 
@@ -293,7 +284,7 @@ function generatePurchaseNumber($conn)
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -322,9 +313,9 @@ function generatePurchaseNumber($conn)
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -389,21 +380,7 @@ function generatePurchaseNumber($conn)
                                     <div class="col-lg-4 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Purchase No.</label>
-                                            <input type="text" name="purchase_number" class="form-control" value="<?= generatePurchaseNumber($conn); ?>" required>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Supplier Name</label>
-                                            <select class="form-control" name="supplier_name" required>
-                                                <option value="" disabled selected>Select Supplier</option>
-                                                <?php
-                                                $suppliers_query = $conn->query("SELECT * FROM suppliers");
-                                                while ($s = $suppliers_query->fetch_assoc()) {
-                                                    echo '<option value="' . $s['supplierId'] . '">' . $s['supplierName'] . '</option>';
-                                                }
-                                                ?>
-                                            </select>
+                                            <input type="text" name="purchase_number" class="form-control" value="<?= generatePurchaseNumber($conn); ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-4 col-sm-6 col-12">
@@ -414,13 +391,13 @@ function generatePurchaseNumber($conn)
                                     </div>
                                     <div class="col-lg-4 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Agent</label>
-                                            <select class="form-control" name="agent_name">
-                                                <option value="" disabled selected>Select Agent</option>
+                                            <label>Supplier Name</label>
+                                            <select class="form-control" name="supplier_name" id="supplier_name" required>
+                                                <option value="" disabled selected>Select Supplier</option>
                                                 <?php
-                                                $agents_query = $conn->query("SELECT * FROM agents");
-                                                while ($a = $agents_query->fetch_assoc()) {
-                                                    echo '<option value="' . $a['agentId'] . '">' . $a['agentName'] . '</option>';
+                                                $suppliers_query = $conn->query("SELECT * FROM suppliers");
+                                                while ($s = $suppliers_query->fetch_assoc()) {
+                                                    echo '<option value="' . $s['supplierId'] . '">' . ($s['supplierName']) . '</option>';
                                                 }
                                                 ?>
                                             </select>
@@ -428,14 +405,24 @@ function generatePurchaseNumber($conn)
                                     </div>
                                     <div class="col-lg-4 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Tracking No.</label>
-                                            <input type="text" name="tracking_number" class="form-control">
+                                            <label>Bank Name</label>
+                                            <select class="form-control" name="bank_name" id="bank_name" disabled>
+                                                <option value="" selected>No supplier selected</option>
+                                            </select>
                                         </div>
                                     </div>
                                     <div class="col-lg-4 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Agent Transport Cost</label>
-                                            <input type="number" name="agent_transport_cost" id="agent_transport_cost" class="form-control" value="0">
+                                            <label>Bank Account Number</label>
+                                            <select class="form-control" name="bank_account_number" id="bank_account_number" readonly>
+                                                <option value="" selected>No bank selected</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Account Holder Name</label>
+                                            <input type="text" name="account_holder_name" id="account_holder_name" class="form-control" readonly placeholder="No account selected">
                                         </div>
                                     </div>
                                 </div>
@@ -520,7 +507,118 @@ function generatePurchaseNumber($conn)
             </div>
         </div>
     </div>
+
     <script>
+        // Get supplier bank details
+        document.addEventListener("DOMContentLoaded", function() {
+            const supplierSelect = document.getElementById('supplier_name');
+            const bankSelect = document.getElementById('bank_name');
+            const accountSelect = document.getElementById('bank_account_number');
+            const holderInput = document.getElementById('account_holder_name');
+
+            // Clear downstream fields
+            function clearFields(from) {
+                if (from <= 1) {
+                    bankSelect.innerHTML = '<option value="" selected>No supplier selected</option>';
+                    bankSelect.disabled = true;
+                }
+                if (from <= 2) {
+                    accountSelect.innerHTML = '<option value="" selected>No bank selected</option>';
+                    accountSelect.disabled = true;
+                }
+                if (from <= 3) {
+                    holderInput.value = 'No account selected';
+                    holderInput.readOnly = true;
+                }
+            }
+
+            // On supplier change, fetch bank names
+            supplierSelect.addEventListener('change', function() {
+                const supplierId = this.value;
+                clearFields(1);
+
+                if (supplierId) {
+                    fetch(`get_supplier_bank_details.php?supplierId=${supplierId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.data.length > 0) {
+                                bankSelect.innerHTML = '<option value="" selected>Choose Bank</option>';
+                                data.data.forEach(bank => {
+                                    const option = document.createElement('option');
+                                    option.value = bank;
+                                    option.textContent = bank;
+                                    bankSelect.appendChild(option);
+                                });
+                                bankSelect.disabled = false;
+                            } else {
+                                Swal.fire({
+                                    title: 'No Bank Accounts',
+                                    text: data.message || 'No bank accounts found for this supplier.',
+                                    icon: 'info'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Failed to fetch bank accounts: ' + error.message,
+                                icon: 'error'
+                            });
+                        });
+                }
+            });
+
+            // On bank name change, fetch account numbers
+            bankSelect.addEventListener('change', function() {
+                const supplierId = supplierSelect.value;
+                const bankName = this.value;
+                clearFields(2);
+
+                if (bankName) {
+                    fetch(`get_supplier_bank_details.php?supplierId=${supplierId}&bankName=${encodeURIComponent(bankName)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.data.length > 0) {
+                                accountSelect.innerHTML = '<option value="" selected>Choose Account Number</option>';
+                                data.data.forEach(account => {
+                                    const option = document.createElement('option');
+                                    option.value = account.accountNumber;
+                                    option.textContent = account.accountNumber;
+                                    option.dataset.holder = account.holderName;
+                                    accountSelect.appendChild(option);
+                                });
+                                accountSelect.disabled = false;
+                            } else {
+                                Swal.fire({
+                                    title: 'No Accounts',
+                                    text: data.message || 'No accounts found for this bank.',
+                                    icon: 'info',
+                                    timer: 3000,
+                                    timerProgressBar: true
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Failed to fetch account numbers: ' + error.message,
+                                icon: 'error'
+                            });
+                        });
+                }
+            });
+
+            // On account number change, update holder name
+            accountSelect.addEventListener('change', function() {
+                clearFields(3);
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    holderInput.value = selectedOption.dataset.holder || 'Unknown';
+                }
+            });
+        });
+
+
         document.addEventListener("DOMContentLoaded", function() {
             // Step 1 validation on Next
             document.getElementById('goStep2').addEventListener('click', function(e) {
@@ -529,7 +627,10 @@ function generatePurchaseNumber($conn)
                 const requiredFields = [
                     'purchase_number',
                     'supplier_name',
-                    'purchase_date'
+                    'purchase_date',
+                    'bank_name',
+                    'bank_account_number',
+                    'account_holder_name'
                 ];
                 requiredFields.forEach(function(name) {
                     const field = document.getElementsByName(name)[0];
@@ -540,7 +641,7 @@ function generatePurchaseNumber($conn)
                 });
                 if (!valid) {
                     Swal.fire({
-                        title: 'ValidationError!',
+                        title: 'Error!',
                         html: errorMsg,
                         confirmButtonText: 'OK'
                     });
@@ -583,7 +684,7 @@ function generatePurchaseNumber($conn)
                 }
                 if (!valid) {
                     Swal.fire({
-                        title: 'ValidationError!',
+                        title: 'Error!',
                         html: errorMsg,
                         confirmButtonText: 'OK'
                     });
@@ -591,6 +692,7 @@ function generatePurchaseNumber($conn)
                 }
                 // First, update totals
                 calculateTotalAmount();
+
                 // Populate summary table
                 const tableBody = document.querySelector("#summaryTable tbody");
                 tableBody.innerHTML = ""; // Clear previous rows
@@ -612,6 +714,7 @@ function generatePurchaseNumber($conn)
                 });
                 showStep(3);
             });
+
             // Step navigation functions
             function showStep(stepNumber) {
                 document.getElementById('step1').style.display = 'none';
@@ -640,6 +743,25 @@ function generatePurchaseNumber($conn)
                 }
             }
 
+            // Function to format numbers
+            function numberFormatter(number, decimals = 0) {
+                if (number === null || number === "null" || number === "") {
+                    return "";
+                }
+
+                try {
+                    let value = parseFloat(number);
+                    if (isNaN(value)) return "";
+                    return value.toLocaleString(undefined, {
+                        minimumFractionDigits: decimals,
+                        maximumFractionDigits: decimals
+                    });
+                } catch (e) {
+                    console.error("Invalid number format:", number, e);
+                    return "";
+                }
+            }
+
             // Step navigation event listeners
             document.getElementById('goStep2').addEventListener('click', function() {
                 showStep(2);
@@ -657,19 +779,21 @@ function generatePurchaseNumber($conn)
                 tableBody.innerHTML = ""; // Clear previous rows
 
                 document.querySelectorAll(".product-row").forEach(row => {
-                    const productName = row.querySelector(".productSelect").value;
-                    const quantity = row.querySelector(".quantity").value;
-                    const unitCost = parseFloat(row.querySelector(".unitCost").value).toFixed(2);
-                    const rate = parseFloat(row.querySelector(".rate").value).toFixed(2);
-                    const totalCost = parseFloat(row.querySelector(".totalCost").value).toFixed(2);
+                    const productSelect = row.querySelector(".productSelect");
+                    const productName = productSelect.options[productSelect.selectedIndex]?.text || "N/A";
+
+                    const quantity = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
+                    const unitCost = parseFloat(row.querySelector(".unitCost").value.replace(/,/g, '')) || 0;
+                    const rate = parseFloat(row.querySelector(".rate").value.replace(/,/g, '')) || 0;
+                    const totalCost = parseFloat(row.querySelector(".totalCost").value.replace(/,/g, '')) || 0;
 
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
                                 <td>${productName}</td>
-                                <td>${quantity}</td>
-                                <td>${unitCost}</td>
-                                <td>${rate}</td>
-                                <td>${totalCost}</td>
+                                <td>${numberFormatter(quantity, 0)}</td>
+                                <td>${numberFormatter(unitCost, 2)}</td>
+                                <td>${numberFormatter(rate, 2)}</td>
+                                <td>${numberFormatter(totalCost, 2)}</td>
                             `;
                     tableBody.appendChild(tr);
                 });
@@ -701,17 +825,46 @@ function generatePurchaseNumber($conn)
                                     ?>
                                 </select>
                             </div>
-                            <div class="col-lg-2 col-sm-6 col-12">
+                            <div class="col-lg-1 col-sm-6 col-12">
                                 <label class="form-label">Quantity</label>
-                                <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="1" min="1">
+                                <input type="text" name="products[${index}][quantity]" class="form-control quantity" value="1" min="1">
                             </div>
-                            <div class="col-lg-2 col-sm-6 col-12">
+                            <div class="col-lg-3 col-sm-6 col-12">
                                 <label class="form-label">Unit Cost</label>
-                                <input type="number" name="products[${index}][unit_cost]" class="form-control unitCost" value="0" step="0.01">
+                                <div class="input-group">
+                                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" id="currencyBtn${index}">
+                                        <img src="assets/img/flags/tz.png" alt="TZS" width="20" class="me-2"> TZS
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="setCurrency(${index}, 'TZS', 'tz.png')">
+                                                <img src="assets/img/flags/tz.png" alt="TZS" width="20" class="me-2"> TZS
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="setCurrency(${index}, 'USD', 'us.png')">
+                                                <img src="assets/img/flags/us.png" alt="USD" width="20" class="me-2"> USD
+                                            </a>
+                                        </li>
+                                         <li>
+                                            <a class="dropdown-item" href="#" onclick="setCurrency(${index}, 'CNY', 'cn.png')">
+                                                <img src="assets/img/flags/cn.png" alt="CNY" width="20" class="me-2"> CNY
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="setCurrency(${index}, 'KES', 'ke.png')">
+                                                <img src="assets/img/flags/ke.png" alt="KES" width="20" class="me-2"> KES
+                                            </a>
+                                        </li>
+                                    </ul>
+                                    <input type="hidden" name="products[${index}][currency]" id="currencyInput${index}" value="TZS">
+                                    <input type="text" name="products[${index}][unit_cost]" class="form-control unitCost" value="0" min="0.01" step="0.01" placeholder="Enter amount">
+                                </div>
                             </div>
+
                             <div class="col-lg-2 col-sm-6 col-12">
                                 <label class="form-label">Rate</label>
-                                <input type="number" name="products[${index}][rate]" class="form-control rate" value="1" step="0.01">
+                                <input type="text" name="products[${index}][rate]" class="form-control rate" value="1" min="0.01" step="0.01">
                             </div>
                             <div class="col-lg-2 col-sm-6 col-12">
                                 <label class="form-label">Total Cost</label>
@@ -730,6 +883,9 @@ function generatePurchaseNumber($conn)
                     row.querySelector(`.${cls}`).addEventListener("input", () => updateRowTotal(row));
                 });
 
+                // Formatting listeners for the new row
+                row.querySelectorAll(".unitCost, .rate, .quantity").forEach(attachFormatListeners);
+
                 // Remove row
                 row.querySelector(".removeProduct").onclick = function() {
                     row.remove();
@@ -737,43 +893,100 @@ function generatePurchaseNumber($conn)
                 };
             };
 
+            // Function to update row total
             function updateRowTotal(row) {
-                const qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                const unit = parseFloat(row.querySelector(".unitCost").value) || 0;
-                const rate = parseFloat(row.querySelector(".rate").value) || 1;
+                const qty = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
+                const unit = parseFloat(row.querySelector(".unitCost").value.replace(/,/g, '')) || 0;
+                const rate = parseFloat(row.querySelector(".rate").value.replace(/,/g, '')) || 1;
 
                 const total = qty * unit * rate;
-                row.querySelector(".totalCost").value = total.toFixed(2);
+                row.querySelector(".totalCost").value = numberFormatter(total, 2);
 
                 calculateTotalAmount();
             }
 
+            // Function to calculate total amount
             function calculateTotalAmount() {
                 let totalAmount = 0;
                 let totalQuantity = 0;
 
                 document.querySelectorAll(".product-row").forEach(row => {
-                    const qty = parseFloat(row.querySelector(".quantity")?.value) || 0;
-                    const total = parseFloat(row.querySelector(".totalCost")?.value) || 0;
+                    const qty = parseFloat(row.querySelector(".quantity")?.value.replace(/,/g, '')) || 0;
+                    const total = parseFloat(row.querySelector(".totalCost")?.value.replace(/,/g, '')) || 0;
 
                     totalQuantity += qty;
                     totalAmount += total;
                 });
 
-                const transportCostInput = document.getElementById("agent_transport_cost");
-                const transportCost = transportCostInput ? parseFloat(transportCostInput.value) || 0 : 0;
-                if (transportCost > 0) {
-                    totalAmount += transportCost;
-                }
-
                 const totalAmountInput = document.getElementById("totalAmount");
-                if (totalAmountInput) totalAmountInput.value = totalAmount.toFixed(2);
+                if (totalAmountInput) totalAmountInput.value = numberFormatter(totalAmount, 2);
 
                 const totalProductsInput = document.getElementById("totalProducts");
-                if (totalProductsInput) totalProductsInput.value = totalQuantity;
+                if (totalProductsInput) totalProductsInput.value = numberFormatter(totalQuantity, 0);
             }
+
+            function debounce(fn, delay) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => fn.apply(this, args), delay);
+                };
+            }
+
+            function attachFormatListeners(input) {
+                // Allow only numbers and one dot
+                input.addEventListener("input", () => {
+                    let raw = input.value.replace(/[^0-9.,]/g, "");
+                    const parts = raw.split(".");
+                    if (parts.length > 2) {
+                        raw = parts[0] + "." + parts.slice(1).join("");
+                    }
+                    input.value = raw;
+                });
+
+                input.addEventListener("input", debounce(() => {
+                    const raw = input.value.replace(/,/g, "");
+                    let decimals = input.classList.contains("quantity") ? 0 : 2;
+                    input.value = numberFormatter(raw, decimals);
+
+                    const row = input.closest(".product-row");
+                    if (row) updateRowTotal(row);
+                }, 2000));
+
+                // Format on blur
+                input.addEventListener("blur", () => {
+                    const raw = input.value.replace(/,/g, "");
+                    let decimals = input.classList.contains("quantity") ? 0 : 2;
+                    input.value = numberFormatter(raw, decimals);
+
+                    const row = input.closest(".product-row");
+                    if (row) updateRowTotal(row);
+                });
+            }
+            document.addEventListener("DOMContentLoaded", () => {
+                document.querySelectorAll(".unitCost, .rate, .quantity").forEach(attachFormatListeners);
+
+                // Transport cost formatting
+                const transportInput = document.getElementById("agent_transport_cost");
+                if (transportInput) {
+                    transportInput.addEventListener("blur", () => {
+                        const raw = transportInput.value.replace(/,/g, "");
+                        transportInput.value = numberFormatter(raw, 2);
+                        calculateTotalAmount();
+                    });
+                }
+            });
         });
+
+        // Currency
+        function setCurrency(index, code, flagFile) {
+            document.getElementById(`currencyInput${index}`).value = code;
+            document.getElementById(`currencyBtn${index}`).innerHTML = `
+                <img src="assets/img/flags/${flagFile}" alt="${code}" width="20" class="me-2"> ${code}
+            `;
+        }
     </script>
+
     <script src="assets/js/jquery-3.6.0.min.js"></script>
 
     <script src="assets/js/feather.min.js"></script>

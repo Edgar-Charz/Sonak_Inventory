@@ -1,6 +1,11 @@
 <?php
 session_start();
 
+// Clear cache
+header("Cache-Control: no-cache, must-revalidate");
+header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
+header("Pragma: no-cache");
+
 // Redirect if not logged in
 if (!isset($_SESSION['username'])) {
     header("Location: signin.php");
@@ -19,9 +24,9 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) >
 
 $_SESSION['last_activity'] = time();
 
-// Calculate remaining time for JavaScript (in milliseconds)
+// Calculate remaining time
 $remaining_time = $timeout_duration * 1000;
-$warning_time = 30000; // 30 seconds before timeout
+$warning_time = 30000;
 
 // SweetAlert welcome message
 if (isset($_SESSION['login_success']) && $_SESSION['login_success']) {
@@ -30,6 +35,7 @@ if (isset($_SESSION['login_success']) && $_SESSION['login_success']) {
     echo "<script>
         document.addEventListener('DOMContentLoaded', function() {
             Swal.fire({
+                icon: 'success',
                 title: 'Welcome back!',
                 text: '" . $username . "',
                 confirmButtonText: 'OK',

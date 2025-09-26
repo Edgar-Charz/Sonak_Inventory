@@ -16,28 +16,34 @@ if (isset($_POST['addUserBTN'])) {
     $password = trim($_POST['password']);
     $role = trim($_POST['role']);
 
-    // Check if user exists
-    $check_user_stmt = $conn->prepare("SELECT * FROM users WHERE userEmail = ?");
-    $check_user_stmt->bind_param("s", $email);
-    $check_user_stmt->execute();
-    $result = $check_user_stmt->get_result();
+    try {
+        // Start transaction
+        $conn->begin_transaction();
 
-    if ($result->num_rows > 0) {
-        // User already exists
-        echo "<script>
-            document.addEventListener('DOMContentLoaded', function () {
-                Swal.fire({
-                    icon: 'error',
-                    text: 'User with this email already exists!'
-                }).then(function(){
-                    window.location.href = 'userlist.php';
-                });
-            });
-        </script>";
-    } else {
+        // Check if user email already exists
+        $check_user_stmt = $conn->prepare("SELECT userId FROM users WHERE userEmail = ?");
+        $check_user_stmt->bind_param("s", $email);
+        $check_user_stmt->execute();
+        $result = $check_user_stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            throw new Exception("User with this email already exists!");
+        }
+
+        // Check if user name exists
+        $check_username_stmt = $conn->prepare("SELECT userId FROM users WHERE username = ?");
+        $check_username_stmt->bind_param("s", $username);
+        $check_username_stmt->execute();
+        $result = $check_username_stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            throw new Exception("User with this name already exists!");
+        }
+
+        // Hash password
         $password = password_hash($password, PASSWORD_DEFAULT);
 
-        // --- Handle image upload (optional) ---
+        // Handle image upload
         $userPhoto = null;
         if (isset($_FILES["image"]) && $_FILES["image"]["error"] != UPLOAD_ERR_NO_FILE) {
             $targetDir = "assets/img/profiles/";
@@ -50,39 +56,156 @@ if (isset($_POST['addUserBTN'])) {
 
                 if (move_uploaded_file($_FILES["image"]["tmp_name"], $newFilePath)) {
                     $userPhoto = $newFileName;
+                } else {
+                    throw new Exception("Failed to upload profile image.");
                 }
+            } else {
+                throw new Exception("Invalid image file.");
             }
         }
 
-        // --- Insert new user (with or without image) ---
+        // Insert user
         $insert_stmt = $conn->prepare("INSERT INTO users (username, userPhone, userEmail, userPassword, userRole, userPhoto, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $insert_stmt->bind_param("ssssssss", $username, $phone, $email, $password, $role, $userPhoto, $current_time, $current_time);
+        $insert_stmt->execute();
 
-        if ($insert_stmt->execute()) {
+        // Commit transaction
+        $conn->commit();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    icon: 'success',
+                    text: 'User added successfully!'
+                }).then(function(){
+                    window.location.href = 'userlist.php';
+                });
+            });
+        </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    icon: 'error',
+                    text: '" . $e->getMessage() . "'
+                }).then(function(){
+                    window.location.href = 'userlist.php';
+                });
+            });
+        </script>";
+    }
+}
+
+// Handle user update
+if (isset($_POST['updateUserBTN'])) {
+    $userId = $_POST['userId'];
+    $username = trim($_POST['username']);
+    $user_phone = trim($_POST['user_phone']);
+    $user_email = trim($_POST['user_email']);
+    $user_role = trim($_POST['user_role']);
+
+    try {
+        // Start transaction
+        $conn->begin_transaction();
+
+        // Get current user data
+        $current_data_stmt = $conn->prepare("SELECT username, userPhone, userEmail, userRole, userStatus FROM users WHERE userId = ?");
+        $current_data_stmt->bind_param("i", $userId);
+        $current_data_stmt->execute();
+        $current_data = $current_data_stmt->get_result()->fetch_assoc();
+
+        if (
+            $current_data &&
+            $current_data['username'] == $username &&
+            $current_data['userPhone'] == $user_phone &&
+            $current_data['userEmail'] == $user_email &&
+            $current_data['userRole'] == $user_role
+        ) {
+            throw new Exception("no_changes");
+        }
+
+        // Check for duplicate email
+        $check_email_stmt = $conn->prepare("SELECT userId FROM users WHERE userEmail = ? AND userId != ?");
+        $check_email_stmt->bind_param("si", $user_email, $userId);
+        $check_email_stmt->execute();
+
+        if ($check_email_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Email address already exists for another user.");
+        }
+
+        // Check for duplicate username
+        $check_username_stmt = $conn->prepare("SELECT userId FROM users WHERE username = ? AND userId != ?");
+        $check_username_stmt->bind_param("si", $username, $userId);
+        $check_username_stmt->execute();
+
+        if ($check_username_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Username already exists for another user.");
+        }
+
+        // Check for duplicate phone
+        $check_phone_stmt = $conn->prepare("SELECT userId FROM users WHERE userPhone = ? AND userId != ?");
+        $check_phone_stmt->bind_param("si", $user_phone, $userId);
+        $check_phone_stmt->execute();
+
+        if ($check_phone_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Phone number already exists for another user.");
+        }
+
+        // Proceed with update
+        $update_user_stmt = $conn->prepare("UPDATE users SET username = ?, userPhone = ?, userEmail = ?, userRole = ?, updated_at = ? WHERE userId = ?");
+        $update_user_stmt->bind_param("sssssi", $username, $user_phone, $user_email, $user_role, $current_time, $userId);
+        $update_user_stmt->execute();
+
+        if ($update_user_stmt->affected_rows > 0) {
+            $conn->commit();
             echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
+                document.addEventListener('DOMContentLoaded', function() {
                     Swal.fire({
                         icon: 'success',
-                        text: 'User added successfully!'
-                    }).then(function(){
+                        title: 'Success!',
+                        text: 'User updated successfully.'                        
+                    }).then(function() {
+                        window.location.href = 'userlist.php';
+                    });
+                });
+            </script>";
+        } else {
+            throw new Exception("No changes were made to the user.");
+        }
+    } catch (Exception $e) {
+        $conn->rollback();
+
+        // Handle specific "no changes" alert
+        if ($e->getMessage() === "no_changes") {
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Changes',
+                        text: 'You didn\\'t modify any user details.'                        
+                    }).then(function() {
                         window.location.href = 'userlist.php';
                     });
                 });
             </script>";
         } else {
             echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        icon: 'error',
-                        text: 'Error adding user. Please try again.'
-                    }).then(function(){
-                        window.location.href = 'userlist.php';
-                    });
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: '" . $e->getMessage() . "'
+                }).then(function() {
+                    window.location.href = 'userlist.php';
                 });
-            </script>";
+            });
+        </script>";
         }
     }
-} ?>
+}
+?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -204,7 +327,7 @@ if (isset($_POST['addUserBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -233,9 +356,9 @@ if (isset($_POST['addUserBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -281,19 +404,6 @@ if (isset($_POST['addUserBTN'])) {
                                     </a>
                                 </div>
                             </div>
-                            <div class="wordset">
-                                <ul>
-                                    <li>
-                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
-                                    </li>
-                                    <li>
-                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
-                                    </li>
-                                    <li>
-                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                    </li>
-                                </ul>
-                            </div>
                         </div>
 
                         <div class="card" id="filter_inputs">
@@ -335,14 +445,14 @@ if (isset($_POST['addUserBTN'])) {
                             <table class="table" id="usersTable">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
+                                        <th>S/N</th>
                                         <th>Profile</th>
                                         <th>User name </th>
                                         <th>Phone</th>
                                         <th>Email</th>
                                         <th>Role</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -350,11 +460,13 @@ if (isset($_POST['addUserBTN'])) {
                                     // Fetch all users data
                                     $users_query = $conn->query("SELECT * FROM users");
                                     if ($users_query->num_rows > 0) {
+                                        $sn = 0;
                                         while ($user_row = $users_query->fetch_assoc()) {
                                             $user_id = $user_row["userId"];
+                                            $sn++;
                                     ?>
                                             <tr>
-                                                <td><?= $user_row['userId']; ?></td>
+                                                <td><?= $sn; ?></td>
                                                 <td class="productimgname">
                                                     <a href="javascript:void(0);" class="product-img">
                                                         <img src="assets/img/profiles/<?= $user_row['userPhoto'] ?>" alt="product">
@@ -364,51 +476,55 @@ if (isset($_POST['addUserBTN'])) {
                                                 <td><?= $user_row['userPhone']; ?></td>
                                                 <td><?= $user_row['userEmail']; ?></td>
                                                 <td><?= $user_row['userRole']; ?></td>
-                                                <td>
-                                                    <?php if ($user_row['userStatus'] == "1") : ?>
-                                                        <span class="badge rounded-pill bg-success">Active</span>
+                                                <td class="text-center">
+                                                    <!-- <?php if ($user_row['userStatus'] == "1") : ?>
+                                                        <span class="badges bg-success">Active</span>
                                                     <?php else : ?>
-                                                        <span class="badge rounded-pill bg-danger">Inactive</span>
+                                                        <span class="badges bg-danger">Inactive</span>
+                                                    <?php endif; ?> -->
+
+                                                    <!--Toggle User Status -->
+                                                    <?php if ($user_id != $_SESSION['id']): ?>
+                                                        <div class="status-toggle d-inline-flex align-items-center">
+                                                            <input type="checkbox"
+                                                                id="user<?= $user_id ?>"
+                                                                class="check"
+                                                                <?= $user_row['userStatus'] == 1 ? 'checked' : '' ?>
+                                                                onchange="toggleUserStatus(<?= $user_id ?>, this.checked)">
+                                                            <label for="user<?= $user_id ?>" class="checktoggle ms-1"></label>
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <span class="badges bg-success">Your Account</span>
                                                     <?php endif; ?>
+
                                                 </td>
                                                 <td class="text-center">
-                                                    <div class="d-flex justify-content-center">
-                                                        <div class="dropdown">
-                                                            <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false" class="dropset">
-                                                                <i class="fa fa-ellipsis-v"></i>
-                                                            </a>
-                                                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                                                <!-- View Button -->
-                                                                <li>
-                                                                    <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewUser<?= $user_id; ?>">
-                                                                        <img src="assets/img/icons/eye.svg" alt="View" style="width: 16px; margin-right: 6px;">
-                                                                        View
-                                                                    </button>
-                                                                </li>
+                                                    <div class="d-flex justify-content-center align-items-center">
 
-                                                                <!-- Edit Button -->
-                                                                <li>
-                                                                    <a href="edituser.php?id=<?= $user_id; ?>" class="dropdown-item">
-                                                                        <img src="assets/img/icons/edit.svg" alt="Edit" style="width: 16px; margin-right: 6px;">
-                                                                        Edit
-                                                                    </a>
-                                                                </li>
-                                                                <!-- Delete Button -->
-                                                                <li>
-                                                                    <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $user_id; ?>)">
-                                                                        <img src="assets/img/icons/delete.svg" alt="Delete" style="width: 16px; margin-right: 6px;">
-                                                                        Delete
-                                                                    </button>
-                                                                </li>
-                                                            </ul>
-                                                        </div>
+                                                        <!-- View Button -->
+                                                        <button type="button"
+                                                            class="btn btn-sm btn-outline-primary me-2"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#viewUser<?= $user_id; ?>">
+                                                            <i class="fas fa-eye text-dark"></i>
+                                                        </button>
+
+                                                        <!-- Edit Button -->
+                                                        <button type="button"
+                                                            class="btn btn-sm btn-outline-secondary me-2"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#editUser<?= $user_id; ?>">
+                                                            <i class="fas fa-edit text-dark"></i>
+                                                        </button>
+
                                                     </div>
                                                 </td>
+
                                             </tr>
 
                                             <!-- View User Modal -->
                                             <div class="modal fade" id="viewUser<?= $user_id; ?>" tabindex="-1" aria-labelledby="viewUserLabel<?= $user_id; ?>" aria-hidden="true">
-                                                <div class="modal-dialog modal-lg">
+                                                <div class="modal-dialog modal-xl">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
                                                             <h5 class="modal-title">User Details</h5>
@@ -454,6 +570,9 @@ if (isset($_POST['addUserBTN'])) {
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -461,7 +580,7 @@ if (isset($_POST['addUserBTN'])) {
 
                                             <!-- Edit User Modal -->
                                             <div class="modal fade" id="editUser<?= $user_id; ?>" tabindex="-1" aria-labelledby="editUserLabel<?= $user_id; ?>" aria-hidden="true">
-                                                <div class="modal-dialog modal-lg">
+                                                <div class="modal-dialog modal-xl">
                                                     <form action="" method="POST">
                                                         <div class="modal-content">
                                                             <div class="modal-header">
@@ -472,39 +591,42 @@ if (isset($_POST['addUserBTN'])) {
                                                                 <input type="hidden" name="userId" value="<?= $user_id; ?>">
 
                                                                 <div class="row">
-                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                    <div class="col-lg-6 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>User Name</label>
-                                                                            <input type="text" name="username" class="form-control" value="<?= $user_row['username']; ?>">
+                                                                            <input type="text" name="username" class="form-control" value="<?= $user_row['username']; ?>" required>
                                                                         </div>
                                                                     </div>
-                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                    <div class="col-lg-6 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Phone</label>
-                                                                            <input type="text" name="userPhone" class="form-control" value="<?= $user_row['userPhone']; ?>">
+                                                                            <input type="text" name="user_phone" class="form-control" value="<?= $user_row['userPhone']; ?>" required>
                                                                         </div>
                                                                     </div>
-                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                    <div class="col-lg-6 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Email</label>
-                                                                            <input type="email" name="userEmail" class="form-control" value="<?= $user_row['userEmail']; ?>">
+                                                                            <input type="email" name="user_email" class="form-control" value="<?= $user_row['userEmail']; ?>" required>
                                                                         </div>
                                                                     </div>
-                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                    <div class="col-lg-6 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Role</label>
-                                                                            <input type="text" name="userRole" class="form-control" value="<?= $user_row['userRole']; ?>">
+                                                                            <select name="user_role" class="select" required>
+                                                                                <option <?= $user_row['userRole'] == 'Admin' ? 'selected' : ''; ?>>Admin</option>
+                                                                                <option <?= $user_row['userRole'] == 'Technician' ? 'selected' : ''; ?>>Technician</option>
+                                                                            </select>
                                                                         </div>
                                                                     </div>
-                                                                    <div class="col-lg-6 col-sm-12 col-12">
+                                                                    <!-- <div class="col-lg-6 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Status</label>
-                                                                            <select name="userStatus" class="form-control">
+                                                                            <select name="user_status" class="select" required>
                                                                                 <option value="1" <?= $user_row['userStatus'] == 1 ? 'selected' : ''; ?>>Active</option>
                                                                                 <option value="0" <?= $user_row['userStatus'] == 0 ? 'selected' : ''; ?>>InActive</option>
                                                                             </select>
                                                                         </div>
-                                                                    </div>
+                                                                    </div> -->
                                                                 </div>
                                                             </div>
                                                             <div class="modal-footer">
@@ -533,11 +655,11 @@ if (isset($_POST['addUserBTN'])) {
                                 <h5 class="modal-title" id="addUserModalLabel">Add User</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">x</button>
                             </div>
-                            <div class="modal-body">
-                                <!-- Add user form -->
-                                <div class="card">
-                                    <div class="card-body">
-                                        <form action="" method="POST" id="user-form" enctype="multipart/form-data">
+                            <form action="" method="POST" id="user-form" enctype="multipart/form-data">
+                                <div class="modal-body">
+                                    <!-- Add user form -->
+                                    <div class="card">
+                                        <div class="card-body">
                                             <div class="row">
                                                 <div class="col-lg-4 col-sm-6 col-12">
                                                     <div class="form-group">
@@ -594,16 +716,16 @@ if (isset($_POST['addUserBTN'])) {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-12">
-                                                    <button type="submit" name="addUserBTN" class="btn btn-submit me-2">Submit</button>
-                                                    <button type="reset" class="btn btn-cancel">Cancel</button>
-                                                </div>
                                             </div>
-                                        </form>
+                                        </div>
                                     </div>
                                 </div>
-                                <!-- End of add user form -->
-                            </div>
+                                <div class="modal-footer">
+                                    <button type="submit" name="addUserBTN" class="btn btn-submit me-2">Submit</button>
+                                    <button type="reset" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                                </div>
+
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -649,14 +771,15 @@ if (isset($_POST['addUserBTN'])) {
 
             if (name === 'password') {
                 const isValid = (
-                    value.length >= 8 &&
-                    /[A-Z]/.test(value) &&
-                    /[a-z]/.test(value) &&
-                    /[0-9]/.test(value)
+                    value.length >= 4
+                    // &&
+                    // /[A-Z]/.test(value) &&
+                    // /[a-z]/.test(value) &&
+                    // /[0-9]/.test(value)
                     // && /[!@#$%^&*(),.?":{}|<>]/.test(value) 
                 );
                 if (!isValid) {
-                    return 'Password must be at least 8 characters long and include uppercase, lowercase letters, and numbers.';
+                    return 'Password must be at least 4 characters long';
                 }
             }
 
@@ -680,60 +803,91 @@ if (isset($_POST['addUserBTN'])) {
         });
 
         // Function to confirm user deletion 
-        function confirmDelete(userId) {
+        function toggleUserStatus(userId, isActive) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
-                text: "This action cannot be undone.",
+                text: isActive ? "Activate this user?" : "Deactivate this user?",
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete!',
+                confirmButtonText: 'Yes',
                 cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    window.location.href = 'deleteuser.php?id=' + userId;
+                    window.location.href = 'user_status.php?id=' + userId;
+                } else {
+                    // revert checkbox state if cancelled
+                    document.getElementById("user" + userId).checked = !isActive;
                 }
             });
         }
 
+
         // Trigger SweetAlert messages after redirect
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const status = urlParams.get('status');
+            const msg = urlParams.get('msg');
 
-            if (status === 'success') {
+            if (msg === 'deactivated') {
                 Swal.fire({
-                    title: 'Deleted!',
-                    text: 'User has been deleted successfully.',
-                    timer: 3000,
+                    icon: 'success',
+                    title: 'Deactivated!',
+                    text: 'User has been deactivated successfully.',
+                    timer: 5000,
                     showConfirmButton: true
                 }).then(() => {
                     const url = new URL(window.location.href);
-                    url.searchParams.delete('status');
+                    url.searchParams.delete('msg');
                     window.history.replaceState({}, document.title, url.pathname + url.search);
                 });
             }
-            if (status === 'error') {
+            if (msg === 'activated') {
                 Swal.fire({
+                    icon: 'success',
+                    title: 'Activated!',
+                    text: 'User has been activated successfully.',
+                    timer: 5000,
+                    showConfirmButton: true
+                }).then(() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('msg');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                });
+            }
+            if (msg === 'notfound') {
+                Swal.fire({
+                    icon: 'error',
                     title: 'Error!',
-                    text: 'Failed to delete the user.',
-                    timer: 3000,
+                    text: 'User not found.',
                     showConfirmButton: true
                 }).then(() => {
                     const url = new URL(window.location.href);
-                    url.searchParams.delete('status');
+                    url.searchParams.delete('msg');
                     window.history.replaceState({}, document.title, url.pathname + url.search);
                 });
             }
-            if (status === 'self_delete') {
+            if (msg === 'error') {
                 Swal.fire({
-                    title: 'Not Allowed!',
-                    text: 'You cannot delete your own account.',
-                    timer: 3000,
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'Action failed.',
                     showConfirmButton: true
                 }).then(() => {
                     const url = new URL(window.location.href);
-                    url.searchParams.delete('status');
+                    url.searchParams.delete('msg');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                });
+            }
+            if (msg === 'self_delete') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Not Allowed!',
+                    text: 'You cannot deactivate your own account.',
+                    showConfirmButton: true
+                }).then(() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('msg');
                     window.history.replaceState({}, document.title, url.pathname + url.search);
                 });
             }

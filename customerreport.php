@@ -129,7 +129,7 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -158,9 +158,9 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php" class="active">Customer Report</a></li>
@@ -185,6 +185,31 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                     </div>
                 </div>
 
+                <?php if (!empty($_GET['from_date']) || !empty($_GET['to_date'])): ?>
+                    <div class="card mt-3 border-info shadow-sm">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0 text-info fw-semibold">
+                                    <i class="bi bi-funnel-fill me-1"></i> Applied Filters
+                                </h6>
+                                <a href="<?php echo basename($_SERVER['PHP_SELF']); ?>" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </a>
+                            </div>
+                            <ul class="mb-0 ps-0" style="list-style: none;">
+                                <?php if (!empty($_GET['from_date'])): ?>
+                                    <li><strong>From:</strong> <?= $_GET['from_date']; ?></li>
+                                <?php endif; ?>
+
+                                <?php if (!empty($_GET['to_date'])): ?>
+                                    <li><strong>To:</strong> <?= $_GET['to_date']; ?></li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+
                 <div class="card">
                     <div class="card-body">
                         <div class="table-top">
@@ -201,15 +226,15 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                             </div>
                             <div class="wordset">
                                 <ul>
-                                    <li>
+                                    <!-- <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
-                                    </li>
-                                    <li>
+                                    </li> -->
+                                    <!-- <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
                                     </li>
                                     <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                    </li>
+                                    </li> -->
                                 </ul>
                             </div>
                         </div>
@@ -240,24 +265,26 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                         $customer_report_stmt = $conn->prepare("SELECT 
                                                                 customers.customerId AS `customer_id`,
                                                                 customers.customerName AS `customer_name`,
-                                                                SUM(orders.total) AS `Amount`,
-                                                                SUM(orders.paid) AS `Paid`,
-                                                                SUM(orders.due) AS `due_amount`,
+                                                                SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderTotalAmount ELSE 0 END) AS `Amount`,
+                                                                SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderPaidAmount ELSE 0 END) AS `Paid`,
+                                                                SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderDueAmount ELSE 0 END) AS `due_amount`,
 
                                                                 -- Separate counts for each order status
                                                                 SUM(CASE WHEN orders.orderStatus = 0 THEN 1 ELSE 0 END) AS `Pending Orders`,
                                                                 SUM(CASE WHEN orders.orderStatus = 1 THEN 1 ELSE 0 END) AS `Completed Orders`,
                                                                 SUM(CASE WHEN orders.orderStatus = 2 THEN 1 ELSE 0 END) AS `Cancelled Orders`,
+                                                                SUM(CASE WHEN orders.orderStatus = 3 THEN 1 ELSE 0 END) AS `Deleted Orders`,
 
-                                                                CASE 
-                                                                    WHEN COUNT(orders.invoiceNumber) = 0 THEN 'No Orders'
-                                                                    WHEN SUM(orders.due) = 0 AND SUM(orders.paid) > 0 THEN 'Fully Paid'
-                                                                    WHEN SUM(orders.paid) = 0 OR SUM(orders.paid) IS NULL THEN 'Unpaid'
+                                                                CASE  
+                                                                    WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN 1 ELSE 0 END) = 0 THEN 'No Orders'
+                                                                    WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderDueAmount ELSE 0 END) = 0 
+                                                                        AND SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderPaidAmount ELSE 0 END) > 0 THEN 'Fully Paid'
+                                                                    WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderPaidAmount ELSE 0 END) = 0 THEN 'Unpaid'
                                                                     ELSE 'Partially Paid'
                                                                 END AS `Payment Status`
-
+ 
                                                             FROM customers 
-                                                            LEFT JOIN orders ON orders.customerId = customers.customerId
+                                                            LEFT JOIN orders ON orders.orderCustomerId = customers.customerId
                                                             WHERE $whereClause
                                                             GROUP BY customers.customerId, customers.customerName;
                                                 ");
@@ -266,6 +293,7 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                         }
                         $customer_report_stmt->execute();
                         $customer_report_result = $customer_report_stmt->get_result();
+                        $sn = 0;
                         ?>
 
                         <form method="GET" action="customerreport.php">
@@ -297,9 +325,6 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                                                 <button type="submit" class="btn btn-filters ms-auto">
                                                     <img src="assets/img/icons/search-whites.svg" alt="img">
                                                 </button>
-                                                <a href="customerreport.php" class="btn btn-reset">
-                                                    <img src="assets/img/icons/refresh.svg" alt="Reset">
-                                                </a>
                                             </div>
                                         </div>
                                     </div>
@@ -311,14 +336,14 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                             <table class="table" id="customerReportTable">
                                 <thead>
                                     <tr>
-                                        <th>CustomerID</th>
-                                        <th>Customer name </th>
-                                        <th>Amount</th>
-                                        <th>Paid</th>
-                                        <th>Due Amount</th>
-                                        <th>Status</th>
-                                        <th>Payment Status</th>
-                                        <th>Action</th>
+                                        <th>#</th>
+                                        <th>Customer Name </th>
+                                        <th class="text-center">Sold Amount</th>
+                                        <th class="text-center">Paid</th>
+                                        <th class="text-center">Due Amount</th>
+                                        <th class="text-center">Orders Status</th>
+                                        <th class="text-center">Payment Status</th>
+                                        <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -326,19 +351,22 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                                     if ($customer_report_result->num_rows > 0) {
                                         while ($customer_report = $customer_report_result->fetch_assoc()) {
                                             $customer_id = $customer_report['customer_id'];
+                                            $sn++;
                                     ?>
                                             <tr>
-                                                <td class="text-center"><?= $customer_report['customer_id']; ?></td>
+                                                <td><?= $sn; ?></td>
                                                 <td><?= $customer_report['customer_name']; ?></td>
                                                 <td class="text-center"><?= number_format($customer_report['Amount'], 2); ?></td>
                                                 <td class="text-success text-center"><?= number_format($customer_report['Paid'], 2); ?></td>
                                                 <td class="text-danger text-center"><?= number_format($customer_report['due_amount'], 2); ?></td>
 
-                                                <td>
-                                                    <span class="badges bg-success"><?= $customer_report['Completed Orders']; ?> Completed</span>
-                                                    <span class="badges bg-warning"><?= $customer_report['Pending Orders']; ?> Pending</span>
-                                                    <span class="badges bg-danger"><?= $customer_report['Cancelled Orders']; ?> Cancelled</span>
+                                                <td class="text-center">
+                                                    <span class="badges bg-lightgreen"><?= $customer_report['Completed Orders']; ?> Completed</span>
+                                                    <span class="badges bg-lightyellow"><?= $customer_report['Pending Orders']; ?> Pending</span>
+                                                    <span class="badges bg-lightgrey"><?= $customer_report['Cancelled Orders']; ?> Cancelled</span>
+                                                    <span class="badges bg-lightred"><?= $customer_report['Deleted Orders'] ?> Deleted</span>
                                                 </td>
+
                                                 <?php
                                                 $paymentStatus = $customer_report['Payment Status'];
                                                 switch ($paymentStatus) {
@@ -355,7 +383,7 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
                                                         $badgeClass = 'bg-secondary';
                                                 }
                                                 ?>
-                                                <td> <span class="badges <?= $badgeClass; ?>"><?= $paymentStatus; ?></span></td>
+                                                <td class="text-center"> <span class="badges <?= $badgeClass; ?>"><?= $paymentStatus; ?></span></td>
                                                 <td class="text-center">
                                                     <div class="d-flex justify-content-center">
                                                         <div class='btn-group btn-group-sm'>

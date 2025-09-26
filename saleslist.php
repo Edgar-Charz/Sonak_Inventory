@@ -9,77 +9,160 @@ $user_id = $_SESSION['id'];
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
+// If payment button is clicked
 if (isset($_POST['paymentBTN'])) {
-    $invoiceNumber = $_POST['invoiceNumber'];
-    $payingAmount  = floatval($_POST['payingAmount']);
-    $paymentType   = $_POST['paymentType'];
-    $updatedBy     = $user_id;
+    $invoiceNumber = $_POST['invoiceNumber'] ?? '';
+    $payingAmount = isset($_POST['payingAmount']) ? floatval(str_replace(',', '', $_POST['payingAmount'])) : 0;
+    $paymentType = $_POST['paymentType'] ?? '';
 
-    // Fetch current paid & due
-    $stmt = $conn->prepare("SELECT paid, due FROM orders WHERE invoiceNumber = ?");
-    $stmt->bind_param("s", $invoiceNumber);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $order = $result->fetch_assoc();
-    $stmt->close();
+    $updatedBy = $user_id;
 
-    if ($order) {
-        $currentPay = floatval($order['paid']);
-        $currentDue = floatval($order['due']);
+    // Validate inputs
+    if (empty($invoiceNumber)) {
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Invoice number is required.',
+                    icon: 'error',
+                    timer: 5000,
+                    timerProgressBar: true
+                });
+            });
+        </script>";
+        exit();
+    }
+    if ($payingAmount <= 0.00) {
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Paying amount must be greater than 0.',
+                    icon: 'error',
+                    timer: 5000,
+                    timerProgressBar: true
+                });
+            });
+        </script>";
+        exit();
+    }
+    if (empty($paymentType)) {
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Payment type is required.',
+                    icon: 'error',
+                    timer: 5000,
+                    timerProgressBar: true
+                });
+            });
+        </script>";
+        exit();
+    }
+
+    // Begin transaction
+    $conn->begin_transaction();
+
+    try {
+        // Fetch current paid & due
+        $stmt = $conn->prepare("SELECT orderPaidAmount, orderDueAmount, orderCustomerId FROM orders WHERE orderInvoiceNumber = ?");
+        $stmt->bind_param("s", $invoiceNumber);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $order = $result->fetch_assoc();
+        $stmt->close();
+
+        if (!$order) {
+            throw new Exception("Order not found for invoice number: $invoiceNumber");
+        }
+
+        $currentPay = floatval($order['orderPaidAmount']);
+        $currentDue = floatval($order['orderDueAmount']);
+        $customerId = intval($order['orderCustomerId']);
 
         // Prevent overpayment
         if ($payingAmount > $currentDue) {
             $payingAmount = $currentDue;
         }
 
-        // New values
+        // Calculate new values
         $newPay = $currentPay + $payingAmount;
         $newDue = $currentDue - $payingAmount;
 
-        // Update query
+        // Update order payment
         $update = $conn->prepare("UPDATE orders 
-                                  SET paid = ?, due = ?, paymentType = ?, updatedBy = ?, updated_at = NOW()
-                                  WHERE invoiceNumber = ?");
-        $update->bind_param("ddsds", $newPay, $newDue, $paymentType, $updatedBy, $invoiceNumber);
+                                  SET orderPaidAmount = ?, orderDueAmount = ?, orderUpdatedBy = ?, updated_at = ?
+                                  WHERE orderInvoiceNumber = ?");
+        $update->bind_param("ddiss", $newPay, $newDue, $updatedBy, $current_time, $invoiceNumber);
 
-        if ($update->execute()) {
-            // If fully paid, set orderStatus=1 in order_details
-            if ($newDue == 0) {
-                $updateDetails = $conn->prepare("UPDATE order_details SET status = 1 WHERE invoiceNumber = ?");
-                $updateDetails->bind_param("s", $invoiceNumber);
-                $updateDetails->execute();
-                $updateDetails->close();
+        if (!$update->execute()) {
+            throw new Exception("Failed to update payment: " . $conn->error);
+        }
+        $update->close();
+
+        // Insert into transactions table
+        $insert_transaction_stmt = $conn->prepare("INSERT INTO transactions 
+            (transactionCustomerId, transactionInvoiceNumber, transactionPaymentType, 
+             transactionPaidAmount, transactionDueAmount, transactionDate, 
+             transactionCreatedAt, transactionUpdatedAt) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $insert_transaction_stmt->bind_param(
+            "issddsss",
+            $customerId,
+            $invoiceNumber,
+            $paymentType,
+            $payingAmount,
+            $newDue,
+            $current_time,
+            $current_time,
+            $current_time
+        );
+
+        if (!$insert_transaction_stmt->execute()) {
+            throw new Exception("Failed to record transaction: " . $conn->error);
+        }
+        $insert_transaction_stmt->close();
+
+        // If fully paid, update order_details status
+        if ($newDue == 0) {
+            $updateDetails = $conn->prepare("UPDATE order_details SET orderDetailStatus = 1 WHERE orderDetailInvoiceNumber = ?");
+            $updateDetails->bind_param("s", $invoiceNumber);
+            if (!$updateDetails->execute()) {
+                throw new Exception("Failed to update order details status: " . $conn->error);
             }
-
-            // If successfully
-            echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        title: 'Success',
-                        text: 'Payment updated successfully',
-                        timer: 5000
-                    }).then(function() {
-                        window.location.href = 'saleslist.php';
-                    })
-            });
-            </script>";
-        } else {
-            // If failed
-            echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: 'Failed to update payment',
-                        timer: 5000,
-                        timerProgressBar: true
-                    });
-                });
-            </script>";
+            $updateDetails->close();
         }
 
-        $update->close();
-    } else {
-        echo "Order not found.";
+        // Commit transaction
+        $conn->commit();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Success',
+                    text: 'Payment updated and transaction recorded successfully',
+                    icon: 'success',
+                    timer: 5000,
+                    timerProgressBar: true
+                }).then(function() {
+                    window.location.href = 'saleslist.php';
+                });
+            });
+        </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({
+                    title: 'Error!',
+                    text: '" . addslashes($e->getMessage()) . "',
+                    icon: 'error',
+                    timer: 5000,
+                    timerProgressBar: true
+                });
+            });
+        </script>";
     }
 }
 ?>
@@ -107,6 +190,26 @@ if (isset($_POST['paymentBTN'])) {
     <link rel="stylesheet" href="assets/plugins/fontawesome/css/all.min.css">
 
     <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .swal-wide {
+            width: 600px !important;
+            padding: 2rem;
+        }
+
+        .swal-title-lg {
+            font-size: 1.75rem;
+        }
+
+        .swal-input-lg {
+            font-size: 1.1rem;
+            padding: 0.75rem;
+        }
+
+        .swal-btn-lg {
+            font-size: 1rem;
+            padding: 0.6rem 1.2rem;
+        }
+    </style>
 </head>
 
 <body>
@@ -203,7 +306,7 @@ if (isset($_POST['paymentBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php" class="active">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -232,9 +335,9 @@ if (isset($_POST['paymentBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -257,9 +360,9 @@ if (isset($_POST['paymentBTN'])) {
                         <h4>Sales List</h4>
                         <h6>Manage your sales</h6>
                     </div>
-                    <div class="page-btn">
+                    <!-- <div class="page-btn">
                         <a href="add-sales.php" class="btn btn-added"><img src="assets/img/icons/plus.svg" alt="img" class="me-1">Add Sales</a>
-                    </div>
+                    </div> -->
                 </div>
 
                 <div class="card">
@@ -276,7 +379,7 @@ if (isset($_POST['paymentBTN'])) {
                                     <a class="btn btn-searchset"><img src="assets/img/icons/search-white.svg" alt="img"></a>
                                 </div>
                             </div>
-                            <div class="wordset">
+                            <!-- <div class="wordset">
                                 <ul>
                                     <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
@@ -288,7 +391,7 @@ if (isset($_POST['paymentBTN'])) {
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
                                     </li>
                                 </ul>
-                            </div>
+                            </div> -->
                         </div>
 
                         <div class="card" id="filter_inputs">
@@ -329,14 +432,14 @@ if (isset($_POST['paymentBTN'])) {
                                         <th>Invoice No.</th>
                                         <th>Customer Name</th>
                                         <th>Order Date</th>
-                                        <th>Biller</th>
-                                        <th>UpdatedBy</th>
-                                        <th>PaymentType</th>
+                                        <th>Created By</th>
+                                        <!-- <th>UpdatedBy</th> -->
+                                        <!-- <th>PaymentType</th> -->
                                         <th>VAT(%)</th>
                                         <th>Total</th>
                                         <th>Paid</th>
                                         <th>Due</th>
-                                        <th>Status</th>
+                                        <th class="text-center">Status</th>
                                         <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
@@ -358,23 +461,23 @@ if (isset($_POST['paymentBTN'])) {
                                                                         users AS u1, 
                                                                         users AS u2
                                                                     WHERE 
-                                                                        orders.invoiceNumber = order_details.invoiceNumber
-                                                                        AND orders.customerId = customers.customerId
-                                                                        AND order_details.productId = products.productId
-                                                                        AND orders.createdBy = u1.userId
-                                                                        AND orders.updatedBy = u2.userId
+                                                                        orders.orderInvoiceNumber = order_details.orderDetailInvoiceNumber
+                                                                        AND orders.orderCustomerId = customers.customerId
+                                                                        AND order_details.orderDetailProductId = products.productId
+                                                                        AND orders.orderCreatedBy = u1.userId
+                                                                        AND orders.orderUpdatedBy = u2.userId
                                                                     GROUP BY 
-                                                                        orders.invoiceNumber
+                                                                        orders.orderInvoiceNumber
                                                                     ORDER BY 
                                                                         orders.orderUId DESC;");
                                     if ($orders_query->num_rows > 0) {
                                         while ($order_row = $orders_query->fetch_assoc()) {
                                             $order_uid = $order_row["orderUId"];
-                                            $invoice_number = $order_row["invoiceNumber"];
+                                            $invoice_number = $order_row["orderInvoiceNumber"];
                                             $currentStatus = $order_row["orderStatus"];
-                                            $due_amount = $order_row["due"];
+                                            $due_amount = $order_row["orderDueAmount"];
 
-                                            if ($currentStatus != 2) {
+                                            if ($currentStatus != 2 && $currentStatus != 3) {
                                                 $newStatus = $currentStatus;
 
                                                 if ($due_amount == 0) {
@@ -384,7 +487,7 @@ if (isset($_POST['paymentBTN'])) {
                                                 }
 
                                                 if ($newStatus != $currentStatus) {
-                                                    $update_query = $conn->prepare("UPDATE orders SET orderStatus = ? WHERE invoiceNumber = ?");
+                                                    $update_query = $conn->prepare("UPDATE orders SET orderStatus = ? WHERE orderInvoiceNumber = ?");
                                                     $update_query->bind_param("is", $newStatus, $invoice_number);
                                                     $update_query->execute();
                                                     $update_query->close();
@@ -395,23 +498,25 @@ if (isset($_POST['paymentBTN'])) {
                                     ?>
                                             <tr>
                                                 <td> <?= $order_row["orderUId"]; ?> </td>
-                                                <td> <?= $order_row["invoiceNumber"]; ?> </td>
+                                                <td> <?= $order_row["orderInvoiceNumber"]; ?> </td>
                                                 <td> <?= $order_row["customerName"]; ?> </td>
                                                 <td> <?= date('d-m-Y', strtotime($order_row["orderDate"])); ?> </td>
                                                 <td> <?= $order_row["biller"]; ?> </td>
-                                                <td> <?= $order_row["updater"]; ?> </td>
-                                                <td> <?= $order_row["paymentType"]; ?> </td>
-                                                <td> <?= $order_row["vat"]; ?>% </td>
-                                                <td> <?= number_format($order_row["total"], 2); ?> </td>
-                                                <td class="text-success"> <?= number_format($order_row["paid"], 2); ?> </td>
-                                                <td class="text-danger"> <?= number_format($order_row["due"], 2); ?> </td>
-                                                <td>
+                                                <!-- <td> <?= $order_row["updater"]; ?> </td> -->
+                                                <!-- <td> <?= $order_row["paymentType"]; ?> </td> -->
+                                                <td> <?= $order_row["orderVat"]; ?>% </td>
+                                                <td> <?= number_format($order_row["orderTotalAmount"], 2); ?> </td>
+                                                <td class="text-success"> <?= number_format($order_row["orderPaidAmount"], 2); ?> </td>
+                                                <td class="text-danger"> <?= number_format($order_row["orderDueAmount"], 2); ?> </td>
+                                                <td class="text-center">
                                                     <?php if ($order_row["orderStatus"] == "0") : ?>
                                                         <span class="badges bg-lightyellow">Pending</span>
                                                     <?php elseif ($order_row["orderStatus"] == "1"): ?>
                                                         <span class="badges bg-lightgreen">Completed</span>
+                                                    <?php elseif ($order_row["orderStatus"] == "2") : ?>
+                                                        <span class="badges bg-lightgrey">Cancelled</span>
                                                     <?php else: ?>
-                                                        <span class="badges bg-lightred">Cancelled</span>
+                                                        <span class="badges bg-lightred">Deleted</span>
                                                     <?php endif; ?>
                                                 </td>
 
@@ -426,32 +531,35 @@ if (isset($_POST['paymentBTN'])) {
                                                                 Order Detail
                                                             </a>
                                                         </li>
-                                                        <li>
+                                                        <!-- <li>
                                                             <a href="edit-sales.php?invoiceNumber=<?= $invoice_number; ?>" class="dropdown-item">
                                                                 <img src="assets/img/icons/edit.svg" class="me-2" alt="img">
                                                                 Edit Order
                                                             </a>
-                                                        </li>
+                                                        </li> -->
+
                                                         <li>
                                                             <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#showPayment<?= $invoice_number; ?>">
                                                                 <img src="assets/img/icons/dollar-square.svg" class="me-2" alt="img">
                                                                 Show Payments
                                                             </button>
                                                         </li>
-                                                        <li>
-                                                            <a href="javascript:void(0);" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createPayment<?= $order_row['invoiceNumber']; ?>">
-                                                                <img src="assets/img/icons/plus-circle.svg" class="me-2" alt="img">
-                                                                Update Payment
-                                                            </a>
-                                                        </li>
-                                                        <!-- <li>
-                                                            <a href="download-invoice.php?invoiceNumber=<?= $invoice_number; ?>" class="dropdown-item">
-                                                                <img src="assets/img/icons/download.svg" class="me-2" alt="img">
-                                                                Download PDF
-                                                            </a>
-                                                        </li> -->
 
-                                                        <?php if ($order_row['orderStatus'] == 0): ?>
+                                                        <?php if ($order_row['orderStatus'] == 3): ?>
+                                                            <li>
+                                                                <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#showDeleteReason<?= $invoice_number; ?>">
+                                                                    <img src="assets/img/icons/info-circle.svg" class="me-2" alt="img">
+                                                                    Delete Reason
+                                                                </button>
+                                                            </li>
+
+                                                        <?php elseif ($order_row['orderStatus'] == 0): ?>
+                                                            <li>
+                                                                <a href="javascript:void(0);" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#createPayment<?= $order_row['orderInvoiceNumber']; ?>">
+                                                                    <img src="assets/img/icons/plus-circle.svg" class="me-2" alt="img">
+                                                                    Update Payment
+                                                                </a>
+                                                            </li>
                                                             <li>
                                                                 <button type="button" class="dropdown-item" onclick="confirmCancelOrder(<?= $order_uid; ?>)">
                                                                     <img src="assets/img/icons/cancel.svg" class="me-2" alt="img">
@@ -466,15 +574,16 @@ if (isset($_POST['paymentBTN'])) {
                                                                     Reactivate Order
                                                                 </button>
                                                             </li>
-
                                                         <?php endif; ?>
 
-                                                        <li>
-                                                            <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $order_uid; ?>)">
-                                                                <img src="assets/img/icons/delete1.svg" class="me-2" alt="img">
-                                                                Delete Order
-                                                            </button>
-                                                        </li>
+                                                        <?php if ($order_row['orderStatus'] == 2): ?>
+                                                            <li>
+                                                                <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $order_uid; ?>)">
+                                                                    <img src="assets/img/icons/delete1.svg" class="me-2" alt="img">
+                                                                    Delete Order
+                                                                </button>
+                                                            </li>
+                                                        <?php endif; ?>
 
                                                     </ul>
                                                 </td>
@@ -483,7 +592,7 @@ if (isset($_POST['paymentBTN'])) {
 
                                             <!-- View Payment Modal -->
                                             <div class="modal fade" id="showPayment<?= $invoice_number; ?>" tabindex="-1" aria-labelledby="showPaymentModalLabel" aria-hidden="true">
-                                                <div class="modal-dialog modal-lg modal-dialog-centered">
+                                                <div class="modal-dialog modal-xl modal-dialog-centered">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
                                                             <h5 class="modal-title" id="showPaymentModalLabel<?= $invoice_number; ?>">Show Payments</h5>
@@ -491,53 +600,86 @@ if (isset($_POST['paymentBTN'])) {
                                                         </div>
                                                         <div class="modal-body">
                                                             <div class="row">
-                                                                <div class="col-lg-6 col-sm-12 mb-3">
+                                                                <!-- <div class="col-lg-6 col-sm-12 mb-3">
                                                                     <div class="form-group">
                                                                         <label>Date</label>
                                                                         <div class="input-groupicon">
-                                                                            <input type="text" value="<?= $order_row["orderDate"]; ?>" class="datetimepicker">
+                                                                            <p class="form-control"><?= $order_row["orderDate"]; ?></p>
                                                                             <div class="addonset">
                                                                                 <img src="assets/img/icons/calendars.svg" alt="calendar">
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
+                                                                </div> -->
 
                                                                 <div class="col-lg-6 col-sm-12 mb-3">
                                                                     <div class="form-group">
                                                                         <label>Invoice Number</label>
-                                                                        <input type="text" value="<?= $order_row["invoiceNumber"]; ?>" class="form-control">
+                                                                        <p class="form-control"><?= $order_row["orderInvoiceNumber"]; ?></p>
                                                                     </div>
                                                                 </div>
 
                                                                 <div class="col-lg-6 col-sm-12 mb-3">
                                                                     <div class="form-group">
                                                                         <label>Total Amount</label>
-                                                                        <input type="text" value="<?= $order_row["total"]; ?>" class="form-control">
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-6 col-sm-12 mb-3">
-                                                                    <div class="form-group">
-                                                                        <label>Payment Type</label>
-                                                                        <input type="text" value="<?= $order_row["paymentType"]; ?>" class="form-control">
+                                                                        <p class="form-control"><?= number_format($order_row["orderTotalAmount"], 2); ?></p>
                                                                     </div>
                                                                 </div>
 
                                                                 <div class="col-lg-6 col-sm-12 mb-3">
                                                                     <div class="form-group">
                                                                         <label>Paid Amount</label>
-                                                                        <input type="text" value="<?= $order_row["paid"]; ?>" class="form-control">
+                                                                        <p class="form-control"><?= number_format($order_row["orderPaidAmount"], 2); ?></p>
                                                                     </div>
                                                                 </div>
+
                                                                 <div class="col-lg-6 col-sm-12 mb-3">
                                                                     <div class="form-group">
                                                                         <label>Due Amount</label>
-                                                                        <input type="text" value="<?= $order_row["due"]; ?>" class="form-control">
+                                                                        <p class="form-control"><?= number_format($order_row["orderDueAmount"], 2); ?></p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="col-lg-12 col-sm-12 col-12 text-center">
+                                                                    <div class="form-group">
+                                                                        <label style="text-align: center; font-size: large;">Transactions</label>
+                                                                        <?php
+                                                                        $transactions_stmt = $conn->prepare("SELECT * FROM transactions WHERE transactionInvoiceNumber = ?");
+                                                                        $transactions_stmt->bind_param("s", $invoice_number);
+                                                                        $transactions_stmt->execute();
+                                                                        $transactions_result = $transactions_stmt->get_result();
+
+                                                                        if ($transactions_result->num_rows > 0) {
+                                                                            $i = 1;
+                                                                            echo '<div class="row border p-2 mb-2">';
+                                                                            echo '<div class="col-1"><strong>#</strong></div>';
+                                                                            echo '<div class="col-3"><strong>Paid Amount</strong></div>';
+                                                                            echo '<div class="col-3"><strong>Due Amount</strong></div>';
+                                                                            echo '<div class="col-3"><strong>Payment Type</strong></div>';
+                                                                            echo '<div class="col-2"><strong>Payment Date</strong></div>';
+                                                                            echo '</div>';
+
+                                                                            while ($transaction = $transactions_result->fetch_assoc()) {
+
+                                                                                echo '<div class="row border p-2 mb-1">';
+                                                                                echo "<div class='col-1'>{$i}</div>";
+                                                                                echo "<div class='col-3'>" . number_format($transaction['transactionPaidAmount'], 2) . "</div>";
+                                                                                echo "<div class='col-3'>" . number_format($transaction['transactionDueAmount'], 2) . "</div>";
+                                                                                echo "<div class='col-3'>{$transaction['transactionPaymentType']}</div>";
+                                                                                echo "<div class='col-2'>" . date('d-m-Y', strtotime($transaction['transactionDate'])) . "</div>";
+                                                                                echo '</div>';
+                                                                                $i++;
+                                                                            }
+                                                                        } else {
+                                                                            echo "<p class='text-center text-muted'>No transactions available</p>";
+                                                                        }
+                                                                        ?>
                                                                     </div>
                                                                 </div>
                                                             </div>
-
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -546,10 +688,10 @@ if (isset($_POST['paymentBTN'])) {
 
                                             <!-- Create Payment Modal -->
                                             <div class="modal fade" id="createPayment<?= $invoice_number; ?>" tabindex="-1" aria-labelledby="createPaymentModal" aria-hidden="true">
-                                                <div class="modal-dialog modal-lg modal-dialog-centered">
+                                                <div class="modal-dialog modal-xl modal-dialog-centered">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
-                                                            <h5 class="modal-title" id="createPaymentModal<?= $invoice_number; ?>">Create Payment</h5>
+                                                            <h5 class="modal-title" id="createPaymentModal<?= $invoice_number; ?>">Update Payment</h5>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
                                                         </div>
                                                         <form method="POST" action="" id="paymentForm<?= $invoice_number; ?>">
@@ -564,38 +706,39 @@ if (isset($_POST['paymentBTN'])) {
                                                                     <div class="col-lg-6 col-sm-12 col-12">
                                                                         <div class="form-group">
                                                                             <label>Invoice Number</label>
-                                                                            <input type="text" class="form-control" value="<?= $order_row['invoiceNumber']; ?>" readonly>
-                                                                            <input type="hidden" name="invoiceNumber" value="<?= $order_row['invoiceNumber']; ?>">
+                                                                            <input type="text" class="form-control" value="<?= $order_row['orderInvoiceNumber']; ?>" readonly>
+                                                                            <input type="hidden" name="invoiceNumber" value="<?= $order_row['orderInvoiceNumber']; ?>">
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-lg-4 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Total Amount</label>
-                                                                            <input type="text" class="form-control" id="totalAmount<?= $order_row['invoiceNumber']; ?>" value="<?= number_format($order_row['total'], 2); ?>" readonly>
+                                                                            <input type="text" class="form-control" id="totalAmount<?= $order_row['orderInvoiceNumber']; ?>" value="<?= number_format($order_row['orderTotalAmount'], 2); ?>" readonly>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-lg-4 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Already Paid</label>
-                                                                            <input type="text" class="form-control" id="alreadyPaid<?= $order_row['invoiceNumber']; ?>" value="<?= number_format($order_row['paid'], 2); ?>" readonly>
+                                                                            <input type="text" class="form-control" id="alreadyPaid<?= $order_row['orderInvoiceNumber']; ?>" value="<?= number_format($order_row['orderPaidAmount'], 2); ?>" readonly>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-lg-4 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Remaining (Due)</label>
-                                                                            <input type="text" class="form-control" id="remainingDue<?= $order_row['invoiceNumber']; ?>" value="<?= number_format($order_row['due'], 2); ?>" readonly>
+                                                                            <input type="text" class="form-control" id="remainingDue<?= $order_row['orderInvoiceNumber']; ?>" value="<?= number_format($order_row['orderDueAmount'], 2); ?>" readonly>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-lg-6 col-sm-12 col-12">
                                                                         <div class="form-group">
                                                                             <label>Paying Amount</label>
-                                                                            <input type="number" step="0.01" min="0" max="<?= $order_row['due']; ?>" class="form-control" name="payingAmount" id="payingAmount<?= $order_row['invoiceNumber']; ?>" value="" required>
+                                                                            <input type="number" step="0.01" min="0" max="<?= $order_row['orderDueAmount']; ?>" class="form-control" name="payingAmount" id="payingAmount<?= $order_row['orderInvoiceNumber']; ?>" value="" required>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-lg-6 col-sm-12 col-12">
                                                                         <div class="form-group">
                                                                             <label>Payment Type</label>
                                                                             <select class="form-control" name="paymentType" required>
+                                                                                <option value="" selected disabled>Payment Type</option>
                                                                                 <option>Cash</option>
                                                                                 <option>Credit Card</option>
                                                                             </select>
@@ -612,6 +755,73 @@ if (isset($_POST['paymentBTN'])) {
                                                 </div>
                                             </div>
                                             <!-- / Create Payment Modal -->
+
+                                            <!-- Delete Reason Modal -->
+                                            <div class="modal fade" id="showDeleteReason<?= $invoice_number; ?>" tabindex="-1" aria-labelledby="showDeleteReasonModal<?= $invoice_number; ?>" aria-hidden="true">
+                                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                                    <div class="modal-content border-danger">
+                                                        <div class="modal-header bg-danger text-white">
+                                                            <h5 class="modal-title" id="showDeleteReasonModal<?= $invoice_number; ?>">
+                                                                <i class="fa fa-info-circle me-2"></i> Delete Reason
+                                                            </h5>
+                                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close">x</button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <div class="card shadow-sm border-0">
+                                                                <div class="card-body p-3">
+                                                                    <ul class="list-group list-group-flush">
+                                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                            <span class="fw-semibold text-muted">
+                                                                                <i class="bi bi-receipt me-2 text-primary"></i> Invoice Number
+                                                                            </span>
+                                                                            <span class="fw-bold text-primary"><?= $invoice_number; ?></span>
+                                                                        </li>
+
+                                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                            <span class="fw-semibold text-muted">
+                                                                                <i class="bi bi-person-circle me-2 text-success"></i> To
+                                                                            </span>
+                                                                            <span><?= $order_row['customerName']; ?></span>
+                                                                        </li>
+
+                                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                            <span class="fw-semibold text-muted">
+                                                                                <i class="bi bi-calendar-x me-2 text-danger"></i> Deleted On
+                                                                            </span>
+                                                                            <span class="text-muted"><?= date('d M, Y', strtotime($order_row['updated_at'])); ?></span>
+                                                                        </li>
+
+                                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                            <span class="fw-semibold text-muted">
+                                                                                <i class="bi bi-person-badge me-2 text-warning"></i> Deleted By
+                                                                            </span>
+                                                                            <span><?= $order_row['updater']; ?></span>
+                                                                        </li>
+
+                                                                        <!-- Reason in textarea -->
+                                                                        <li class="list-group-item">
+                                                                            <span class="fw-semibold text-muted d-block mb-2">
+                                                                                <i class="bi bi-exclamation-triangle me-2 text-danger" data-bs-toggle="tooltip" title="Reason for deletion"></i>
+                                                                                Reason For Deletion
+                                                                            </span>
+                                                                            <div class="bg-light border-start border-danger ps-3 py-2 rounded">
+                                                                                <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                                                                                <span class="text-dark"><?= ($order_row['orderDescription']); ?></span>
+                                                                            </div>
+                                                                        </li>
+                                                                    </ul>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Close</button>
+                                                            <a href="sales-details.php?invoiceNumber=<?= $invoice_number; ?>" class="btn btn-outline-primary">View Order Details</a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- /Delete Reason Modal -->
 
                                     <?php
                                         }
@@ -697,23 +907,60 @@ if (isset($_POST['paymentBTN'])) {
         // Function to confirm order deletion
         function confirmDelete(orderUId) {
             Swal.fire({
-                title: 'Are you sure?',
-                text: "This action cannot be undone.",
+                // icon: 'warning',
+                title: 'Delete Order',
+                html: `
+                        <label for="deleteReason" style="display:block; margin-bottom:8px;">Please provide a reason for deleting this order:</label>
+                        <textarea id="deleteReason" class="swal2-textarea" placeholder="Enter reason..." rows="6" style="width:100%; resize:vertical;"></textarea>
+                    `,
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete!',
-                cancelButtonText: 'Cancel'
+                confirmButtonText: 'Delete',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    popup: 'swal-wide',
+                    title: 'swal-title-lg',
+                    confirmButton: 'swal-btn-lg',
+                    cancelButton: 'swal-btn-lg'
+                },
+                preConfirm: () => {
+                    const reason = document.getElementById('deleteReason').value.trim();
+                    if (!reason) {
+                        Swal.showValidationMessage('Reason is required');
+                    }
+                    return reason;
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    window.location.href = 'deletesale.php?id=' + orderUId;
-                };
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = 'deletesale.php';
+
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'orderUId';
+                    idInput.value = orderUId;
+
+                    const reasonInput = document.createElement('input');
+                    reasonInput.type = 'hidden';
+                    reasonInput.name = 'deleteReason';
+                    reasonInput.value = result.value;
+
+                    form.appendChild(idInput);
+                    form.appendChild(reasonInput);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
             });
-        };
+
+        }
+
 
         // Function to confirm order cancellation
         function confirmCancelOrder(orderUId) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
                 text: "This action cannot be undone.",
                 showCancelButton: true,
@@ -731,6 +978,7 @@ if (isset($_POST['paymentBTN'])) {
         // Function to reactivate order
         function confirmReactivateOrder(orderUId) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
                 text: "This action cannot be undone.",
                 showCancelButton: true,
@@ -748,69 +996,90 @@ if (isset($_POST['paymentBTN'])) {
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
 
-            // Sweetalerts for delete and cancel
-            const alerts = [{
-                    param: 'status',
-                    value: 'success',
-                    title: 'Deleted!',
-                    text: 'Order has been deleted successfully.'
-                },
-                {
-                    param: 'status',
-                    value: 'error',
-                    title: 'Error!',
-                    text: 'Failed to delete the Order'
-                },
-                {
-                    param: 'message',
-                    value: 'cancelled',
-                    title: 'Cancelled!',
-                    text: 'Order has been cancelled successfully.'
-                },
-                {
-                    param: 'message',
-                    value: 'error',
-                    title: 'Error!',
-                    text: 'Failed to cancel the Order'
-                },
-                {
-                    param: 'response',
-                    value: 'reactivated',
-                    title: 'Reactivated!',
-                    text: 'Order has been reactivated successfully.'
-                },
-                {
-                    param: 'response',
-                    value: 'error',
-                    title: 'Error!',
-                    text: decodeURIComponent(new URLSearchParams(window.location.search).get('msg') || 'Failed to reactivate the Order'),
-                    icon: 'error'
-                },
-                {
-                    param: 'response',
-                    value: 'insufficient',
-                    title: 'Insufficient Stock',
-                    text: decodeURIComponent(new URLSearchParams(window.location.search).get('msg') || ''),
-                    icon: 'error'
-                }
-            ];
+            const status = urlParams.get('status');
+            const message = urlParams.get('message');
+            const response = urlParams.get('response');
+            const msg = urlParams.get('msg');
+            const errorMsg = urlParams.get("errorMsg");
 
-            alerts.forEach(alert => {
-                const paramValue = urlParams.get(alert.param);
-                if (paramValue === alert.value) {
-                    Swal.fire({
-                        title: alert.title,
-                        text: alert.text,
-                        // timer: 3000,
-                        showConfirmButton: true
-                    }).then(() => {
-                        // Remove the URL param after showing alert
-                        const url = new URL(window.location.href);
-                        url.searchParams.delete(alert.param);
-                        window.history.replaceState({}, document.title, url.pathname + url.search);
-                    });
-                }
-            });
+            // Delete
+            if (status === 'deleted') {
+                Swal.fire({
+                    title: 'Deleted!',
+                    text: 'Order has been deleted successfully.',
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => clearParam('status'));
+            }
+
+            if (status === 'error') {
+                Swal.fire({
+                    title: 'Error!',
+                    text: errorMsg ? decodeURIComponent(errorMsg) : 'Failed to delete the Order.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => {
+                    clearParam('status');
+                    clearParam('errorMsg');
+                });
+            }
+
+            // Reactivate
+            if (response === 'reactivated') {
+                Swal.fire({
+                    title: 'Reactivated!',
+                    text: 'Sale has been reactivated successfully.',
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => clearParam('response'));
+            }
+
+            if (response === 'error') {
+                Swal.fire({
+                    title: 'Error!',
+                    text: errorMsg ? decodeURIComponent(errorMsg) : 'Failed to reactivate the Sale Order.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => clearParam('response'));
+            }
+
+            if (response == 'insufficient') {
+                Swal.fire({
+                    title: 'Error!',
+                    text: msg ? decodeURIComponent(msg) : 'Stock not enough to complete the operation.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => clearParam('response'));
+            }
+
+            // Cancel
+            if (message === 'cancelled') {
+                Swal.fire({
+                    title: 'Cancelled!',
+                    text: 'Sale order has been cancelled successfully.',
+                    icon: 'success',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => clearParam('message'));
+            }
+
+            if (message === 'error') {
+                Swal.fire({
+                    title: 'Error!',
+                    text: errorMsg ? decodeURIComponent(errorMsg) : 'Failed to cancel the Sale order.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => clearParam('message'));
+            }
+
+            // Helper to remove URL parameters
+            function clearParam(param) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete(param);
+                window.history.replaceState({}, document.title, url.pathname + url.search);
+            }
         });
     </script>
 
@@ -856,14 +1125,15 @@ if (isset($_POST['paymentBTN'])) {
                         payingAmount = initialDue;
                         payingInput.value = payingAmount.toFixed(2);
                         Swal.fire({
+                            icon: 'warning',
                             title: 'Warning',
-                            text: 'Overpayment not allowed!',
-                            timer: 3000
+                            text: 'Overpayment not allowed!'
                         });
                     } else if (payingAmount < 0) {
                         payingAmount = 0;
                         payingInput.value = payingAmount.toFixed(2);
                         Swal.fire({
+                            icon: 'warning',
                             title: 'Warning',
                             text: 'Pay amount cannot be negative!',
                             timer: 3000

@@ -2,6 +2,21 @@
 include 'includes/db_connection.php';
 include 'includes/session.php';
 
+// Fetch supplier name for display if supplier_id is set
+$supplierName = '';
+if (!empty($_GET['supplier_id'])) {
+    $supplierId = $_GET['supplier_id'];
+    $supplierStmt = $conn->prepare("SELECT supplierName FROM suppliers WHERE supplierId = ? AND supplierStatus = 1");
+    $supplierStmt->bind_param("i", $supplierId);
+    $supplierStmt->execute();
+    $supplierResult = $supplierStmt->get_result();
+    if ($supplierResult->num_rows > 0) {
+        $supplierName = $supplierResult->fetch_assoc()['supplierName'];
+    }
+    $supplierStmt->close();
+}
+
+
 ?>
 
 <!DOCTYPE html>
@@ -123,7 +138,7 @@ include 'includes/session.php';
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="addsales.php">Add Sales</a></li>
+                                <!-- <li><a href="addsales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -152,9 +167,9 @@ include 'includes/session.php';
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php" class="active">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -178,6 +193,34 @@ include 'includes/session.php';
                     </div>
                 </div>
 
+                <?php if (!empty($_GET['from_date']) || !empty($_GET['to_date']) || !empty($_GET['supplier_id'])): ?>
+                    <div class="card mt-3 border-info shadow-sm">
+                        <div class="card-body py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0 text-info fw-semibold">
+                                    <i class="bi bi-funnel-fill me-1"></i> Applied Filters
+                                </h6>
+                                <a href="<?php echo basename($_SERVER['PHP_SELF']); ?>" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </a>
+                            </div>
+                            <ul class="mb-0 ps-0" style="list-style: none;">
+                                <?php if (!empty($_GET['from_date'])): ?>
+                                    <li><strong>From:</strong> <?= $_GET['from_date']; ?></li>
+                                <?php endif; ?>
+
+                                <?php if (!empty($_GET['to_date'])): ?>
+                                    <li><strong>To:</strong> <?= $_GET['to_date']; ?></li>
+                                <?php endif; ?>
+
+                                <?php if (!empty($supplierName)): ?>
+                                    <li><strong>Supplier:</strong> <?= $supplierName; ?></li>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <div class="card">
                     <div class="card-body">
                         <div class="table-top">
@@ -195,14 +238,20 @@ include 'includes/session.php';
                             <div class="wordset">
                                 <ul>
                                     <li>
-                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
+                                        <a href="download_purchase_report.php?
+                                            from_date=<?= urlencode($_GET['from_date'] ?? '') ?>&
+                                            to_date=<?= urlencode($_GET['to_date'] ?? '') ?>&
+                                            supplier_id=<?= urlencode($_GET['supplier_id'] ?? '') ?>"
+                                            title="Download PDF">
+                                            <img src="assets/img/icons/pdf.svg" alt="PDF Icon">
+                                        </a>
                                     </li>
-                                    <li>
+                                    <!-- <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
                                     </li>
                                     <li>
                                         <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                    </li>
+                                    </li> -->
                                 </ul>
                             </div>
                         </div>
@@ -227,31 +276,29 @@ include 'includes/session.php';
                         }
                         if (!empty($_GET['supplier_id'])) {
                             $supplierId = $_GET['supplier_id'];
-                            $conditions[] = "purchases.supplierId = ?";
+                            $conditions[] = "purchases.purchaseSupplierId = ?";
                             $params[] = $supplierId;
                             $types .= "i";
                         }
 
                         $whereClause = implode(" AND ", $conditions);
-                        $query = "
-                            SELECT
+                        $query = "SELECT
                                 products.productId AS 'Product ID',
                                 products.productName AS 'Product Name',
-                                SUM(pd.totalCost) AS 'Purchased Amount',
-                                SUM(pd.quantity) AS 'Purchased QTY',
-                                products.quantity AS 'Instock QTY'
+                                SUM(purchase_details.purchaseDetailTotalCost) AS 'Purchased Amount',
+                                SUM(purchase_details.purchaseDetailQuantity) AS 'Purchased QTY',
+                                products.productQuantity AS 'Instock QTY'
                             FROM
-                                purchase_details pd
+                                purchase_details
                             JOIN 
-                                products ON pd.productId = products.productId
+                                products ON purchase_details.purchaseDetailProductId = products.productId
                             JOIN 
-                                purchases ON pd.purchaseNumber = purchases.purchaseNumber
+                                purchases ON purchase_details.purchaseDetailPurchaseNumber = purchases.purchaseNumber
                             WHERE $whereClause
                             GROUP BY 
-                                products.productId, products.productName, products.quantity
+                                products.productId, products.productName, products.productQuantity
                             ORDER BY 
-                                SUM(pd.totalCost) DESC
-                        ";
+                                SUM(purchase_details.purchaseDetailTotalCost) DESC";
 
                         $stmt = $conn->prepare($query);
                         if (!empty($params)) {
@@ -259,6 +306,7 @@ include 'includes/session.php';
                         }
                         $stmt->execute();
                         $result = $stmt->get_result();
+                        $sn  = 0;
                         ?>
                         <form method="GET" action="purchasereport.php">
                             <div class="card" id="filter_inputs">
@@ -305,9 +353,6 @@ include 'includes/session.php';
                                                 <button type="submit" class="btn btn-filters ms-auto">
                                                     <img src="assets/img/icons/search-whites.svg" alt="img">
                                                 </button>
-                                                <a href="purchasereport.php" class="btn btn-reset">
-                                                    <img src="assets/img/icons/refresh.svg" alt="Reset">
-                                                </a>
                                             </div>
                                         </div>
                                     </div>
@@ -319,23 +364,24 @@ include 'includes/session.php';
                             <table class="table" id="purchaseReportTable">
                                 <thead>
                                     <tr>
-                                        <th>Product ID</th>
+                                        <th>S/N</th>
                                         <th>Product Name</th>
-                                        <th>Purchased Amount</th>
-                                        <th>Purchased QTY</th>
-                                        <th>Instock QTY</th>
+                                        <th class="text-center">Purchased Amount</th>
+                                        <th class="text-center">Purchased QTY</th>
+                                        <th class="text-center">Instock QTY</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php
                                     if ($result->num_rows > 0) {
                                         while ($row = $result->fetch_assoc()) {
+                                            $sn++;
                                             echo "<tr>
-                                                    <td>" . $row['Product ID'] . "</td>
+                                                    <td>" . $sn . "</td>
                                                     <td>" . $row['Product Name'] . "</td>
-                                                    <td>" . number_format($row['Purchased Amount'], 2) . "</td>
-                                                    <td>" . $row['Purchased QTY'] . "</td>
-                                                    <td>" . $row['Instock QTY'] . "</td>
+                                                    <td class='text-center'>" . number_format($row['Purchased Amount'], 2) . "</td>
+                                                    <td class='text-center'>" . number_format($row['Purchased QTY']) . "</td>
+                                                    <td class='text-center'>" . number_format($row['Instock QTY']) . "</td>
                                                  </tr>";
                                         }
                                     } else {

@@ -136,7 +136,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -165,9 +165,9 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php" class="active">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -209,17 +209,17 @@ $current_time = $time->format("Y-m-d H:i:s");
 
                 // Get supplier information and purchase statistics
                 $supplier_query = $conn->query("SELECT 
-                                    suppliers.*,
-                                    COUNT(purchases.purchaseNumber) AS total_purchases,
-                                    SUM(CASE WHEN purchases.purchaseStatus = 1 THEN 1 ELSE 0 END) AS completed_purchases,
-                                    SUM(CASE WHEN purchases.purchaseStatus = 0 THEN 1 ELSE 0 END) AS pending_purchases,
-                                    SUM(CASE WHEN purchases.purchaseStatus = 2 THEN 1 ELSE 0 END) AS cancelled_purchases,
-                                    SUM(purchases.totalAmount) AS total_amount
-                                FROM suppliers 
-                                LEFT JOIN purchases ON suppliers.supplierId = purchases.supplierId
-                                WHERE $whereClause
-                                GROUP BY suppliers.supplierId");
-
+                                        suppliers.*,
+                                        COUNT(purchases.purchaseNumber) AS total_purchases,
+                                        SUM(CASE WHEN purchases.purchaseStatus = 1 THEN 1 ELSE 0 END) AS completed_purchases,
+                                        SUM(CASE WHEN purchases.purchaseStatus = 0 THEN 1 ELSE 0 END) AS pending_purchases,
+                                        SUM(CASE WHEN purchases.purchaseStatus = 2 THEN 1 ELSE 0 END) AS cancelled_purchases,
+                                        SUM(purchase_details.purchaseDetailTotalCost) AS total_amount
+                                    FROM suppliers
+                                    JOIN purchases ON suppliers.supplierId = purchases.purchaseSupplierId
+                                    LEFT JOIN purchase_details ON purchases.purchaseNumber = purchase_details.purchaseDetailPurchaseNumber
+                                    WHERE $whereClause
+                                    GROUP BY suppliers.supplierId");
                 if ($supplier_query->num_rows > 0) {
                     $supplier = $supplier_query->fetch_assoc();
                 ?>
@@ -378,17 +378,17 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                     <th>#</th>
                                                     <th>Purchase No.</th>
                                                     <th>Date</th>
-                                                    <th>Product</th>
-                                                    <th>Quantity</th>
-                                                    <th>Purchased Amount</th>
-                                                    <th>Status</th>
-                                                    <th>Actions</th>
+                                                    <!-- <th>Product</th> -->
+                                                    <th class="text-center">Purchased Quantity</th>
+                                                    <th class="text-center">Purchased Amount</th>
+                                                    <th class="text-center">Status</th>
+                                                    <th class="text-center">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <?php
                                                 // Filter conditions
-                                                $whereClause = "purchases.supplierId = '$supplier_id'";
+                                                $whereClause = "purchases.purchaseSupplierId = '$supplier_id'";
 
                                                 if (!empty($_GET['from_date'])) {
                                                     $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
@@ -402,14 +402,16 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                 // Get purchase details and products
                                                 $details_query = $conn->query("SELECT 
                                                                 purchases.*,
-                                                                purchase_details.*, 
+                                                                SUM(purchase_details.purchaseDetailQuantity) AS totalPurchasedQuantity, 
+                                                                SUM(purchase_details.purchaseDetailTotalCost) AS totalPurchasedAmount,
                                                                 products.productName,
                                                                 suppliers.supplierId
                                                             FROM purchases
-                                                            JOIN suppliers ON purchases.supplierId = suppliers.supplierId
-                                                            JOIN purchase_details ON purchases.purchaseNumber = purchase_details.purchaseNumber
-                                                            JOIN products ON purchase_details.productId = products.productId
+                                                            JOIN suppliers ON purchases.purchaseSupplierId = suppliers.supplierId
+                                                            JOIN purchase_details ON purchases.purchaseNumber = purchase_details.purchaseDetailPurchaseNumber
+                                                            JOIN products ON purchase_details.purchaseDetailProductId = products.productId
                                                             WHERE $whereClause
+                                                            GROUP BY purchases.purchaseNumber
                                                             ORDER BY purchases.purchaseNumber DESC");
                                                 $sn = 1;
                                                 while ($detail = $details_query->fetch_assoc()) {
@@ -431,20 +433,20 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <td><?= $sn++; ?></td>
                                                         <td><?= $detail['purchaseNumber']; ?></td>
                                                         <td><?= date('M d, Y', strtotime($detail['purchaseDate'])); ?></td>
-                                                        <td><?= ($detail['productName']); ?></td>
-                                                        <td><?= $detail['quantity']; ?></td>
-                                                        <td><strong><?= number_format($detail['totalCost'], 2); ?></strong></td>
-                                                        <td><?= $statusBadge; ?></td>
-                                                        <td>
+                                                        <!-- <td><?= ($detail['productName']); ?></td> -->
+                                                        <td class="text-center"><?= $detail['totalPurchasedQuantity']; ?></td>
+                                                        <td class="text-center"><strong><?= number_format($detail['totalPurchasedAmount'], 2); ?></strong></td>
+                                                        <td class="text-center"><?= $statusBadge; ?></td>
+                                                        <td class="text-center">
                                                             <div class="btn-group btn-group-sm">
-                                                                <a href="viewpurchase.php?purchaseNumber=<?= $detail['purchaseNumber']; ?>" class="btn btn-outline-primary btn-sm" title="View Details">
+                                                                <a href="viewpurchase.php?purchaseNumber=<?= $detail['purchaseNumber']; ?>&purchaseStatus=<?= $detail['purchaseStatus']; ?>" class="btn btn-outline-primary btn-sm" title="View Details">
                                                                     <i class="fas fa-eye text-dark">
                                                                         View
-                                                                    </i> 
+                                                                    </i>
                                                                 </a>
                                                             </div>
                                                         </td>
-                                                    </tr>
+                                                    </tr> 
                                                 <?php } ?>
 
                                                 <?php if ($details_query->num_rows == 0): ?>

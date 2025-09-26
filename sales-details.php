@@ -136,7 +136,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php" class="active">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -165,9 +165,9 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -191,7 +191,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <h6>View sale details</h6>
                     </div>
                     <div class="page-btn">
-                        <a href="saleslist.php" class="btn btn-added"><img src="assets/img/icons/card-list.svg" alt="image">&nbsp; Orders List</a>
+                        <a href="saleslist.php" class="btn btn-added"><img src="assets/img/icons/card-list.svg" alt="image">&nbsp; Sales List</a>
                     </div>
                 </div>
                 <div class="card">
@@ -199,10 +199,10 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <div class="card-sales-split">
                             <h2>Invoice Number : <?= $invoice_number; ?></h2>
                             <ul>
-                                <li>
+                                <!-- <li>
                                     <a href="edit-sales.php?invoiceNumber=<?= $invoice_number; ?>"><img src="assets/img/icons/edit.svg" alt="img"></a>
-                                </li>
-                                <li>
+                                </li> -->
+                                <!-- <li>
                                     <a href="javascript:void(0);"><img src="assets/img/icons/pdf.svg" alt="img"></a>
                                 </li>
                                 <li>
@@ -210,7 +210,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                 </li>
                                 <li>
                                     <a href="javascript:void(0);"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                </li>
+                                </li> -->
                             </ul>
                         </div>
 
@@ -234,10 +234,10 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                 u1.username AS biller,
                                                                 u2.username AS updater
                                                             FROM orders
-                                                            JOIN customers ON orders.customerId = customers.customerId
-                                                            JOIN users AS u1 ON orders.createdBy = u1.userId
-                                                            JOIN users AS u2 ON orders.updatedBy = u2.userId
-                                                            WHERE orders.invoiceNumber = ?");
+                                                            JOIN customers ON orders.orderCustomerId = customers.customerId
+                                                            JOIN users AS u1 ON orders.orderCreatedBy = u1.userId
+                                                            JOIN users AS u2 ON orders.orderUpdatedBy = u2.userId
+                                                            WHERE orders.orderInvoiceNumber = ?");
                                                     $order_query->bind_param("s", $invoice_number);
                                                     $order_query->execute();
                                                     $order_result = $order_query->get_result();
@@ -314,7 +314,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         </tr>
                                                         <!-- <tr>
                                                             <td><strong>Invoice Number:</strong></td>
-                                                            <td><?= $order_row['invoiceNumber']; ?></td>
+                                                            <td><?= $order_row['orderInvoiceNumber']; ?></td>
                                                         </tr>
                                                         <tr>
                                                             <td><strong>Payment Type:</strong></td>
@@ -340,7 +340,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <div class="col-lg-12">
                                 <div class="card">
                                     <div class="card-header">
-                                        <h5 class="card-title">Financial Summary</h5>
+                                        <h5 class="card-title">Financial Summary (Tsh)</h5>
                                     </div>
                                     <div class="card-body">
                                         <div class="table-responsive">
@@ -352,8 +352,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <tr>
                                                             <th>Shipping</th>
                                                             <th>SubTotal</th>
-                                                            <th>Order VAT(<?= $order_row['vat']; ?>%)</th>
-                                                            <th>Discount(<?= $order_row['discount']; ?>%)</th>
+                                                            <th>Order VAT(<?= $order_row['orderVat']; ?>%)</th>
+                                                            <th>Discount(<?= $order_row['orderDiscount']; ?>%)</th>
                                                             <th>Total</th>
                                                             <th>Paid</th>
                                                             <th>Due</th>
@@ -363,14 +363,14 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                 <tbody>
 
                                                     <tr>
-                                                        <td><?= $order_row['shippingAmount']; ?></td>
-                                                        <td class="text-primary"><strong>Tsh: <?= number_format($order_row['subTotal'], 2); ?></strong></td>
-                                                        <td><?= number_format($order_row['vatAmount'], 2); ?></td>
-                                                        <td><?= number_format($order_row['discountAmount'], 2); ?></td>
-                                                        <td class="text-primary"><strong>Tsh: <?= number_format($order_row['total'], 2); ?></strong></td>
-                                                        <td class="text-success"><strong>Tsh: <?= number_format($order_row['paid'], 2); ?></strong></td>
-                                                        <td class="text-danger"><strong>Tsh: <?= number_format($order_row['due'], 2); ?></strong></td>
-                                                        <td> <?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : 'Cancelled'); ?> </td>
+                                                        <td class="text-info"><strong><?= number_format($order_row['orderShippingAmount'], 2); ?></strong></td>
+                                                        <td class="text-primary"><strong><?= number_format($order_row['orderSubTotal'], 2); ?></strong></td>
+                                                        <td><?= number_format($order_row['orderVatAmount'], 2); ?></td>
+                                                        <td><?= number_format($order_row['orderDiscountAmount'], 2); ?></td>
+                                                        <td class="text-primary"><strong><?= number_format($order_row['orderTotalAmount'], 2); ?></strong></td>
+                                                        <td class="text-success"><strong><?= number_format($order_row['orderPaidAmount'], 2); ?></strong></td>
+                                                        <td class="text-danger"><strong><?= number_format($order_row['orderDueAmount'], 2); ?></strong></td>
+                                                        <td> <?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : ($order_row['orderStatus'] == 2 ? 'Cancelled' : 'Deleted')); ?> </td>
                                                     </tr>
                                                 <?php
                                                     }
@@ -400,8 +400,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <th>Quantity</th>
                                                         <th>Unit Cost</th>
                                                         <th>Total Cost</th>
-                                                        <!-- <th>Discount</th>
-                                                        <th>TAX</th> -->
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -409,12 +407,11 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                     // Get order details and products
                                                     $details_query = $conn->query("SELECT 
                                                                         order_details.*, 
-                                                                        products.productName, 
-                                                                        products.tax
+                                                                        products.productName
                                                                     FROM order_details
-                                                                    JOIN products ON order_details.productId = products.productId
-                                                                    WHERE order_details.invoiceNumber = '$invoice_number'
-                                                                    ORDER BY order_details.orderDetailsId ASC");
+                                                                    JOIN products ON order_details.orderDetailProductId = products.productId
+                                                                    WHERE order_details.orderDetailInvoiceNumber = '$invoice_number'
+                                                                    ORDER BY order_details.orderDetailUId ASC");
                                                     $sn = 1;
                                                     while ($detail = $details_query->fetch_assoc()) {
                                                     ?>
@@ -424,20 +421,14 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                 <?= $detail['productName']; ?>
                                                             </td>
                                                             <td style="padding: 10px;vertical-align: top;">
-                                                                <?= $detail['quantity']; ?>
+                                                                <?= $detail['orderDetailQuantity']; ?>
                                                             </td>
                                                             <td style="padding: 10px;vertical-align: top;">
-                                                                <?= number_format($detail['unitCost'], 2); ?>
+                                                                <?= number_format($detail['orderDetailUnitCost'], 2); ?>
                                                             </td>
                                                             <td style="padding: 10px;vertical-align: top;">
-                                                                <?= number_format($detail['totalCost'], 2); ?>
+                                                                <?= number_format($detail['orderDetailTotalCost'], 2); ?>
                                                             </td>
-                                                            <!-- <td style="padding: 10px;vertical-align: top;">
-                                                                <?= $detail['discount'] ?? '-'; ?>
-                                                            </td>
-                                                            <td style="padding: 10px;vertical-align: top;">
-                                                                <?= $detail['tax']; ?>%
-                                                            </td> -->
                                                         </tr>
                                                     <?php
                                                     }

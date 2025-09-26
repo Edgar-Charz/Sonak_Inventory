@@ -47,6 +47,7 @@ if (isset($_POST['submit_btn'])) {
                     document.addEventListener('DOMContentLoaded', function () {
                         Swal.fire({
                             icon: 'error',
+                            title: 'Error!',
                             text: 'Failed to upload profile picture.'
                         });
                     });
@@ -58,6 +59,7 @@ if (isset($_POST['submit_btn'])) {
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
                         icon: 'error',
+                        title: 'Error!',
                         text: 'Invalid image file.'
                     });
                 });
@@ -79,9 +81,9 @@ if (isset($_POST['submit_btn'])) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
+                    icon: 'success',
                     title: 'Success',
                     text: 'Profile updated successfully!',
-                    timer: 5000,
                     showConfirmButton: true
                 }).then(() => {
                     window.location.href = 'profile.php';
@@ -93,6 +95,7 @@ if (isset($_POST['submit_btn'])) {
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
                     icon: 'error',
+                    title: 'Error!',
                     text: 'Failed to update profile. Please try again.'
                 });
             });
@@ -223,7 +226,7 @@ if (isset($_POST['submit_btn'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -252,9 +255,9 @@ if (isset($_POST['submit_btn'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -412,6 +415,7 @@ if (isset($_POST['submit_btn'])) {
             if (!isValid) {
                 e.preventDefault();
                 Swal.fire({
+                    icon: 'warning',
                     title: 'Invalid Input',
                     text: errorMessage,
                     timer: 2500,
@@ -423,6 +427,7 @@ if (isset($_POST['submit_btn'])) {
             if (!hasChanges) {
                 e.preventDefault();
                 Swal.fire({
+                    icon: 'info',
                     text: 'No changes made to your profile.',
                     timer: 2000,
                     showConfirmButton: true

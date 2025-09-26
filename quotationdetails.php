@@ -9,25 +9,36 @@ $user_id = $_SESSION['id'];
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
+// Get quotation reference number
 if (isset($_GET['referenceNumber'])) {
     $referenceNumber = $_GET['referenceNumber'];
 
     // Fetch quotation data
-    $quotation_query = $conn->prepare("SELECT quotations.*, customers.customerId, customers.customerName, customers.customerPhone, customers.customerEmail, customers.customerAddress
-                                     FROM quotations 
-                                     LEFT JOIN customers ON quotations.customerId = customers.customerId 
-                                     WHERE quotations.referenceNumber = ? LIMIT 1");
+    $quotation_query = $conn->prepare("SELECT 
+                                                    quotations.*, 
+                                                    customers.customerId, customers.customerName, customers.customerPhone, customers.customerEmail, customers.customerAddress
+                                                FROM 
+                                                    quotations 
+                                                LEFT JOIN 
+                                                    customers ON quotations.quotationCustomerId = customers.customerId 
+                                                WHERE 
+                                                    quotations.quotationReferenceNumber = ? LIMIT 1");
     $quotation_query->bind_param("s", $referenceNumber);
     $quotation_query->execute();
     $quotation_result = $quotation_query->get_result();
     $quotation = $quotation_result->fetch_assoc();
 
     // Fetch quotation details
-    $details_query = $conn->prepare("SELECT quotation_details.*, products.productName 
-                                   FROM quotation_details 
-                                   JOIN products ON quotation_details.productId = products.productId 
-                                   WHERE quotation_details.referenceNumber = ? 
-                                   ORDER BY quotation_details.quotationDetailsId ASC");
+    $details_query = $conn->prepare("SELECT 
+                                                quotation_details.*, products.productName 
+                                                FROM 
+                                                    quotation_details 
+                                                JOIN 
+                                                    products ON quotation_details.quotationDetailProductId = products.productId 
+                                                WHERE 
+                                                    quotation_details.quotationDetailReferenceNumber = ? 
+                                                ORDER BY 
+                                                    quotation_details.quotationDetailUId ASC");
     $details_query->bind_param("s", $referenceNumber);
     $details_query->execute();
     $details_result = $details_query->get_result();
@@ -150,7 +161,7 @@ if (isset($_GET['referenceNumber'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -179,9 +190,9 @@ if (isset($_GET['referenceNumber'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -213,10 +224,12 @@ if (isset($_GET['referenceNumber'])) {
                         <div class="card-sales-split">
                             <h2>Quotation Number: <?= ($referenceNumber ?? 'N/A') ?></h2>
                             <ul>
-                                <li>
-                                    <a href="editquotation.php?referenceNumber=<?= ($referenceNumber ?? '') ?>"><img src="assets/img/icons/edit.svg" alt="img"></a>
-                                </li>
-                                <li>
+                                <?php if ($quotation['quotationStatus'] == 0) { ?>
+                                    <li>
+                                        <a href="editquotation.php?referenceNumber=<?= ($referenceNumber ?? '') ?>"><img src="assets/img/icons/edit.svg" alt="img"></a>
+                                    </li>
+                                <?php } ?>
+                                <!-- <li>
                                     <a href="download-quotation.php?referenceNumber=<?= $referenceNumber; ?>"><img src="assets/img/icons/pdf.svg" alt="img"></a>
                                 </li>
                                 <li>
@@ -224,7 +237,7 @@ if (isset($_GET['referenceNumber'])) {
                                 </li>
                                 <li>
                                     <a href="javascript:void(0);"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                </li>
+                                </li> -->
                             </ul>
                         </div>
                         <?php if ($quotation) { ?>
@@ -274,11 +287,11 @@ if (isset($_GET['referenceNumber'])) {
                                                     <tbody>
                                                         <tr>
                                                             <td><strong>Reference Number:</strong></td>
-                                                            <td><?= $quotation['referenceNumber']; ?></td>
+                                                            <td><?= $quotation['quotationReferenceNumber']; ?></td>
                                                         </tr>
                                                         <tr>
                                                             <td><strong>Total Amount:</strong></td>
-                                                            <td><?= number_format($quotation['totalAmount'], 2); ?></td>
+                                                            <td><?= number_format($quotation['quotationTotalAmount'], 2); ?></td>
                                                         </tr>
                                                         <tr>
                                                             <td><strong>Quotation Date:</strong></td>
@@ -286,7 +299,7 @@ if (isset($_GET['referenceNumber'])) {
                                                         </tr>
                                                         <tr>
                                                             <td><strong>Status:</strong></td>
-                                                            <td><?= $quotation['quotationStatus'] == 0 ? 'Sent' : ($quotation['quotationStatus'] == 1 ? 'Approved' : 'Cancelled'); ?></td>
+                                                            <td><?= $quotation['quotationStatus'] == 0 ? 'Sent' : ($quotation['quotationStatus'] == 1 ? 'Approved' : ($quotation['quotationStatus'] == 2 ? 'Cancelled' : 'Deleted')); ?></td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
@@ -310,9 +323,9 @@ if (isset($_GET['referenceNumber'])) {
                                                         <tr>
                                                             <th>S/N</th>
                                                             <th>Product Name</th>
-                                                            <th>Quantity</th>
-                                                            <th>Unit Price</th>
-                                                            <th>Total Cost</th>
+                                                            <th class="text-center">Quantity</th>
+                                                            <th class="text-center">Unit Price</th>
+                                                            <th class="text-center">Total Cost</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -325,14 +338,14 @@ if (isset($_GET['referenceNumber'])) {
                                                                 <td style="padding: 10px;vertical-align: top;">
                                                                     <?= $detail['productName']; ?>
                                                                 </td>
-                                                                <td style="padding: 10px;vertical-align: top;">
-                                                                    <?= $detail['quantity']; ?>
+                                                                <td style="padding: 10px;vertical-align: top;" class="text-center">
+                                                                    <?= $detail['quotationDetailQuantity']; ?>
                                                                 </td>
-                                                                <td style="padding: 10px;vertical-align: top;">
-                                                                    <?= number_format($detail['unitPrice'], 2); ?>
+                                                                <td style="padding: 10px;vertical-align: top;" class="text-center">
+                                                                    <?= number_format($detail['quotationDetailUnitPrice'], 2); ?>
                                                                 </td>
-                                                                <td style="padding: 10px;vertical-align: top;">
-                                                                    <?= number_format($detail['subTotal'], 2); ?>
+                                                                <td style="padding: 10px;vertical-align: top;" class="text-center">
+                                                                    <?= number_format($detail['quotationDetailSubTotal'], 2); ?>
                                                                 </td>
                                                             </tr>
                                                         <?php
@@ -359,23 +372,23 @@ if (isset($_GET['referenceNumber'])) {
                                                     <tbody>
                                                         <tr>
                                                             <td class="text-end fw-bold">Shipping:</td>
-                                                            <td class="text-center"><?= number_format($quotation['shippingAmount'], 2); ?></td>
+                                                            <td class="text-center"><?= number_format($quotation['quotationShippingAmount'], 2); ?></td>
                                                         </tr>
                                                         <tr>
                                                             <td class="text-end fw-bold w-50">SubTotal:</td>
-                                                            <td class="text-center"><?= number_format($quotation['subTotal'], 2); ?></td>
+                                                            <td class="text-center"><?= number_format($quotation['quotationSubTotal'], 2); ?></td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="text-end fw-bold">VAT (<?= $quotation['taxPercentage']; ?>%):</td>
-                                                            <td class="text-center"><?= number_format($quotation['taxAmount'], 2); ?></td>
+                                                            <td class="text-end fw-bold">VAT (<?= $quotation['quotationTaxPercentage']; ?>%):</td>
+                                                            <td class="text-center"><?= number_format($quotation['quotationTaxAmount'], 2); ?></td>
                                                         </tr>
                                                         <tr>
-                                                            <td class="text-end fw-bold">Discount (<?= $quotation['discountPercentage']; ?>%):</td>
-                                                            <td class="text-center text-danger">-<?= number_format($quotation['discountAmount'], 2); ?></td>
+                                                            <td class="text-end fw-bold">Discount (<?= $quotation['quotationDiscountPercentage']; ?>%):</td>
+                                                            <td class="text-center text-danger">-<?= number_format($quotation['quotationDiscountAmount'], 2); ?></td>
                                                         </tr>
                                                         <tr>
                                                             <td class="text-end fw-bold">Grand Total:</td>
-                                                            <td class="text-center text-success"><?= number_format($quotation['totalAmount'], 2); ?></td>
+                                                            <td class="text-center text-success"><?= number_format($quotation['quotationTotalAmount'], 2); ?></td>
                                                         </tr>
                                                     </tbody>
                                                 </table>
@@ -394,7 +407,7 @@ if (isset($_GET['referenceNumber'])) {
                             <div class="col-lg-12">
                                 <div class="form-group">
                                     <label>Note</label>
-                                    <textarea class="form-control" readonly><?= ($quotation['note'] ?? '') ?></textarea>
+                                    <textarea class="form-control" readonly><?= ($quotation['quotationDescription'] ?? '') ?></textarea>
                                 </div>
                             </div>
                         </div>

@@ -398,7 +398,7 @@ if (isset($_POST['updateUnitBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -427,9 +427,9 @@ if (isset($_POST['updateUnitBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -496,20 +496,22 @@ if (isset($_POST['updateUnitBTN'])) {
                                     <table class="table" id="categoryTable">
                                         <thead>
                                             <tr>
-                                                <th>Category ID</th>
+                                                <th>S/N</th>
                                                 <th>Category Name</th>
-                                                <th>Action</th>
+                                                <th class="text-center">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php
                                             $categories_query = $conn->query("SELECT * FROM categories");
+                                            $sn = 0;
                                             if ($categories_query->num_rows > 0) {
                                                 while ($row = $categories_query->fetch_assoc()) {
                                                     $category_id = $row['categoryId'];
+                                                    $sn++;
                                             ?>
                                                     <tr>
-                                                        <td><?= $row['categoryId']; ?></td>
+                                                        <td><?= $sn; ?></td>
                                                         <td><?= $row['categoryName']; ?></td>
                                                         <td class="text-center">
                                                             <div class="d-flex justify-content-center">
@@ -527,14 +529,14 @@ if (isset($_POST['updateUnitBTN'])) {
                                                                                 Edit Category
                                                                             </button>
                                                                         </li>
-                                                                        <li>
+                                                                        <!-- <li>
                                                                             <button type="button"
                                                                                 class="dropdown-item"
                                                                                 onclick="confirmDelete('deletecategory.php?categoryId=<?= $row['categoryId']; ?>')">
                                                                                 <img src="assets/img/icons/delete.svg" alt="Delete" style="width: 16px; margin-right: 6px;">
                                                                                 Delete
                                                                             </button>
-                                                                        </li>
+                                                                        </li> -->
                                                                     </ul>
                                                                 </div>
                                                             </div>
@@ -552,8 +554,8 @@ if (isset($_POST['updateUnitBTN'])) {
                                                                     <div class="modal-body">
                                                                         <input type="hidden" name="og_category_id" value="<?= $category_id; ?>">
                                                                         <div class="mb-3">
-                                                                            <label>Category ID</label>
-                                                                            <input type="text" name="category_id" class="form-control" value="<?= $category_id; ?>" required>
+                                                                            <!-- <label>Category ID</label> -->
+                                                                            <input type="hidden" name="category_id" class="form-control" value="<?= $category_id; ?>" required>
                                                                         </div>
                                                                         <div class="mb-3">
                                                                             <label>Category Name</label>
@@ -650,21 +652,24 @@ if (isset($_POST['updateUnitBTN'])) {
                                     <table class="table" id="unitTable">
                                         <thead>
                                             <tr>
-                                                <th>ID</th>
+                                                <th>S/N</th>
                                                 <th>Unit Name</th>
                                                 <th>Short Code</th>
-                                                <th>Action</th>
+                                                <th class="text-center">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php
                                             $units_query = $conn->query("SELECT * FROM units");
+                                            $sn = 0;
+
                                             if ($units_query->num_rows > 0) {
                                                 while ($unit_row = $units_query->fetch_assoc()) {
                                                     $unit_id = $unit_row["unitId"];
+                                                    $sn++;
                                             ?>
                                                     <tr>
-                                                        <td><?= $unit_row['unitId']; ?></td>
+                                                        <td><?= $sn; ?></td>
                                                         <td><?= $unit_row['unitName']; ?></td>
                                                         <td><?= $unit_row['unitShortCode']; ?></td>
                                                         <td class="text-center">
@@ -683,14 +688,14 @@ if (isset($_POST['updateUnitBTN'])) {
                                                                                 Edit Unit
                                                                             </button>
                                                                         </li>
-                                                                        <li>
+                                                                        <!-- <li>
                                                                             <button type="button"
                                                                                 class="dropdown-item"
                                                                                 onclick="confirmDelete('deletecategory.php?unitId=<?= $unit_row['unitId']; ?>')">
                                                                                 <img src="assets/img/icons/delete.svg" alt="Delete" style="width: 16px; margin-right: 6px;">
                                                                                 Delete
                                                                             </button>
-                                                                        </li>
+                                                                        </li> -->
                                                                     </ul>
                                                                 </div>
                                                             </div>

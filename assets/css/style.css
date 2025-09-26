@@ -55,7 +55,8 @@ div#global-loader,
 .error-page,
 .icons-items .icons-list li,
 .icons-list li,
-.form-group .btn-filters, .form-group .btn-reset,
+.form-group .btn-filters,
+.form-group .btn-reset,
 .input-group .scanner-set,
 .avatar .avatar-title {
   justify-content: center;
@@ -1874,7 +1875,7 @@ a:hover {
   background: #1b2850;
 }
 .form-group .btn-reset {
-  background-color: #3498db; 
+  background-color: #3498db;
   color: #fff;
   width: 40px;
   height: 40px;
@@ -2308,7 +2309,7 @@ body[data-layout-mode="dark"] .alertify .ajs-content .ajs-input {
   font-size: 22px !important;
 }
 .swal2-popup {
-  width: 300px !important;
+  width: 400px !important;
   height: auto !important;
   padding: 1.2em !important;
   font-size: 14px !important;
@@ -5871,8 +5872,17 @@ span.select2-container.select2-container--default.select2-container--open {
 }
 
 .login-wrapper .login-content .login-logo {
-  display: block;
+  /* display: block;
   margin-bottom: 25px;
+  max-width: 150px;
+  width: 100%; */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.login-wrapper .login-content .login-logo img {
   max-width: 150px;
   width: 100%;
 }
@@ -6185,10 +6195,19 @@ span.select2-container.select2-container--default.select2-container--open {
     max-width: 450px;
   }
 }
-
 @media (max-width: 400px) {
   .login-wrapper .login-content .login-logo {
     max-width: 120px;
+    margin: 0 auto 20px auto; /* centers horizontally */
+    display: block;
+    text-align: center;
+  }
+
+  .login-wrapper .login-content .login-logo img {
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
   }
 
   .login-box {
@@ -7464,7 +7483,7 @@ span.select2-container.select2-container--default.select2-container--open {
   position: absolute;
   top: 80%;
   left: 50%;
-  transform: translate(-50%, -50%); 
+  transform: translate(-50%, -50%);
 }
 .profile-set .profile-top .profileupload a {
   background: #ff9f43;
@@ -7487,7 +7506,7 @@ span.select2-container.select2-container--default.select2-container--open {
   position: absolute;
   width: 34px;
   height: 34px;
-  opacity: 0; 
+  opacity: 0;
   cursor: pointer;
   top: 0;
   left: 0;

@@ -65,7 +65,7 @@ if (isset($_POST['addSaleBTN'])) {
             $update->close();
 
             if ($newTotal == $newPaid) {
-                $updateDetails = $conn->prepare("UPDATE order_details SET orderStatus = 1 WHERE invoiceNumber = ?");
+                $updateDetails = $conn->prepare("UPDATE order_details SET orderStatus = 1 WHERE orderDetailInvoiceNumber = ?");
                 $updateDetails->bind_param("s", $invoiceNumber);
                 $updateDetails->execute();
                 $updateDetails->close();
@@ -100,7 +100,7 @@ if (isset($_POST['addSaleBTN'])) {
             $insertOrder->close();
 
             if ($grandTotal == $pay) {
-                $updateDetails = $conn->prepare("UPDATE order_details SET orderStatus = 1 WHERE invoiceNumber = ?");
+                $updateDetails = $conn->prepare("UPDATE order_details SET orderStatus = 1 WHERE orderDetailInvoiceNumber = ?");
                 $updateDetails->bind_param("s", $invoiceNumber);
                 $updateDetails->execute();
                 $updateDetails->close();
@@ -116,27 +116,27 @@ if (isset($_POST['addSaleBTN'])) {
             $quantity    = $p['quantity'];
             $totalCost   = $p['total_cost'];
 
-            $checkDetail = $conn->prepare("SELECT orderDetailsId, quantity, totalCost 
+            $checkDetail = $conn->prepare("SELECT orderDetailUId, orderDetailQuantity, orderDetailTotalCost 
                 FROM order_details 
-                WHERE invoiceNumber = ? AND productId = ?");
+                WHERE orderDetailInvoiceNumber = ? AND orderDetailProductId = ?");
             $checkDetail->bind_param("ss", $invoiceNumber, $productId);
             $checkDetail->execute();
             $result = $checkDetail->get_result();
 
             if ($result->num_rows > 0) {
                 $row = $result->fetch_assoc();
-                $newQuantity = $row['quantity'] + $quantity;
-                $newTotal    = $row['totalCost'] + $totalCost;
+                $newQuantity = $row['orderDetailQuantity'] + $quantity;
+                $newTotal    = $row['orderDetailTotalCost'] + $totalCost;
 
                 $updateDetail = $conn->prepare("UPDATE order_details 
-                    SET quantity = ?, totalCost = ?, updated_at = ? 
-                    WHERE orderDetailsId = ?");
-                $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['orderDetailsId']);
+                    SET orderDetailQuantity = ?, orderDetailTotalCost = ?, updated_at = ? 
+                    WHERE orderDetailUId = ?");
+                $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['orderDetailUId']);
                 $updateDetail->execute();
                 $updateDetail->close();
             } else {
                 $insertDetail = $conn->prepare("INSERT INTO order_details 
-                    (invoiceNumber, productId, unitCost, quantity, totalCost, created_at, updated_at) 
+                    (orderDetailInvoiceNumber, orderDetailProductId, orderDetailUnitCost, orderDetailQuantity, orderDetailTotalCost, created_at, updated_at) 
                     VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $insertDetail->bind_param("ssdidss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
                 $insertDetail->execute();
@@ -146,7 +146,7 @@ if (isset($_POST['addSaleBTN'])) {
             $checkDetail->close();
 
             $updateProduct = $conn->prepare("UPDATE products 
-                SET quantity = quantity - ?, updated_at = ?
+                SET productQuantity = productQuantity - ?, updated_at = ?
                 WHERE productId = ?");
             $updateProduct->bind_param("iss", $quantity, $current_time, $productId);
             $updateProduct->execute();
@@ -162,7 +162,7 @@ if (isset($_POST['addSaleBTN'])) {
                     text: 'Order saved successfully',
                     timer: 5000
                 }).then(function() {
-                    window.location.href = 'add-sales.php';
+                    window.location.href = 'saleslist.php';
                 });
             });
         </script>";
@@ -356,9 +356,9 @@ function generateInvoiceNumber($conn)
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -597,7 +597,7 @@ function generateInvoiceNumber($conn)
                 });
                 if (!valid) {
                     Swal.fire({
-                        title: 'Validation Error!',
+                        title: 'Error!',
                         html: errorMsg,
                         confirmButtonText: 'OK'
                     });
@@ -635,7 +635,7 @@ function generateInvoiceNumber($conn)
                 }
                 if (!valid) {
                     Swal.fire({
-                        title: 'Validation Error!',
+                        title: 'Error!',
                         html: errorMsg,
                         confirmButtonText: 'OK'
                     });
@@ -747,8 +747,8 @@ function generateInvoiceNumber($conn)
                             $products_query = $conn->query("SELECT * FROM products");
                             while ($p = $products_query->fetch_assoc()) {
                                 echo '<option value="' . $p['productId'] . '" 
-                                    data-price="' . $p['sellingPrice'] . '"
-                                    data-quantity="' . $p['quantity'] . '">'
+                                    data-price="' . $p['productSellingPrice'] . '"
+                                    data-quantity="' . $p['productQuantity'] . '">'
                                     . $p['productName'] . '</option>';
                             }
                             ?>

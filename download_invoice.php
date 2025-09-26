@@ -44,7 +44,7 @@ if (isset($_GET['referenceNumber'])) {
         $pdf->SetTextColor(0, 0, 0);
         $pdf->Ln(5);
 
-        // 🔹 Bold Horizontal Line
+        // Bold Horizontal Line
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->SetLineWidth(0.8);
         $pdf->Line(10, $pdf->GetY(), 200, $pdf->GetY());
@@ -97,6 +97,7 @@ if (isset($_GET['referenceNumber'])) {
         $pdf->Cell(95, 6, 'Bank Name: CRDB Bank', 0, 1, 'R');
 
         $pdf->Ln(5);
+        
         //Normal Horizontal Line
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->SetLineWidth(0.3);
@@ -105,10 +106,12 @@ if (isset($_GET['referenceNumber'])) {
 
         //Table Header
         $pdf->SetFont('Times', 'B', 10);
-        $pdf->Cell(65, 8, 'PRODUCT', 1, 0, 'C');
+        $pdf->Cell(10, 8, 'S/N', 1, 0, 'C');
+        $pdf->Cell(55, 8, 'PRODUCT', 1, 0, 'C');
         $pdf->Cell(40, 8, 'UNIT COST', 1, 0, 'C');
         $pdf->Cell(40, 8, 'QUANTITY', 1, 0, 'C');
         $pdf->Cell(45, 8, 'AMOUNT', 1, 1, 'C');
+
         // Items
         $quotation_details_stmt = $conn->prepare("SELECT 
                                                     quotation_details.quotationDetailQuantity, 
@@ -121,13 +124,16 @@ if (isset($_GET['referenceNumber'])) {
                                                     quotation_details.quotationDetailProductId = products.productId 
                                                 AND 
                                                     quotation_details.quotationDetailReferenceNumber = ?");
+        $sn = 0;
         $quotation_details_stmt->bind_param("s", $referenceNumber);
         $quotation_details_stmt->execute();
         $details_result = $quotation_details_stmt->get_result();
 
         $pdf->SetFont('Times', '', 10);
         while ($detail = $details_result->fetch_assoc()) {
-            $pdf->Cell(65, 8, $detail['productName'], 1, 0, 'C');
+            $sn++;
+            $pdf->Cell(10, 8, $sn, 1, 0, 'C');
+            $pdf->Cell(55, 8, $detail['productName'], 1, 0, 'L');
             $pdf->Cell(40, 8, number_format($detail['quotationDetailUnitPrice'], 2), 1, 0, 'C');
             $pdf->Cell(40, 8, $detail['quotationDetailQuantity'], 1, 0, 'C');
             $pdf->Cell(45, 8, number_format($detail['quotationDetailSubTotal'], 2), 1, 1, 'C');
@@ -184,7 +190,7 @@ if (isset($_GET['referenceNumber'])) {
 
         $pdf->Cell(90, 6, 'Position: __________________________', 0, 0, 'L');
 
-        // Footer - Fixed at bottom
+        // Footer, Fixed at bottom
         $pdf->SetY(-35);
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->SetLineWidth(0.5);

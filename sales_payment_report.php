@@ -2,18 +2,36 @@
     include 'includes/db_connection.php';
     include 'includes/session.php';
 
-    // Fetch invoice counts
-    $totalInvoicesQuery = $conn->query("SELECT COUNT(*) as count FROM orders");
-    $totalInvoices = $totalInvoicesQuery->fetch_assoc()['count'];
+    // Fetch customer name for display if customer_id is set
+    $customerName = '';
+    if (!empty($_GET['customer_id'])) {
+        $customerId = $_GET['customer_id'];
+        $customerStmt = $conn->prepare("SELECT customerName FROM customers WHERE customerId = ? AND customerStatus = 1");
+        $customerStmt->bind_param("i", $customerId);
+        $customerStmt->execute();
+        $customerResult = $customerStmt->get_result();
+        if ($customerResult->num_rows > 0) {
+            $customerName = $customerResult->fetch_assoc()['customerName'];
+        }
+        $customerStmt->close();
+    }
 
-    $pendingInvoicesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 0");
-    $pendingInvoices = $pendingInvoicesQuery->fetch_assoc()['count'];
 
-    $completedInvoicesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 1");
-    $completedInvoices = $completedInvoicesQuery->fetch_assoc()['count'];
+    // Fetch sales counts
+    $totalSalesQuery = $conn->query("SELECT COUNT(*) as count FROM orders");
+    $totalSales = $totalSalesQuery->fetch_assoc()['count'];
 
-    $cancelledInvoicesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 2");
-    $cancelledInvoices = $cancelledInvoicesQuery->fetch_assoc()['count'];
+    $pendingSalesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 0");
+    $pendingSales = $pendingSalesQuery->fetch_assoc()['count'];
+
+    $completedSalesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 1");
+    $completedSales = $completedSalesQuery->fetch_assoc()['count'];
+
+    $cancelledSalesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 2");
+    $cancelledSales = $cancelledSalesQuery->fetch_assoc()['count'];
+
+    $deletedSalesQuery = $conn->query("SELECT COUNT(*) as count FROM orders WHERE orderStatus = 3");
+    $deletedSales = $deletedSalesQuery->fetch_assoc()['count'];
     ?>
 
  <!DOCTYPE html>
@@ -22,7 +40,7 @@
  <head>
      <meta charset="utf-8">
      <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-     <title>Sonak Inventory | Invoice Report</title>
+     <title>Sonak Inventory | Sales Payment Report</title>
 
      <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 
@@ -138,7 +156,7 @@
                              <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                              <ul>
                                  <li><a href="saleslist.php">Sales List</a></li>
-                                 <li><a href="add-sales.php">Add Sales</a></li>
+                                 <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                              </ul>
                          </li>
                          <li class="submenu">
@@ -167,9 +185,9 @@
                          <li class="submenu">
                              <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                              <ul>
-                                 <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                 <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                  <li><a href="salesreport.php">Sales Report</a></li>
-                                 <li><a href="invoicereport.php" class="active">Invoice Report</a></li>
+                                 <li><a href="sales_payment_report.php" class="active">Sales Payment Report</a></li>
                                  <li><a href="purchasereport.php">Purchase Report</a></li>
                                  <li><a href="supplierreport.php">Supplier Report</a></li>
                                  <li><a href="customerreport.php">Customer Report</a></li>
@@ -188,10 +206,38 @@
              <div class="content">
                  <div class="page-header">
                      <div class="page-title">
-                         <h4>Invoice Report</h4>
-                         <h6>Manage your Invoice Report</h6>
+                         <h4>Sales Payment Report</h4>
+                         <h6>Manage your Sales Payment Report</h6>
                      </div>
                  </div>
+
+                 <?php if (!empty($_GET['from_date']) || !empty($_GET['to_date']) || !empty($_GET['customer_id'])): ?>
+                     <div class="card mt-3 border-info shadow-sm">
+                         <div class="card-body py-2 px-3">
+                             <div class="d-flex justify-content-between align-items-center mb-2">
+                                 <h6 class="mb-0 text-info fw-semibold">
+                                     <i class="bi bi-funnel-fill me-1"></i> Applied Filters
+                                 </h6>
+                                 <a href="<?php echo basename($_SERVER['PHP_SELF']); ?>" class="btn btn-sm btn-outline-danger">
+                                     <i class="bi bi-x-circle"></i> Clear
+                                 </a>
+                             </div>
+                             <ul class="mb-0 ps-0" style="list-style: none;">
+                                 <?php if (!empty($_GET['from_date'])): ?>
+                                     <li><strong>From:</strong> <?= $_GET['from_date']; ?></li>
+                                 <?php endif; ?>
+
+                                 <?php if (!empty($_GET['to_date'])): ?>
+                                     <li><strong>To:</strong> <?= $_GET['to_date']; ?></li>
+                                 <?php endif; ?>
+
+                                 <?php if (!empty($customerName)): ?>
+                                     <li><strong>Customer:</strong> <?= $customerName; ?></li>
+                                 <?php endif; ?>
+                             </ul>
+                         </div>
+                     </div>
+                 <?php endif; ?>
 
                  <?php
                     // Handle filter inputs with prepared statements
@@ -213,25 +259,24 @@
                     }
                     if (!empty($_GET['customer_id'])) {
                         $customerId = $_GET['customer_id'];
-                        $conditions[] = "orders.customerId = ?";
+                        $conditions[] = "orders.orderCustomerId = ?";
                         $params[] = $customerId;
                         $types .= "i";
                     }
 
                     // $whereClause = implode(" AND ", $conditions);
                     $whereClause = !empty($conditions) ? implode(" AND ", $conditions) : "1=1";
-                    $query = "
-                                    SELECT
-                                        orders.*,
-                                        customers.customerName
-                                    FROM
-                                        orders
-                                    JOIN
-                                        customers ON orders.customerId = customers.customerId
-                                    WHERE $whereClause
-                                    ORDER BY
-                                        orders.orderUId DESC
-                                ";
+                    $query = "SELECT
+                                    orders.*,
+                                    customers.customerName
+                                FROM
+                                    orders
+                                JOIN
+                                    customers ON orders.orderCustomerId = customers.customerId
+                                WHERE 
+                                    $whereClause
+                                ORDER BY
+                                        orders.orderUId DESC";
                     $stmt = $conn->prepare($query);
                     if (!empty($params)) {
                         $stmt->bind_param($types, ...$params);
@@ -246,26 +291,32 @@
                          <div class="row text-center">
                              <div class="col-md-3 mb-3">
                                  <div class="bg-light border rounded p-3 shadow-sm">
-                                     <h6 class="card-title text-muted">Total Invoices</h6>
-                                     <h3 class="text-primary" id="totalInvoices"><?= $totalInvoices; ?></h3>
+                                     <h6 class="card-title text-muted">Total Sales</h6>
+                                     <h3 class="text-primary" id="totalSales"><?= $totalSales; ?></h3>
                                  </div>
                              </div>
                              <div class="col-md-3 mb-3">
                                  <div class="bg-warning-subtle border rounded p-3 shadow-sm">
-                                     <h6 class="card-title text-muted">Pending Invoices</h6>
-                                     <h3 class="text-warning" id="pendingInvoices"><?= $pendingInvoices; ?></h3>
+                                     <h6 class="card-title text-muted">Pending Sales</h6>
+                                     <h3 class="text-warning" id="pendingSales"><?= $pendingSales; ?></h3>
                                  </div>
                              </div>
-                             <div class="col-md-3 mb-3">
+                             <div class="col-md-2 mb-3">
                                  <div class="bg-success-subtle border rounded p-3 shadow-sm">
-                                     <h6 class="card-title text-muted">Completed Invoices</h6>
-                                     <h3 class="text-success" id="completedInvoices"><?= $completedInvoices; ?></h3>
+                                     <h6 class="card-title text-muted">Completed Sales</h6>
+                                     <h3 class="text-success" id="completedSales"><?= $completedSales; ?></h3>
                                  </div>
                              </div>
-                             <div class="col-md-3 mb-3">
+                             <div class="col-md-2 mb-3">
                                  <div class="bg-danger-subtle border rounded p-3 shadow-sm">
-                                     <h6 class="card-title text-muted">Cancelled Invoices</h6>
-                                     <h3 class="text-danger" id="cancelledInvoices"><?= $cancelledInvoices; ?></h3>
+                                     <h6 class="card-title text-muted">Cancelled Sales</h6>
+                                     <h3 class="text-danger" id="cancelledSales"><?= $cancelledSales; ?></h3>
+                                 </div>
+                             </div>
+                             <div class="col-md-2 mb-3">
+                                 <div class="bg-danger-subtle border rounded p-3 shadow-sm">
+                                     <h6 class="card-title text-muted">Deleted Sales</h6>
+                                     <h3 class="text-danger" id="deletedSales"><?= $deletedSales; ?></h3>
                                  </div>
                              </div>
                          </div>
@@ -291,7 +342,7 @@
                              </div>
                              <div class="wordset">
                                  <ul>
-                                     <li>
+                                     <!-- <li>
                                          <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
                                      </li>
                                      <li>
@@ -299,12 +350,12 @@
                                      </li>
                                      <li>
                                          <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                     </li>
+                                     </li> -->
                                  </ul>
                              </div>
                          </div>
 
-                         <form method="GET" action="invoicereport.php">
+                         <form method="GET" action="sales_payment_report.php">
                              <div class="card" id="filter_inputs">
                                  <div class="card-body pb-0">
                                      <div class="row">
@@ -347,9 +398,6 @@
                                                  <button type="submit" class="btn btn-filters">
                                                      <img src="assets/img/icons/search-whites.svg" alt="Search">
                                                  </button>
-                                                 <a href="invoicereport.php" class="btn btn-reset">
-                                                     <img src="assets/img/icons/refresh.svg" alt="Reset">
-                                                 </a>
                                              </div>
                                          </div>
 
@@ -358,7 +406,7 @@
                              </div>
                          </form>
                          <div class="table-responsive">
-                             <table class="table" id="invoiceReportTable">
+                             <table class="table" id="salesPaymentReportTable">
                                  <thead>
                                      <tr>
                                          <th>#</th>
@@ -376,24 +424,27 @@
                                         if ($result->num_rows > 0) {
                                             while ($row = $result->fetch_assoc()) {
                                                 $dueDate = date('Y-m-d', strtotime($row['orderDate'] . ' +30 days'));
-                                                $amount = number_format($row['total'], 2);
-                                                $paid = number_format($row['paid'], 2);
-                                                $amountDue = number_format($row['due'], 2);
+                                                $amount = number_format($row['orderTotalAmount'], 2);
+                                                $paid = number_format($row['orderPaidAmount'], 2);
+                                                $amountDue = number_format($row['orderDueAmount'], 2);
                                                 $today = date('Y-m-d');
 
-                                                if ($row['orderStatus'] == 2) {
-                                                    $status = 'Cancelled';
+                                                if ($row['orderStatus'] == 3) {
+                                                    $status = 'Deleted';
                                                     $statusClass = 'bg-lightred';
-                                                } else if ($row['orderStatus'] == 1 && $row['due'] == 0) {
+                                                } else if ($row['orderStatus'] == 2) {
+                                                    $status = 'Cancelled';
+                                                    $statusClass = 'bg-lightgrey';
+                                                } else if ($row['orderStatus'] == 1 && $row['orderDueAmount'] == 0) {
                                                     $status = 'Fully Paid';
                                                     $statusClass = 'bg-lightgreen';
-                                                } elseif ($row['due'] > 0 && $row['paid'] == 0) {
+                                                } elseif ($row['orderDueAmount'] > 0 && $row['orderPaidAmount'] == 0) {
                                                     $status = 'UnPaid';
                                                     $statusClass = 'bg-lightgrey';
-                                                } elseif ($row['due'] > 0 && $row['paid'] > 0 && $today <= $dueDate) {
+                                                } elseif ($row['orderDueAmount'] > 0 && $row['orderPaidAmount'] > 0 && $today <= $dueDate) {
                                                     $status = 'Partially Paid';
                                                     $statusClass = 'bg-lightyellow';
-                                                } elseif ($row['due'] > 0 && $today > $dueDate) {
+                                                } elseif ($row['orderDueAmount'] > 0 && $today > $dueDate) {
                                                     $status = 'Overdue';
                                                     $statusClass = 'bg-lightorange';
                                                 } else {
@@ -404,7 +455,7 @@
 
                                                 echo "<tr>
                                                 <td>" . $sn . "</td>
-                                            <td>" . $row['invoiceNumber'] . "</td>
+                                            <td>" . $row['orderInvoiceNumber'] . "</td>
                                             <td>" . $row['customerName'] . "</td>
                                             <td>" . date('d-m-Y', strtotime($dueDate)) . "</td>
                                             <td>" . $amount . "</td>
@@ -430,7 +481,7 @@
      <!-- <script>
          document.getElementById("searchInput").addEventListener("keyup", function() {
              let searchValue = this.value.toLowerCase();
-             let rows = document.querySelectorAll("#invoiceReportTable tbody tr");
+             let rows = document.querySelectorAll("#salesPaymentReportTable tbody tr");
 
              let total = 0,
                  pending = 0,
@@ -461,10 +512,10 @@
              });
 
              // Update totals
-             document.getElementById("totalInvoices").innerText = total;
-             document.getElementById("pendingInvoices").innerText = pending;
-             document.getElementById("completedInvoices").innerText = completed;
-             document.getElementById("cancelledInvoices").innerText = cancelled;
+             document.getElementById("totalSales").innerText = total;
+             document.getElementById("pendingSales").innerText = pending;
+             document.getElementById("completedSales").innerText = completed;
+             document.getElementById("cancelledSales").innerText = cancelled;
          });
      </script> -->
 
@@ -495,9 +546,9 @@
 
      <script>
          $(document).ready(function() {
-             if ($("#invoiceReportTable").length > 0) {
-                 if (!$.fn.DataTable.isDataTable("#invoiceReportTable")) {
-                     let table = $("#invoiceReportTable").DataTable({
+             if ($("#salesPaymentReportTable").length > 0) {
+                 if (!$.fn.DataTable.isDataTable("#salesPaymentReportTable")) {
+                     let table = $("#salesPaymentReportTable").DataTable({
                          destroy: true,
                          bFilter: true,
                          sDom: "fBtlpi",
@@ -522,6 +573,7 @@
                              pending = 0,
                              completed = 0,
                              cancelled = 0;
+                         deleted = 0;
 
                          // Only visible rows after search/pagination
                          table.rows({
@@ -536,14 +588,17 @@
                                  completed++;
                              } else if (status.includes("cancelled")) {
                                  cancelled++;
+                             } else if (status.includes("deleted")) {
+                                 deleted++;
                              }
                          });
 
                          // Update counters
-                         $("#totalInvoices").text(total);
-                         $("#pendingInvoices").text(pending);
-                         $("#completedInvoices").text(completed);
-                         $("#cancelledInvoices").text(cancelled);
+                         $("#totalSales").text(total);
+                         $("#pendingSales").text(pending);
+                         $("#completedSales").text(completed);
+                         $("#cancelledSales").text(cancelled);
+                         $("#deletedSales").text(deleted);
                      });
 
                      // Trigger once on page load

@@ -13,168 +13,119 @@ $customer_id = $_GET['id'];
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
-// Handle customer update
 if (isset($_POST['updateSupplierBTN'])) {
     $customerId = $_POST['customerId'];
     $customer_name = trim($_POST['customer_name']);
     $customer_phone = trim($_POST['customer_phone']);
     $customer_email = trim($_POST['customer_email']);
     $customer_address = trim($_POST['customer_address']);
-    $account_holder = trim($_POST['customer_account_holder']);
-    $account_number = trim($_POST['customer_account_number']);
-    $bank_name = trim($_POST['customer_bank']);
     $customer_status = $_POST['customer_status'];
 
-    // Get current customer data to compare for changes
-    $current_data_query = "SELECT `customerName`, `customerEmail`, `customerPhone`, `customerAddress`, `customerAccountHolder`, `customerAccountNumber`, `bankName`, `customerStatus` 
-                                    FROM customers WHERE customerId = ?";
-    $current_data_stmt = $conn->prepare($current_data_query);
-    $current_data_stmt->bind_param("i", $customerId);
-    $current_data_stmt->execute();
-    $current_result = $current_data_stmt->get_result();
-    $current_data = $current_result->fetch_assoc();
+    try {
+        // Start transaction
+        $conn->begin_transaction();
 
-    // Check if no changes were made
-    if (
-        $current_data &&
-        $current_data['customerName'] == $customer_name &&
-        $current_data['customerPhone'] == $customer_phone &&
-        $current_data['customerEmail'] == $customer_email &&
-        $current_data['customerAddress'] == $customer_address &&
-        $current_data['customerAccountHolder'] == $account_holder &&
-        $current_data['customerAccountNumber'] == $account_number &&
-        $current_data['bankName'] == $bank_name &&
-        $current_data['customerStatus'] == $customer_status
-    ) {
+        // Fetch current customer data
+        $current_data_stmt = $conn->prepare("SELECT customerName, customerEmail, customerPhone, customerAddress, customerStatus FROM customers WHERE customerId = ?");
+        $current_data_stmt->bind_param("i", $customerId);
+        $current_data_stmt->execute();
+        $current_data = $current_data_stmt->get_result()->fetch_assoc();
 
-        echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
+        // Check if no changes were made
+        if (
+            $current_data &&
+            $current_data['customerName'] === $customer_name &&
+            $current_data['customerPhone'] === $customer_phone &&
+            $current_data['customerEmail'] === $customer_email &&
+            $current_data['customerAddress'] === $customer_address &&
+            $current_data['customerStatus'] === $customer_status
+        ) {
+            throw new Exception("no_changes");
+        }
+
+        // Check for duplicate email
+        $check_email_stmt = $conn->prepare("SELECT customerId FROM customers WHERE customerEmail = ? AND customerId != ?");
+        $check_email_stmt->bind_param("si", $customer_email, $customerId);
+        $check_email_stmt->execute();
+        if ($check_email_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Email address already exists for another customer.");
+        }
+
+        // Check for duplicate name
+        $check_name_stmt = $conn->prepare("SELECT customerId FROM customers WHERE customerName = ? AND customerId != ?");
+        $check_name_stmt->bind_param("si", $customer_name, $customerId);
+        $check_name_stmt->execute();
+        if ($check_name_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Customer name already exists for another customer.");
+        }
+
+        // Check for duplicate phone
+        $check_phone_stmt = $conn->prepare("SELECT customerId FROM customers WHERE customerPhone = ? AND customerId != ?");
+        $check_phone_stmt->bind_param("si", $customer_phone, $customerId);
+        $check_phone_stmt->execute();
+        if ($check_phone_stmt->get_result()->num_rows > 0) {
+            throw new Exception("Phone number already exists for another customer.");
+        }
+
+        // Proceed with update
+        $update_stmt = $conn->prepare("UPDATE customers SET customerName=?, customerPhone=?, customerEmail=?, customerAddress=?, customerStatus=?, updated_at=? WHERE customerId=?");
+        $update_stmt->bind_param("ssssssi", $customer_name, $customer_phone, $customer_email, $customer_address, $customer_status, $current_time, $customerId);
+        $update_stmt->execute();
+
+        if ($update_stmt->affected_rows > 0) {
+            $conn->commit();
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
                     Swal.fire({
-                        text: 'No changes were made to the customer.',
-                        title: 'Info',
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'Customer updated successfully.',
                         timer: 5000,
                         timerProgressBar: true
                     }).then(function() {
                         window.location.href = 'customerlist.php';
                     });
                 });
-             </script>";
-    } else {
-        // Check if email already exists for another customer
-        $check_email_query = "SELECT customerId FROM customers WHERE customerEmail = ? AND customerId != ?";
-        $check_email_stmt = $conn->prepare($check_email_query);
-        $check_email_stmt->bind_param("si", $customer_email, $customerId);
-        $check_email_stmt->execute();
-        $email_result = $check_email_stmt->get_result();
-
-        if ($email_result->num_rows > 0) {
-            echo "<script>
-                    document.addEventListener('DOMContentLoaded', function () {
-                        Swal.fire({
-                            text: 'Email address already exists for another customer.',
-                            title: 'Error',
-                            timer: 5000,
-                            timerProgressBar: true
-                        }).then(function() {
-                            window.location.href = 'editcustomer.php?id=$customerId';
-                        });
-                    });
-                 </script>";
+            </script>";
         } else {
-            // Check if customername already exists for another customer
-            $check_customername_query = "SELECT customerId FROM customers WHERE customerName = ? AND customerId != ?";
-            $check_customername_stmt = $conn->prepare($check_customername_query);
-            $check_customername_stmt->bind_param("si", $customerName, $customerId);
-            $check_customername_stmt->execute();
-            $customername_result = $check_customername_stmt->get_result();
+            throw new Exception("no_changes");
+        }
 
-            if ($customername_result->num_rows > 0) {
-                echo "<script>
-                        document.addEventListener('DOMContentLoaded', function () {
-                            Swal.fire({
-                                text: 'Username already exists for another customer.',
-                                title: 'Error',
-                                timer: 5000,
-                                timerProgressBar: true
-                            }).then(function() {
-                                window.location.href = 'editcustomer.php?id=$customerId';
-                            });
-                        });
-                     </script>";
-            } else {
-                // Check if phone number already exists for another customer
-                $check_phone_query = "SELECT customerId FROM customers WHERE customerPhone = ? AND customerId != ?";
-                $check_phone_stmt = $conn->prepare($check_phone_query);
-                $check_phone_stmt->bind_param("si", $customer_phone, $customerId);
-                $check_phone_stmt->execute();
-                $phone_result = $check_phone_stmt->get_result();
+    } catch (Exception $e) {
+        $conn->rollback();
 
-                if ($phone_result->num_rows > 0) {
-                    echo "<script>
-                            document.addEventListener('DOMContentLoaded', function () {
-                                Swal.fire({
-                                    text: 'Phone number already exists for another customer.',
-                                    title: 'Error',
-                                    timer: 5000,
-                                    timerProgressBar: true
-                                }).then(function() {
-                                    window.location.href = 'editcustomer.php?id=$customerId';
-                                });
-                            });
-                         </script>";
-                } else {
-                    // Proceed with the update
-                    $update_customer_query = "UPDATE customers 
-                                                SET customerName=?, customerPhone=?, customerEmail=?, customerAddress=?, customerAccountHolder=?, customerAccountNumber=?, bankName=?, customerStatus=?, updated_at=? 
-                                                WHERE customerId=?";
-                    $update_customer_stmt = $conn->prepare($update_customer_query);
-                    $update_customer_stmt->bind_param("sssssssssi", $customer_name, $customer_phone, $customer_email, $customer_address, $account_holder, $account_number, $bank_name, $customer_status, $current_time, $customerId);
-
-                    if ($update_customer_stmt->execute()) {
-                        if ($update_customer_stmt->affected_rows > 0) {
-                            echo "<script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        Swal.fire({
-                                            text: 'User updated successfully.',
-                                            title: 'Success',
-                                            timer: 5000,
-                                            timerProgressBar: true
-                                        }).then(function() {
-                                            window.location.href = 'customerlist.php';
-                                        });
-                                    });
-                                  </script>";
-                        } else {
-                            echo "<script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        Swal.fire({
-                                            text: 'No changes were made to the customer.',
-                                            title: 'Info',
-                                            timer: 5000,
-                                            timerProgressBar: true
-                                        }).then(function() {
-                                            window.location.href = 'customerlist.php';
-                                        });
-                                    });
-                                  </script>";
-                        }
-                    } else {
-                        echo "<script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    Swal.fire({
-                                        text: 'Error updating customer: " . $conn->error . "',
-                                        title: 'Error',
-                                        timer: 5000,
-                                        timerProgressBar: true
-                                    });
-                                });
-                            </script>";
-                    }
-                }
-            }
+        if ($e->getMessage() === "no_changes") {
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Changes Detected',
+                        text: 'You didn\\'t modify any customer details.',
+                        timer: 5000,
+                        timerProgressBar: true
+                    }).then(function() {
+                        window.location.href = 'customerlist.php';
+                    });
+                });
+            </script>";
+        } else {
+            echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Update Failed',
+                        text: '" . $e->getMessage() . "',
+                        timer: 5000,
+                        timerProgressBar: true
+                    }).then(function() {
+                        window.location.href = 'editcustomer.php?id=$customerId';
+                    });
+                });
+            </script>";
         }
     }
 }
+
 ?>
 
 
@@ -296,7 +247,7 @@ if (isset($_POST['updateSupplierBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -325,14 +276,14 @@ if (isset($_POST['updateSupplierBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
                             </ul>
-                        </li>
+                        </li> 
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/settings.svg" alt="img"><span> Settings</span> <span class="menu-arrow"></span></a>
                             <ul>
@@ -396,24 +347,6 @@ if (isset($_POST['updateSupplierBTN'])) {
                                 </div>
                                 <div class="col-lg-6 col-sm-6 col-12">
                                     <div class="form-group">
-                                        <label>Account Holder Name</label>
-                                        <input type="text" name="customer_account_holder" class="form-control" value="<?= $customer_row['customerAccountHolder']; ?>" required>
-                                    </div>
-                                </div>
-                                <div class="col-lg-6 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Account Number</label>
-                                        <input type="text" name="customer_account_number" class="form-control" value="<?= $customer_row['customerAccountNumber']; ?>" required>
-                                    </div>
-                                </div>
-                                <div class="col-lg-6 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Bank Name</label>
-                                        <input type="text" name="customer_bank" class="form-control" value="<?= $customer_row['bankName']; ?>" required>
-                                    </div>
-                                </div>
-                                <div class="col-lg-6 col-sm-6 col-12">
-                                    <div class="form-group">
                                         <label>Status</label>
                                         <select name="customer_status" class="form-control" required>
                                             <option value="1" <?= $customer_row['customerStatus'] == 1 ? 'selected' : ''; ?>>Active</option>
@@ -466,14 +399,6 @@ if (isset($_POST['updateSupplierBTN'])) {
 
             if (name === 'customer_email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
                 return 'Please enter a valid email address.';
-            }
-
-            if (name === 'customer_account_number' && !/^[0-9]+$/.test(value)) {
-                return 'Please enter a valid account number.';
-            }
-
-            if (name === 'customer_role' && value === '') {
-                return 'Please select a role.';
             }
 
             return true;

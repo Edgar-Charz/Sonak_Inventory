@@ -22,7 +22,7 @@ if (isset($_POST['restPasswordBTN'])) {
             $reset_password_stmt->bind_param("sss", $defaultPassword, $email, $phone);
             if ($reset_password_stmt->execute()) {
                 echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
+                document.addEventListener('DOMContentLoaded', function () { 
                     Swal.fire({
                         // icon: 'success',
                         title: 'Success!',

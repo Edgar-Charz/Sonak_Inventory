@@ -36,13 +36,18 @@ if ($quotation_result->num_rows == 0) {
 }
 
 $quotation = $quotation_result->fetch_assoc();
-$referenceNumber = $quotation['referenceNumber'];
+$referenceNumber = $quotation['quotationReferenceNumber'];
 
 // Fetch quotation details (products)
-$details_stmt = $conn->prepare("SELECT qd.*, p.quantity AS current_stock, p.sellingPrice, p.productName 
-                                FROM quotation_details qd 
-                                JOIN products p ON qd.productId = p.productId 
-                                WHERE qd.referenceNumber = ?");
+$details_stmt = $conn->prepare("SELECT 
+                                            quotation_details.*, 
+                                            products.productQuantity AS current_stock, products.productSellingPrice, products.productName 
+                                        FROM 
+                                            quotation_details
+                                        JOIN 
+                                            products ON quotation_details.quotationDetailProductId = products.productId 
+                                        WHERE 
+                                            quotation_details.quotationDetailReferenceNumber = ?");
 $details_stmt->bind_param("s", $referenceNumber);
 $details_stmt->execute();
 $details_result = $details_stmt->get_result();
@@ -56,17 +61,17 @@ if (isset($_POST['createOrderBTN'])) {
     $invoiceNumber  = $_POST['invoice_number'];
     $customerId     = $_POST['customer_name'];
     $orderDate      = !empty($_POST['order_date']) ? date("Y-m-d", strtotime($_POST['order_date'])) : null;
-    $subTotal       = $_POST['sub_total'];
+    $subTotal       = str_replace(',', '', $_POST['sub_total']);
     $vat            = $_POST['vat'];
-    $vatAmount      = $_POST['vat_amount'];
+    $vatAmount      = str_replace(',', '', $_POST['vat_amount']);
     $discount       = $_POST['discount'];
-    $discountAmount = $_POST['discount_amount'];
-    $shippingAmount = $_POST['shipping_amount'];
-    $grandTotal     = $_POST['total'];
+    $discountAmount = str_replace(',', '', $_POST['discount_amount']);
+    $shippingAmount = str_replace(',', '', $_POST['shipping_amount']);
+    $grandTotal     = str_replace(',', '', $_POST['total']);
     $paymentType    = $_POST['payment_type'];
-    $pay            = $_POST['pay'];
-    $due            = $_POST['due'];
-    $totalProducts  = $_POST['total_products'];
+    $pay            = str_replace(',', '', $_POST['pay']);
+    $due            = str_replace(',', '', $_POST['due']);
+    $totalProducts  = str_replace(',', '', $_POST['total_products']);
     $products       = $_POST['products'];
 
     // Begin transaction
@@ -74,10 +79,10 @@ if (isset($_POST['createOrderBTN'])) {
 
     // Insert new order
     $insert_order_stmt = $conn->prepare("INSERT INTO orders 
-        (invoiceNumber, customerId, createdBy, updatedBy, orderDate, totalProducts, subTotal, vat, vatAmount, discount, discountAmount, shippingAmount, total, paymentType, paid, due, created_at, updated_at) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        (orderInvoiceNumber, orderCustomerId, orderCreatedBy, orderUpdatedBy, orderDate, orderTotalProducts, orderSubTotal, orderVat, orderVatAmount, orderDiscount, orderDiscountAmount, orderShippingAmount, orderTotalAmount, orderPaidAmount, orderDueAmount, created_at, updated_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $insert_order_stmt->bind_param(
-        "siiisidididddsddss",
+        "siiisidididddddss",
         $invoiceNumber,
         $customerId,
         $user_id,
@@ -91,7 +96,6 @@ if (isset($_POST['createOrderBTN'])) {
         $discountAmount,
         $shippingAmount,
         $grandTotal,
-        $paymentType,
         $pay,
         $due,
         $current_time,
@@ -108,19 +112,19 @@ if (isset($_POST['createOrderBTN'])) {
     // Insert order details and update stock
     foreach ($products as $p) {
         $productId   = $p['product_id'];
-        $unitPrice   = $p['unit_cost'];
-        $quantity    = $p['quantity'];
-        $totalCost   = $p['total_cost'];
+        $unitPrice   = str_replace(',', '', $p['unit_cost']);
+        $quantity    = str_replace(',', '', $p['quantity']);
+        $totalCost   = str_replace(',', '', $p['total_cost']);
 
         // Validate stock
-        $stock_stmt = $conn->prepare("SELECT quantity FROM products WHERE productId = ?");
+        $stock_stmt = $conn->prepare("SELECT productQuantity FROM products WHERE productId = ?");
         $stock_stmt->bind_param("i", $productId);
         $stock_stmt->execute();
         $stock_result = $stock_stmt->get_result();
         $stock = $stock_result->fetch_assoc();
         $stock_stmt->close();
 
-        if ($quantity > $stock['quantity']) {
+        if ($quantity > $stock['productQuantity']) {
             $conn->rollback();
             header("Location: quotationlist.php?message=stockerror");
             exit();
@@ -128,7 +132,7 @@ if (isset($_POST['createOrderBTN'])) {
 
         // Insert order detail
         $insert_detail_stmt = $conn->prepare("INSERT INTO order_details 
-            (invoiceNumber, productId, unitCost, quantity, totalCost, created_at, updated_at) 
+            (orderDetailInvoiceNumber, orderDetailProductId, orderDetailUnitCost, orderDetailQuantity, orderDetailTotalCost, created_at, updated_at) 
             VALUES (?, ?, ?, ?, ?, ?, ?)");
         $insert_detail_stmt->bind_param("sidiiss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
 
@@ -140,7 +144,7 @@ if (isset($_POST['createOrderBTN'])) {
         $insert_detail_stmt->close();
 
         // Subtract from stock
-        $update_product_stmt = $conn->prepare("UPDATE products SET quantity = quantity - ?, updated_at = ? WHERE productId = ?");
+        $update_product_stmt = $conn->prepare("UPDATE products SET productQuantity = productQuantity - ?, updated_at = ? WHERE productId = ?");
         $update_product_stmt->bind_param("isi", $quantity, $current_time, $productId);
 
         if (!$update_product_stmt->execute()) {
@@ -152,7 +156,7 @@ if (isset($_POST['createOrderBTN'])) {
     }
 
     // Update quotation status to Completed (1)
-    $update_quotation_stmt = $conn->prepare("UPDATE quotations SET quotationStatus = 1, updatedBy = ?, updated_at = ? WHERE quotationUId = ?");
+    $update_quotation_stmt = $conn->prepare("UPDATE quotations SET quotationStatus = 1, quotationUpdatedBy = ?, updated_at = ? WHERE quotationUId = ?");
     $update_quotation_stmt->bind_param("isi", $user_id, $current_time, $quotationUId);
 
     if (!$update_quotation_stmt->execute()) {
@@ -163,7 +167,7 @@ if (isset($_POST['createOrderBTN'])) {
     $update_quotation_stmt->close();
 
     // Update quotation details status to Approved (1)
-    $details_stmt = $conn->prepare("UPDATE quotation_details SET status = 1, updated_at = ? WHERE referenceNumber = ?");
+    $details_stmt = $conn->prepare("UPDATE quotation_details SET quotationDetailStatus = 1, updated_at = ? WHERE quotationDetailReferenceNumber = ?");
     $details_stmt->bind_param("ss", $current_time, $referenceNumber);
 
     if (!$details_stmt->execute()) {
@@ -174,6 +178,29 @@ if (isset($_POST['createOrderBTN'])) {
     }
     $details_stmt->close();
 
+    // Insert into transactions table
+    $insert_transaction_stmt = $conn->prepare("INSERT INTO transactions (transactionCustomerId, 	transactionInvoiceNumber, transactionPaymentType, transactionPaidAmount, transactionDueAmount, transactionDate, transactionCreatedAt, transactionUpdatedAt) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $insert_transaction_stmt->bind_param(
+        "issddsss",
+        $customerId,
+        $invoiceNumber,
+        $paymentType,
+        $pay,
+        $due,
+        $orderDate,
+        $current_time,
+        $current_time
+    );
+
+    if (!$insert_transaction_stmt->execute()) {
+        $conn->rollback();
+        header("Location: quotationlist.php?message=error");
+        exit();
+    }
+    $insert_transaction_stmt->close();
+
+
     // Commit if everything was successful
     $conn->commit();
     header("Location: quotationlist.php?message=approved");
@@ -182,20 +209,20 @@ if (isset($_POST['createOrderBTN'])) {
 
 function generateInvoiceNumber($conn)
 {
-    $query = "SELECT invoiceNumber 
+    $query = "SELECT orderInvoiceNumber 
                 FROM orders 
-                WHERE invoiceNumber 
+                WHERE orderInvoiceNumber  
                 LIKE 'SNK-S%' 
-                ORDER BY invoiceNumber 
+                ORDER BY orderInvoiceNumber 
                 DESC LIMIT 1";
     $result = $conn->query($query);
 
     if ($result && $result->num_rows > 0) {
         $row = $result->fetch_assoc();
-        $lastNumber = intval(substr($row['invoiceNumber'], 6)); // Extract numeric part after 'SNK-P'
+        $lastNumber = intval(substr($row['orderInvoiceNumber'], 6));
         $nextNumber = $lastNumber + 1;
     } else {
-        $nextNumber = 1; // Start from 1 if no previous entry
+        $nextNumber = 1;
     }
 
     // Pad with leading zeros to ensure 3 digits
@@ -205,8 +232,6 @@ function generateInvoiceNumber($conn)
 }
 
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -309,7 +334,7 @@ function generateInvoiceNumber($conn)
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -338,9 +363,9 @@ function generateInvoiceNumber($conn)
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -408,7 +433,7 @@ function generateInvoiceNumber($conn)
                                                 <?php
                                                 $customers_query = $conn->query("SELECT * FROM customers");
                                                 while ($customers = $customers_query->fetch_assoc()) {
-                                                    $selected = ($customers['customerId'] == $quotation['customerId']) ? 'selected' : '';
+                                                    $selected = ($customers['customerId'] == $quotation['quotationCustomerId']) ? 'selected' : '';
                                                     echo '<option value="' . $customers['customerId'] . '" ' . $selected . '>' . $customers['customerName'] . '</option>';
                                                 }
                                                 ?>
@@ -418,7 +443,7 @@ function generateInvoiceNumber($conn)
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Reference Number</label>
-                                            <input type="text" name="reference_number" class="form-control" value="<?= ($quotation['referenceNumber']) ?>" readonly>
+                                            <input type="text" name="reference_number" class="form-control" value="<?= ($quotation['quotationReferenceNumber']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-6 col-sm-6 col-12">
@@ -436,7 +461,7 @@ function generateInvoiceNumber($conn)
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Payment Type</label>
-                                            <select name="payment_type" class="select" required>
+                                            <select name="payment_type" class="select">
                                                 <option value="" disabled>Select Payment Type</option>
                                                 <option>Cash</option>
                                                 <option>Credit Card</option>
@@ -461,10 +486,10 @@ function generateInvoiceNumber($conn)
                                                     <?php
                                                     $products_query = $conn->query("SELECT * FROM products");
                                                     while ($p = $products_query->fetch_assoc()) {
-                                                        $selected = ($p['productId'] == $product['productId']) ? 'selected' : '';
+                                                        $selected = ($p['productId'] == $product['quotationDetailProductId']) ? 'selected' : '';
                                                         echo '<option value="' . $p['productId'] . '" 
-                                                            data-price="' . $p['sellingPrice'] . '"
-                                                            data-quantity="' . $p['quantity'] . '" ' . $selected . '>'
+                                                            data-price="' . $p['productSellingPrice'] . '"
+                                                            data-quantity="' . $p['productQuantity'] . '" ' . $selected . '>'
                                                             . $p['productName'] . '</option>';
                                                     }
                                                     ?>
@@ -472,7 +497,7 @@ function generateInvoiceNumber($conn)
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Unit Cost</label>
-                                                <input type="text" name="products[<?= $index ?>][unit_cost]" class="form-control unitCost" value="<?= ($product['unitPrice']) ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][unit_cost]" class="form-control unitCost" value="<?= ($product['quotationDetailUnitPrice']) ?>" readonly>
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Available</label>
@@ -480,11 +505,11 @@ function generateInvoiceNumber($conn)
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Quantity</label>
-                                                <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['quantity']) ?>" min="0">
+                                                <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['quotationDetailQuantity']) ?>" min="0">
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Total Cost</label>
-                                                <input type="text" name="products[<?= $index ?>][total_cost]" class="form-control totalCost" value="<?= ($product['subTotal']) ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][total_cost]" class="form-control totalCost" value="<?= ($product['quotationDetailSubTotal']) ?>" readonly>
                                             </div>
                                             <div class="col-lg-1 text-end">
                                                 <label class="form-label d-block">&nbsp;</label>
@@ -507,61 +532,61 @@ function generateInvoiceNumber($conn)
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Total Products</label>
-                                            <input type="text" name="total_products" id="totalProducts" class="form-control" value="<?= ($quotation['totalProducts']) ?>" readonly>
+                                            <input type="text" name="total_products" id="totalProducts" class="form-control" value="<?= ($quotation['quotationTotalProducts']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Shipping Amount</label>
-                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="<?= ($quotation['shippingAmount']) ?>">
+                                            <input type="text" name="shipping_amount" id="shippingAmount" class="form-control" value="<?= ($quotation['quotationShippingAmount']) ?>">
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Subtotal</label>
-                                            <input type="text" name="sub_total" id="subTotal" class="form-control" value="<?= ($quotation['subTotal']) ?>" readonly>
+                                            <input type="text" name="sub_total" id="subTotal" class="form-control" value="<?= ($quotation['quotationSubTotal']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>VAT (%)</label>
-                                            <input type="number" name="vat" id="vat" class="form-control" value="<?= ($quotation['taxPercentage']) ?>">
+                                            <input type="number" name="vat" id="vat" class="form-control" value="<?= ($quotation['quotationTaxPercentage']) ?>">
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>VAT Amount</label>
-                                            <input type="text" name="vat_amount" id="vatAmount" class="form-control" value="<?= ($quotation['taxAmount']) ?>" readonly>
+                                            <input type="text" name="vat_amount" id="vatAmount" class="form-control" value="<?= ($quotation['quotationTaxAmount']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Discount (%)</label>
-                                            <input type="number" name="discount" id="discount" class="form-control" value="<?= ($quotation['discountPercentage']) ?>">
+                                            <input type="number" name="discount" id="discount" class="form-control" value="<?= ($quotation['quotationDiscountPercentage']) ?>">
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Discount Amount</label>
-                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" value="<?= ($quotation['discountAmount']) ?>" readonly>
+                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" value="<?= ($quotation['quotationDiscountAmount']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Total</label>
-                                            <input type="text" name="total" id="grandTotal" class="form-control" value="<?= ($quotation['totalAmount']) ?>" readonly>
+                                            <input type="text" name="total" id="grandTotal" class="form-control" value="<?= ($quotation['quotationTotalAmount']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Paid Amount</label>
-                                            <input type="number" name="pay" id="pay" class="form-control" value="0.00">
+                                            <input type="text" name="pay" id="pay" class="form-control" value="0.00">
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Due</label>
-                                            <input type="text" name="due" id="due" class="form-control" value="<?= ($quotation['totalAmount']) ?>" readonly>
+                                            <input type="text" name="due" id="due" class="form-control" value="<?= ($quotation['quotationTotalAmount']) ?>" readonly>
                                         </div>
                                     </div>
                                 </div>
@@ -622,26 +647,113 @@ function generateInvoiceNumber($conn)
                     }
                 }
 
+                // Function to format numbers
+                function numberFormatter(number, decimals = 0) {
+                    if (!number || isNaN(number)) return (0).toLocaleString("en-US", {
+                        minimumFractionDigits: decimals,
+                        maximumFractionDigits: decimals
+                    });
+                    return parseFloat(number).toLocaleString("en-US", {
+                        minimumFractionDigits: decimals,
+                        maximumFractionDigits: decimals
+                    });
+                }
+
+                // Function to update available quantities
+                function updateAvailableQuantities() {
+                    const productQuantities = {};
+
+                    // Calculate total quantity used per product
+                    document.querySelectorAll(".product-row").forEach(row => {
+                        const productSelect = row.querySelector(".productSelect");
+                        const productId = productSelect.value;
+                        const qty = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
+                        if (productId) {
+                            productQuantities[productId] = (productQuantities[productId] || 0) + qty;
+                        }
+                    });
+
+                    // Update available quantity for each row
+                    document.querySelectorAll(".product-row").forEach(row => {
+                        const productSelect = row.querySelector(".productSelect");
+                        const productId = productSelect.value;
+                        if (productId) {
+                            const originalAvailable = parseFloat(productSelect.options[productSelect.selectedIndex].getAttribute("data-quantity")) || 0;
+                            const usedQty = productQuantities[productId] || 0;
+                            const availableQty = originalAvailable - usedQty;
+                            row.querySelector(".availableQuantity").value = numberFormatter(availableQty, 0);
+                        } else {
+                            row.querySelector(".availableQuantity").value = '';
+                        }
+                    });
+                }
+
+                // Function to validate quantities and show alerts
+                function validateQuantities() {
+                    let hasExceedingQuantities = false;
+                    let hasZeroQuantities = false;
+                    let alertMessage = "";
+
+                    document.querySelectorAll(".product-row").forEach(row => {
+                        const productSelect = row.querySelector(".productSelect");
+                        const productId = productSelect.value;
+                        if (productId) {
+                            const productName = productSelect.options[productSelect.selectedIndex]?.text || "Unknown Product";
+                            const enteredQty = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
+                            const originalAvailable = parseFloat(productSelect.options[productSelect.selectedIndex].getAttribute("data-quantity")) || 0;
+
+                            if (enteredQty === 0) {
+                                hasZeroQuantities = true;
+                                alertMessage += `- ${productName}: Quantity cannot be zero\n`;
+                            } else if (enteredQty > originalAvailable) {
+                                hasExceedingQuantities = true;
+                                alertMessage += `- ${productName}: Requested ${numberFormatter(enteredQty, 0)}, Available ${numberFormatter(originalAvailable, 0)}\n`;
+                                // Adjust quantity to available stock
+                                row.querySelector(".quantity").value = numberFormatter(originalAvailable, 0);
+                                updateRowTotal(row);
+                            }
+                        }
+                    });
+
+                    if (hasZeroQuantities || hasExceedingQuantities) {
+                        Swal.fire({
+                            title: 'Invalid Input',
+                            text: alertMessage,
+                            icon: 'warning',
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            updateAvailableQuantities();
+                            calculateSummary();
+                        });
+                        return false; 
+                    }
+                    return true; 
+                }
+
                 // Step navigation event listeners
                 document.getElementById('goStep2').addEventListener('click', () => showStep(2));
                 document.getElementById('backStep1').addEventListener('click', () => showStep(1));
                 document.getElementById('goStep3').addEventListener('click', () => {
+                    if (!validateQuantities()) {
+                        return; // Stop if validation fails
+                    }
+
                     calculateSummary();
                     const summaryBody = document.querySelector("#orderSummaryTable tbody");
                     summaryBody.innerHTML = "";
                     document.querySelectorAll(".product-row").forEach(row => {
                         let productSelect = row.querySelector(".productSelect");
                         let productName = productSelect.options[productSelect.selectedIndex]?.text || "N/A";
-                        let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                        let unitCost = parseFloat(row.querySelector(".unitCost").value) || 0;
-                        let total = parseFloat(row.querySelector(".totalCost").value) || 0;
+                        let qty = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
+                        let unitCost = parseFloat(row.querySelector(".unitCost").value.replace(/,/g, '')) || 0;
+                        let total = parseFloat(row.querySelector(".totalCost").value.replace(/,/g, '')) || 0;
                         let tr = document.createElement("tr");
                         tr.innerHTML = `
-                            <td>${productName}</td>
-                            <td>${qty}</td>
-                            <td>${unitCost.toFixed(2)}</td>
-                            <td>${total.toFixed(2)}</td>
-                        `;
+                                    <td>${productName}</td>
+                                    <td>${numberFormatter(qty, 0)}</td>
+                                    <td>${numberFormatter(unitCost, 2)}</td>
+                                    <td>${numberFormatter(total, 2)}</td>
+                                `;
                         summaryBody.appendChild(tr);
                     });
                     showStep(3);
@@ -658,42 +770,42 @@ function generateInvoiceNumber($conn)
                     row.classList.add("row", "product-row", "align-items-end", "gy-2", "mb-3");
 
                     row.innerHTML = `
-                    <div class="col-lg-3">
-                        <label class="form-label">Product</label>
-                        <select name="products[${index}][product_id]" class="form-control productSelect" required>
-                            <option value="" disabled selected>Select Product</option>
-                            <?php
-                            $products_query = $conn->query("SELECT * FROM products");
-                            while ($p = $products_query->fetch_assoc()) {
-                                echo '<option value="' . $p['productId'] . '" 
-                                    data-price="' . $p['sellingPrice'] . '"
-                                    data-quantity="' . $p['quantity'] . '">'
-                                    . $p['productName'] . '</option>';
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div class="col-lg-2">
-                        <label class="form-label">Unit Cost</label>
-                        <input type="text" name="products[${index}][unit_cost]" class="form-control unitCost" readonly>
-                    </div>
-                    <div class="col-lg-2">
-                        <label class="form-label">Available</label>
-                        <input type="text" name="products[${index}][available_quantity]" class="form-control availableQuantity" readonly>
-                    </div>
-                    <div class="col-lg-2">
-                        <label class="form-label">Quantity</label>
-                        <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="0" min="1">
-                    </div>
-                    <div class="col-lg-2">
-                        <label class="form-label">Total Cost</label>
-                        <input type="text" name="products[${index}][total_cost]" class="form-control totalCost" readonly>
-                    </div>
-                    <div class="col-lg-1 text-end">
-                        <label class="form-label d-block">&nbsp;</label>
-                        <button type="button" class="btn btn-danger removeProduct">X</button>
-                    </div>
-                `;
+                <div class="col-lg-3">
+                    <label class="form-label">Product</label>
+                    <select name="products[${index}][product_id]" class="form-control productSelect" required>
+                        <option value="" disabled selected>Select Product</option>
+                        <?php
+                        $products_query = $conn->query("SELECT * FROM products");
+                        while ($p = $products_query->fetch_assoc()) {
+                            echo '<option value="' . $p['productId'] . '" 
+                                data-price="' . $p['productSellingPrice'] . '"
+                                data-quantity="' . $p['productQuantity'] . '">'
+                                . $p['productName'] . '</option>';
+                        }
+                        ?>
+                    </select>
+                </div>
+                <div class="col-lg-2">
+                    <label class="form-label">Unit Cost</label>
+                    <input type="text" name="products[${index}][unit_cost]" class="form-control unitCost" readonly>
+                </div>
+                <div class="col-lg-2">
+                    <label class="form-label">Available</label>
+                    <input type="text" name="products[${index}][available_quantity]" class="form-control availableQuantity" readonly>
+                </div>
+                <div class="col-lg-2">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="0" min="1">
+                </div>
+                <div class="col-lg-2">
+                    <label class="form-label">Total Cost</label>
+                    <input type="text" name="products[${index}][total_cost]" class="form-control totalCost" readonly>
+                </div>
+                <div class="col-lg-1 text-end">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <button type="button" class="btn btn-danger removeProduct">X</button>
+                </div>
+            `;
                     productsContainer.appendChild(row);
                     attachRowEvents(row);
                 };
@@ -705,50 +817,55 @@ function generateInvoiceNumber($conn)
                     productSelect.addEventListener("change", function() {
                         let price = parseFloat(this.options[this.selectedIndex].getAttribute("data-price")) || 0;
                         let available = parseFloat(this.options[this.selectedIndex].getAttribute("data-quantity")) || 0;
-                        row.querySelector(".unitCost").value = price.toFixed(2);
-                        row.querySelector(".availableQuantity").value = available;
+                        row.querySelector(".unitCost").value = numberFormatter(price, 2);
+                        row.querySelector(".availableQuantity").value = numberFormatter(available, 0);
                         row.querySelector(".quantity").setAttribute("max", available);
                         updateRowTotal(row);
                     });
 
                     quantityInput.addEventListener("input", function() {
-                        let enteredQty = parseFloat(this.value) || 0;
+                        let raw = this.value.replace(/[^0-9]/g, ''); // Allow only digits
+                        let enteredQty = parseFloat(raw) || 0;
                         let originalAvailable = parseFloat(row.querySelector(".productSelect").options[row.querySelector(".productSelect").selectedIndex].getAttribute("data-quantity")) || 0;
 
                         // Prevent exceeding available stock
                         if (enteredQty > originalAvailable) {
-                            this.value = originalAvailable;
+                            this.value = numberFormatter(originalAvailable, 0);
                             enteredQty = originalAvailable;
                             Swal.fire({
                                 title: 'Warning',
                                 text: 'Quantity cannot exceed available stock!',
-                                // icon: 'warning',
+                                icon: 'warning',
                                 timer: 3000
                             });
+                        } else {
+                            this.value = numberFormatter(enteredQty, 0);
                         }
 
                         // Update available quantity display
-                        row.querySelector(".availableQuantity").value = (originalAvailable - enteredQty).toFixed(0);
+                        updateAvailableQuantities();
+                        updateRowTotal(row);
+                    });
+
+                    quantityInput.addEventListener("blur", function() {
+                        const raw = this.value.replace(/,/g, '');
+                        const qty = parseFloat(raw) || 0;
+                        this.value = numberFormatter(qty, 0);
                         updateRowTotal(row);
                     });
 
                     row.querySelector(".removeProduct").onclick = function() {
                         row.remove();
+                        updateAvailableQuantities();
                         calculateSummary();
                     };
                 }
 
-                // Attach events to existing rows
-                document.querySelectorAll(".product-row").forEach(row => {
-                    attachRowEvents(row);
-                    row.querySelector(".productSelect").dispatchEvent(new Event('change'));
-                });
-
                 function updateRowTotal(row) {
-                    let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                    let price = parseFloat(row.querySelector(".unitCost").value) || 0;
+                    let qty = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
+                    let price = parseFloat(row.querySelector(".unitCost").value.replace(/,/g, '')) || 0;
                     let total = qty * price;
-                    row.querySelector(".totalCost").value = total.toFixed(2);
+                    row.querySelector(".totalCost").value = numberFormatter(total, 2);
                     calculateSummary();
                 }
 
@@ -757,18 +874,18 @@ function generateInvoiceNumber($conn)
                     let totalProducts = 0;
 
                     document.querySelectorAll(".product-row").forEach(row => {
-                        let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                        let cost = parseFloat(row.querySelector(".totalCost").value) || 0;
+                        let qty = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
+                        let cost = parseFloat(row.querySelector(".totalCost").value.replace(/,/g, '')) || 0;
                         subTotal += cost;
                         totalProducts += qty;
                     });
 
                     // Add shipping Amount
-                    let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
+                    let shippingAmount = parseFloat(document.getElementById("shippingAmount").value.replace(/,/g, '')) || 0;
                     subTotal += shippingAmount;
 
-                    document.getElementById("subTotal").value = subTotal.toFixed(2);
-                    document.getElementById("totalProducts").value = totalProducts;
+                    document.getElementById("subTotal").value = numberFormatter(subTotal, 2);
+                    document.getElementById("totalProducts").value = numberFormatter(totalProducts, 0);
 
                     let vatPercent = parseFloat(document.getElementById("vat").value) || 0;
                     let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
@@ -777,46 +894,160 @@ function generateInvoiceNumber($conn)
                     let discountAmount = subTotal * discountPercent / 100;
                     let grandTotal = subTotal + vatAmount - discountAmount;
 
-                    document.getElementById("vatAmount").value = vatAmount.toFixed(2);
-                    document.getElementById("discountAmount").value = discountAmount.toFixed(2);
-                    document.getElementById("grandTotal").value = grandTotal.toFixed(2);
+                    document.getElementById("vatAmount").value = numberFormatter(vatAmount, 2);
+                    document.getElementById("discountAmount").value = numberFormatter(discountAmount, 2);
+                    document.getElementById("grandTotal").value = numberFormatter(grandTotal, 2);
 
-                    let pay = parseFloat(document.getElementById("pay").value) || 0;
-                    document.getElementById("due").value = (grandTotal - pay).toFixed(2);
+                    let pay = parseFloat(document.getElementById("pay").value.replace(/,/g, '')) || 0;
+                    document.getElementById("due").value = numberFormatter(grandTotal - pay, 2);
                 }
 
-                document.getElementById("vat").addEventListener("input", calculateSummary);
-                document.getElementById("discount").addEventListener("input", calculateSummary);
-                document.getElementById("shippingAmount").addEventListener("input", calculateSummary);
-                document.getElementById("pay").addEventListener("input", function() {
-                    let grandTotal = parseFloat(document.getElementById("grandTotal").value) || 0;
-                    let payInput = this;
-                    let enteredPay = parseFloat(payInput.value) || 0;
-                    if (enteredPay > grandTotal) {
-                        payInput.value = grandTotal;
-                        Swal.fire({
-                            title: 'Warning',
-                            text: 'Pay amount cannot exceed the grand total!',
-                            // icon: 'warning',
-                            timer: 3000
-                        });
-                    } else if (enteredPay < 0) {
-                        payInput.value = 0;
-                        Swal.fire({
-                            title: 'Warning',
-                            text: 'Pay amount cannot be negative!',
-                            // icon: 'warning',
-                            timer: 3000
-                        });
-                    }
+                function debounce(fn, delay) {
+                    let timeout;
+                    return function(...args) {
+                        clearTimeout(timeout);
+                        timeout = setTimeout(() => fn.apply(this, args), delay);
+                    };
+                }
+
+                const shippingInput = document.getElementById("shippingAmount");
+
+                // Allow only numbers and dot while typing
+                shippingInput.addEventListener("input", () => {
+                    shippingInput.value = shippingInput.value.replace(/[^0-9.]/g, '');
+                });
+
+                // Format after typing pause and update totals
+                shippingInput.addEventListener("input", debounce(() => {
+                    const raw = shippingInput.value.replace(/,/g, '');
+                    const shippingAmount = parseFloat(raw) || 0;
+
+                    shippingInput.value = numberFormatter(shippingAmount);
+                    calculateSummary();
+                }, 1000));
+
+                // Format again on blur
+                shippingInput.addEventListener("blur", () => {
+                    const raw = shippingInput.value.replace(/,/g, '');
+                    const shippingAmount = parseFloat(raw) || 0;
+
+                    shippingInput.value = numberFormatter(shippingAmount, 2);
                     calculateSummary();
                 });
 
+                const vatInput = document.getElementById("vat");
+                vatInput.addEventListener("input", function() {
+                    if (this.value < 0) this.value = 0;
+                    calculateSummary();
+                });
+
+                const discountInput = document.getElementById("discount");
+                discountInput.addEventListener("input", function() {
+                    if (this.value < 0) this.value = 0;
+                    calculateSummary();
+                });
+
+                const payInput = document.getElementById("pay");
+
+                // Allow only numbers and dot while typing
+                payInput.addEventListener("input", () => {
+                    payInput.value = payInput.value.replace(/[^0-9.]/g, '');
+                });
+
+                // Format after pause and validate
+                payInput.addEventListener("input", debounce(() => {
+                    const raw = payInput.value.replace(/,/g, '');
+                    let enteredPay = parseFloat(raw) || 0;
+                    const grandTotal = parseFloat(document.getElementById("grandTotal").value.replace(/,/g, '')) || 0;
+
+                    // Validation
+                    if (enteredPay > grandTotal) {
+                        enteredPay = grandTotal;
+                        Swal.fire({
+                            title: 'Warning',
+                            text: 'Pay amount cannot exceed the grand total!',
+                            icon: 'warning',
+                            timer: 3000
+                        });
+                    } else if (enteredPay < 0) {
+                        enteredPay = 0;
+                        Swal.fire({
+                            title: 'Warning',
+                            text: 'Pay amount cannot be negative!',
+                            icon: 'warning',
+                            timer: 3000
+                        });
+                    }
+
+                    // Format and update
+                    payInput.value = numberFormatter(enteredPay);
+                    calculateSummary();
+                }, 1000));
+
+                // Format again on blur for safety
+                payInput.addEventListener("blur", () => {
+                    const raw = payInput.value.replace(/,/g, '');
+                    let enteredPay = parseFloat(raw) || 0;
+                    const grandTotal = parseFloat(document.getElementById("grandTotal").value.replace(/,/g, '')) || 0;
+
+                    if (enteredPay > grandTotal) enteredPay = grandTotal;
+                    if (enteredPay < 0) enteredPay = 0;
+
+                    payInput.value = numberFormatter(enteredPay, 2);
+                    calculateSummary();
+                });
+
+                payInput.addEventListener("blur", function() {
+                    const raw = this.value.replace(/,/g, '');
+                    const pay = parseFloat(raw) || 0;
+                    this.value = numberFormatter(pay, 2);
+                    calculateSummary();
+                });
+
+                // Attach events to existing rows
+                document.querySelectorAll(".product-row").forEach(row => {
+                    attachRowEvents(row);
+                    // Format initial values
+                    const initialPrice = parseFloat(row.querySelector(".unitCost").value) || 0;
+                    const initialQty = parseFloat(row.querySelector(".quantity").value) || 0;
+                    const initialTotal = parseFloat(row.querySelector(".totalCost").value) || 0;
+                    row.querySelector(".unitCost").value = numberFormatter(initialPrice, 2);
+                    row.querySelector(".quantity").value = numberFormatter(initialQty, 0);
+                    row.querySelector(".totalCost").value = numberFormatter(initialTotal, 2);
+                    row.querySelector(".productSelect").dispatchEvent(new Event('change'));
+                });
+
+                // Initial calculation and formatting on page load
+                validateQuantities();
+                updateAvailableQuantities();
+                calculateSummary();
+                // Format initial values for summary fields
+                const initialShipping = parseFloat(document.getElementById("shippingAmount").value.replace(/,/g, '')) || 0;
+                document.getElementById("shippingAmount").value = numberFormatter(initialShipping, 2);
+
+                const initialPay = parseFloat(document.getElementById("pay").value.replace(/,/g, '')) || 0;
+                document.getElementById("pay").value = numberFormatter(initialPay, 2);
+
+                const initialSubTotal = parseFloat(document.getElementById("subTotal").value.replace(/,/g, '')) || 0;
+                document.getElementById("subTotal").value = numberFormatter(initialSubTotal, 2);
+
+                const initialTotalProducts = parseFloat(document.getElementById("totalProducts").value.replace(/,/g, '')) || 0;
+                document.getElementById("totalProducts").value = numberFormatter(initialTotalProducts, 0);
+
+                const initialVatAmount = parseFloat(document.getElementById("vatAmount").value.replace(/,/g, '')) || 0;
+                document.getElementById("vatAmount").value = numberFormatter(initialVatAmount, 2);
+
+                const initialDiscountAmount = parseFloat(document.getElementById("discountAmount").value.replace(/,/g, '')) || 0;
+                document.getElementById("discountAmount").value = numberFormatter(initialDiscountAmount, 2);
+
+                const initialGrandTotal = parseFloat(document.getElementById("grandTotal").value.replace(/,/g, '')) || 0;
+                document.getElementById("grandTotal").value = numberFormatter(initialGrandTotal, 2);
+
+                const initialDue = parseFloat(document.getElementById("due").value.replace(/,/g, '')) || 0;
+                document.getElementById("due").value = numberFormatter(initialDue, 2);
+
                 // Initialize Select2
                 $('.select').select2();
-
-                // Initial calculation
-                calculateSummary();
             });
         </script>
     </div>

@@ -13,77 +13,107 @@ if (isset($_POST['addSupplierBTN'])) {
     $supplier_email = trim($_POST['supplier_email']);
     $supplier_address = trim($_POST['supplier_address']);
     $shop_name = trim($_POST['supplier_shop']);
-    $type = trim($_POST['supplier_type']);
-    $account_holder = trim($_POST['supplier_account_holder']);
-    $account_number = trim($_POST['supplier_account_number']);
-    $bank_name = trim($_POST['supplier_bank']);
+    $supplier_type = trim($_POST['supplier_type']);
 
-    // Check if supplier exists
-    $check_supplier_stmt = $conn->prepare("SELECT * FROM suppliers WHERE supplierEmail = ?");
-    $check_supplier_stmt->bind_param("s", $supplier_email);
-    $check_supplier_stmt->execute();
-    $result = $check_supplier_stmt->get_result();
+    // Bank Accounts
+    $account_holders = $_POST['supplier_account_holder'];
+    $account_numbers = $_POST['supplier_account_number'];
+    $bank_names      = $_POST['supplier_bank_name'];
 
-    if ($result->num_rows > 0) {
-        // Supplier already exists
-        echo "<script>
-            document.addEventListener('DOMContentLoaded', function () {
-                Swal.fire({
-                    icon: 'error',
-                    text: 'Supplier with this email already exists!'
-                }).then(function(){
-                    window.location.href = 'supplierlist.php';
-               });
-            });
-        </script>";
-    } else {
-        // Check if Supplier Name already exists
-        $check_suppliername_stmt = $conn->prepare("SELECT * FROM suppliers WHERE supplierName = ?");
-        $check_suppliername_stmt->bind_param("s", $supplier_name);
-        $check_suppliername_stmt->execute();
-        $suppliername_result = $check_suppliername_stmt->get_result();
+    // Enable MySQLi exceptions
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-        if ($suppliername_result->num_rows > 0) {
-            echo "<script>
-                    document.addEventListener('DOMContentLoaded', function () {
-                        Swal.fire({
-                            icon: 'error',
-                            text: 'Supplier with this name already exists!'
-                        }).then(function(){
-                            window.location.href = 'supplierlist.php';
-                       });
-                    });
-                </script>";
-        } else {
-            // Insert new supplier
-            $insert_stmt = $conn->prepare("INSERT INTO `suppliers`(`supplierName`, `supplierEmail`, `supplierPhone`, `supplierAddress`, `shopName`, `type`, `supplierAccountHolder`, `supplierAccountNumber`, `bankName`, `created_at`, `updated_at`) 
-                                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $insert_stmt->bind_param("sssssssssss", $supplier_name, $supplier_email, $supplier_phone, $supplier_address, $shop_name, $type, $account_holder, $account_number, $bank_name, $current_time, $current_time);
+    // Begin transaction
+    $conn->begin_transaction();
 
-            if ($insert_stmt->execute()) {
-                echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        icon: 'success',
-                        text: 'Supplier added successfully!'
-                    }).then(function(){
-                    window.location.href = 'supplierlist.php';
-               });
-            });
-            </script>";
-            } else {
-                echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        icon: 'error',
-                        text: 'Error adding supplier. Please try again.'
-                    }).then(function(){
-                    window.location.href = 'supplierlist.php';
-               });
-             });
-            </script>";
+    try {
+        // Check if supplier email exists
+        $check_email_stmt = $conn->prepare("SELECT * FROM suppliers WHERE supplierEmail = ?");
+        $check_email_stmt->bind_param("s", $supplier_email);
+        $check_email_stmt->execute();
+        $email_result = $check_email_stmt->get_result();
+
+        if ($email_result->num_rows > 0) {
+            throw new Exception("Supplier with this email already exists!");
+        }
+
+        // Check if supplier name exists
+        $check_name_stmt = $conn->prepare("SELECT * FROM suppliers WHERE supplierName = ?");
+        $check_name_stmt->bind_param("s", $supplier_name);
+        $check_name_stmt->execute();
+        $name_result = $check_name_stmt->get_result();
+
+        if ($name_result->num_rows > 0) {
+            throw new Exception("Supplier with this name already exists!");
+        }
+
+        // Insert supplier
+        $insert_supplier = $conn->prepare("INSERT INTO suppliers 
+            (supplierName, supplierEmail, supplierPhone, supplierAddress, supplierShopName, supplierType, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $insert_supplier->bind_param("ssssssss", $supplier_name, $supplier_email, $supplier_phone, $supplier_address, $shop_name, $supplier_type, $current_time, $current_time);
+        $insert_supplier->execute();
+
+        $supplier_id = $insert_supplier->insert_id;
+
+        // Prepare bank account insert
+        $insert_account = $conn->prepare("INSERT INTO bank_accounts 
+            (bankAccountSupplierId, bankAccountBankName, bankAccountHolderName, bankAccountNumber, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?)");
+
+        for ($i = 0; $i < count($account_holders); $i++) {
+            $account_holder = trim($account_holders[$i]);
+            $account_number = trim($account_numbers[$i]);
+            $bank_name  = trim($bank_names[$i]);
+
+            if (!empty($account_holder) && !empty($account_number) && !empty($bank_name)) {
+
+                // Check for duplicate account number
+                $check_account_query = "SELECT bankAccountUId FROM bank_accounts WHERE bankAccountNumber = ? AND bankAccountSupplierId != ?";
+                $check_account_stmt = $conn->prepare($check_account_query);
+                $check_account_stmt->bind_param("si", $account_number, $supplier_id);
+                $check_account_stmt->execute();
+                $check_result = $check_account_stmt->get_result();
+
+                if ($check_result->num_rows > 0) {
+                    throw new Exception("Bank account number $account_number already exists for another supplier.");
+                }
+
+                try {
+                    $insert_account->bind_param("isssss", $supplier_id, $bank_name, $account_holder, $account_number, $current_time, $current_time);
+                    $insert_account->execute();
+                } catch (mysqli_sql_exception $e) {
+                    if ($e->getCode() == 1062) {
+                        throw new Exception("Bank account number $account_number already exists!");
+                    } else {
+                        throw $e;
+                    }
+                }
             }
         }
+
+        // Commit transaction
+        $conn->commit();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({ 
+                icon: 'success', 
+                text: 'Supplier added successfully!' 
+                }).then(() => window.location.href = 'supplierlist.php');
+            });
+        </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function () {
+                Swal.fire({ 
+                    icon: 'error', 
+                    text: '" . addslashes($e->getMessage()) . "'
+                }).then(() => window.location.href = 'supplierlist.php');
+            });
+        </script>";
     }
 }
 ?>
@@ -94,7 +124,7 @@ if (isset($_POST['addSupplierBTN'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <title>Dreams Pos admin template</title>
+    <title>Sonak Inventory | Supplier List</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 
@@ -208,7 +238,7 @@ if (isset($_POST['addSupplierBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -237,9 +267,9 @@ if (isset($_POST['addSupplierBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -283,19 +313,6 @@ if (isset($_POST['addSupplierBTN'])) {
                                     <a class="btn btn-searchset"><img src="assets/img/icons/search-white.svg" alt="img"></a>
                                 </div>
                             </div>
-                            <div class="wordset">
-                                <ul>
-                                    <li>
-                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="pdf"><img src="assets/img/icons/pdf.svg" alt="img"></a>
-                                    </li>
-                                    <li>
-                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="excel"><img src="assets/img/icons/excel.svg" alt="img"></a>
-                                    </li>
-                                    <li>
-                                        <a data-bs-toggle="tooltip" data-bs-placement="top" title="print"><img src="assets/img/icons/printer.svg" alt="img"></a>
-                                    </li>
-                                </ul>
-                            </div>
                         </div>
 
                         <div class="card" id="filter_inputs">
@@ -335,75 +352,70 @@ if (isset($_POST['addSupplierBTN'])) {
                             <table class="table" id="suppliersTable">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
+                                        <th>S/N</th>
+                                        <!-- <th>ID</th> -->
                                         <th>Name</th>
                                         <th>Phone</th>
                                         <th>Email</th>
                                         <th>Address</th>
                                         <th>ShopName</th>
                                         <th>Type</th>
-                                        <th>Acc. Holder</th>
-                                        <th>Acc. Number</th>
-                                        <th>Bank</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
+                                        <th class="text-center">Status</th>
+                                        <th class="text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php
                                     $suppliers_query =  $conn->query("SELECT * FROM suppliers");
+                                    $sn = 0;
                                     if ($suppliers_query->num_rows > 0) {
                                         while ($supplier_row = $suppliers_query->fetch_assoc()) {
                                             $supplier_id = $supplier_row["supplierId"];
+                                            $sn++;
                                     ?>
                                             <tr>
-                                                <td><?= $supplier_row['supplierId']; ?></td>
+                                                <td><?= $sn; ?></td>
+                                                <!-- <td><?= $supplier_row['supplierId']; ?></td> -->
                                                 <td><?= $supplier_row['supplierName']; ?></td>
                                                 <td><?= $supplier_row['supplierPhone']; ?></td>
                                                 <td><?= $supplier_row['supplierEmail']; ?></td>
                                                 <td><?= $supplier_row['supplierAddress']; ?></td>
-                                                <td><?= $supplier_row['shopName']; ?></td>
-                                                <td><?= $supplier_row['type']; ?></td>
-                                                <td><?= $supplier_row['supplierAccountHolder']; ?></td>
-                                                <td><?= $supplier_row['supplierAccountNumber']; ?></td>
-                                                <td><?= $supplier_row['bankName']; ?></td>
-                                                <td>
-                                                    <?php if ($supplier_row['supplierStatus'] == "1") : ?>
-                                                        <span class="badge rounded-pill bg-success">Active</span>
+                                                <td><?= $supplier_row['supplierShopName']; ?></td>
+                                                <td><?= $supplier_row['supplierType']; ?></td>
+                                                <td class="text-center">
+                                                    <!-- <?php if ($supplier_row['supplierStatus'] == "1") : ?>
+                                                        <span class="badges bg-lightgreen">Active</span>
                                                     <?php else : ?>
-                                                        <span class="badge rounded-pill bg-danger">Inactive</span>
-                                                    <?php endif; ?>
+                                                        <span class="badges bg-lightred">Inactive</span>
+                                                    <?php endif; ?> -->
+
+                                                    <!-- Toggle Supplier Status -->
+                                                    <div class="status-toggle d-inline-flex align-items-center">
+                                                        <input type="checkbox"
+                                                            id="supplier<?= $supplier_id ?>"
+                                                            class="check"
+                                                            <?= $supplier_row['supplierStatus'] == 1 ? 'checked' : '' ?>
+                                                            onchange="toggleSupplierStatus(<?= $supplier_id ?>, this.checked)">
+                                                        <label for="supplier<?= $supplier_id ?>" class="checktoggle ms-1"></label>
+                                                    </div>
                                                 </td>
                                                 <td class="text-center">
                                                     <div class="d-flex justify-content-center">
-                                                        <div class="dropdown">
-                                                            <a href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false" class="dropset">
-                                                                <i class="fa fa-ellipsis-v"></i>
-                                                            </a>
-                                                            <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                                                <!-- View Button -->
-                                                                <li>
-                                                                    <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewSupplier<?= $supplier_id; ?>">
-                                                                        <img src="assets/img/icons/eye.svg" alt="View" style="width: 16px; margin-right: 6px;">
-                                                                        View
-                                                                    </button>
-                                                                </li>
-                                                                <!-- Edit Button -->
-                                                                <li>
-                                                                    <a href="editsupplier.php?id=<?= $supplier_id; ?>" class="dropdown-item">
-                                                                        <img src="assets/img/icons/edit.svg" alt="Edit" style="width: 16px; margin-right: 6px;">
-                                                                        Edit
-                                                                    </a>
-                                                                </li>
-                                                                <!-- Delete Button -->
-                                                                <li>
-                                                                    <button type="button" class="dropdown-item" onclick="confirmDelete(<?= $supplier_id; ?>)">
-                                                                        <img src="assets/img/icons/delete.svg" alt="Delete" style="width: 16px; margin-right: 6px;">
-                                                                        Delete
-                                                                    </button>
-                                                                </li>
-                                                            </ul>
-                                                        </div>
+
+                                                        <!-- View Button -->
+                                                        <button type="button"
+                                                            class="btn btn-sm btn-outline-primary me-2"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#viewSupplier<?= $supplier_id; ?>">
+                                                            <i class="fas fa-eye text-dark"></i>
+                                                        </button>
+
+                                                        <!-- Edit Button -->
+                                                        <a href="editsupplier.php?id=<?= $supplier_id; ?>"
+                                                            class="btn btn-sm btn-outline-primary me-2">
+                                                            <i class="fas fa-edit text-dark"></i>
+                                                        </a>
+
                                                     </div>
                                                 </td>
 
@@ -452,41 +464,64 @@ if (isset($_POST['addSupplierBTN'])) {
                                                                 <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>Shop Name</label>
-                                                                        <p class="form-control"><?= $supplier_row['shopName']; ?></p>
+                                                                        <p class="form-control"><?= $supplier_row['supplierShopName']; ?></p>
                                                                     </div>
                                                                 </div>
                                                                 <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>Type</label>
-                                                                        <p class="form-control"><?= $supplier_row['type']; ?></p>
+                                                                        <p class="form-control"><?= $supplier_row['supplierType']; ?></p>
                                                                     </div>
                                                                 </div>
-                                                                <div class="col-lg-4 col-sm-12 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Account Holder</label>
-                                                                        <p class="form-control"><?= $supplier_row['supplierAccountHolder']; ?></p>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="col-lg-4 col-sm-12 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Account Number</label>
-                                                                        <p class="form-control"><?= $supplier_row['supplierAccountNumber']; ?></p>
-                                                                    </div>
-                                                                </div>
-                                                                <div class="col-lg-4 col-sm-12 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Bank Name</label>
-                                                                        <p class="form-control"><?= $supplier_row['bankName']; ?></p>
-                                                                    </div>
-                                                                </div>
-
                                                                 <div class="col-lg-4 col-sm-12 col-12">
                                                                     <div class="form-group">
                                                                         <label>Status</label>
                                                                         <p class="form-control"><?= $supplier_row['supplierStatus'] == 1 ? 'Active' : 'InActive'; ?></p>
                                                                     </div>
                                                                 </div>
+
+                                                                <div class="col-lg-12 col-sm-12 col-12 text-center">
+                                                                    <div class="form-group">
+                                                                        <label style="text-align: center; font-size: large;">Bank Accounts</label>
+                                                                        <?php
+                                                                        $accounts_query = $conn->prepare("SELECT * FROM bank_accounts WHERE bankAccountSupplierId = ?");
+                                                                        $accounts_query->bind_param("i", $supplier_id);
+                                                                        $accounts_query->execute();
+                                                                        $accounts_result = $accounts_query->get_result();
+
+                                                                        if ($accounts_result->num_rows > 0) {
+                                                                            $i = 1;
+                                                                            echo '<div class="row border p-2 mb-2">';
+                                                                            echo '<div class="col-1"><strong>#</strong></div>';
+                                                                            echo '<div class="col-4"><strong>Account Holder</strong></div>';
+                                                                            echo '<div class="col-3"><strong>Account Number</strong></div>';
+                                                                            echo '<div class="col-2"><strong>Bank Name</strong></div>';
+                                                                            echo '<div class="col-2"><strong>Status</strong></div>';
+                                                                            echo '</div>';
+
+                                                                            while ($account = $accounts_result->fetch_assoc()) {
+                                                                                $bank_account_uid = $account['bankAccountUId'];
+
+                                                                                echo '<div class="row border p-2 mb-1">';
+                                                                                echo "<div class='col-1'>{$i}</div>";
+                                                                                echo "<div class='col-4'>{$account['bankAccountHolderName']}</div>";
+                                                                                echo "<div class='col-3'>{$account['bankAccountNumber']}</div>";
+                                                                                echo "<div class='col-2'>{$account['bankAccountBankName']}</div>";
+                                                                                echo "<div class='col-2'>" . ($account['bankAccountStatus'] == 1 ? 'Active' : 'InActive') . "</div>";
+                                                                                echo '</div>';
+                                                                                $i++;
+                                                                            }
+                                                                        } else {
+                                                                            echo "<p class='text-center text-muted'>No accounts available</p>";
+                                                                        }
+                                                                        ?>
+                                                                    </div>
+                                                                </div>
+
                                                             </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -510,11 +545,11 @@ if (isset($_POST['addSupplierBTN'])) {
                                 <h5 class="modal-title" id="addSupplierModalLabel">Add Supplier</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">x</button>
                             </div>
-                            <div class="modal-body">
-                                <!--Add Supplier Form -->
-                                <div class="card">
-                                    <div class="card-body">
-                                        <form action="" method="POST" id="supplier-form" enctype="multipart/form-data">
+                            <form action="" method="POST" id="supplier-form" enctype="multipart/form-data">
+                                <div class="modal-body">
+                                    <!--Add Supplier Form -->
+                                    <div class="card">
+                                        <div class="card-body">
                                             <div class="row">
                                                 <div class="col-lg-4 col-sm-6 col-12">
                                                     <div class="form-group">
@@ -564,50 +599,50 @@ if (isset($_POST['addSupplierBTN'])) {
                                                         <input type="text" name="supplier_type" required>
                                                     </div>
                                                 </div>
-                                                <div class="col-lg-4 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <label>Account Holder Name</label>
-                                                        <input type="text" name="supplier_account_holder" oninput="capitalizeFirstLetter(this)" required>
-                                                    </div>
-                                                </div>
-                                                <div class="col-lg-4 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <label>Account Number</label>
-                                                        <input type="text" name="supplier_account_number" class="form-control" required></input>
-                                                    </div>
-                                                </div>
-                                                <div class="col-lg-4 col-sm-6 col-12">
-                                                    <div class="form-group">
-                                                        <label>Bank Name</label>
-                                                        <select name="supplier_bank" class="select" required>
-                                                            <option value="" selected disabled>Choose Bank</option>
-                                                            <option>NMB</option>
-                                                            <option>CRDB</option>
-                                                            <option>NBC</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <!-- <div class="col-lg-12">
-                                                    <div class="form-group">
-                                                        <label> Avatar</label>
-                                                        <div class="image-upload">
-                                                            <input type="file">
-                                                            <div class="image-uploads">
-                                                                <img src="assets/img/icons/upload.svg" alt="img">
-                                                                <h4>Drag and drop a file to upload</h4>
+                                                <div class="col-12">
+                                                    <label>Bank Accounts</label>
+                                                    <div id="accounts-wrapper">
+                                                        <div class="row account-row mb-2">
+                                                            <div class="col-lg-4 col-sm-6 col-12">
+                                                                <div class="form-group">
+                                                                    <input type="text" name="supplier_account_holder[]" class="form-control"
+                                                                        placeholder="Account Holder Name" required
+                                                                        oninput="capitalizeFirstLetter(this)">
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-lg-4 col-sm-6 col-12">
+                                                                <div class="form-group">
+                                                                    <input type="text" name="supplier_account_number[]" class="form-control"
+                                                                        placeholder="Account Number" required>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                <select name="supplier_bank_name[]" class="form-control" required>
+                                                                    <option value="" selected disabled>Choose Bank</option>
+                                                                    <option>NMB</option>
+                                                                    <option>CRDB</option>
+                                                                    <option>NBC</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-lg-1 col-sm-6 col-12 d-flex align-items-center">
+                                                                <div class="form-group">
+                                                                    <button type="button" class="btn btn-danger btn-sm remove-account">&times;</button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div> -->
+                                                    <button type="button" class="btn btn-success btn-sm mt-2" id="add-account">+ Add Account</button>
+                                                </div>
                                             </div>
-                                            <div class="col-lg-12">
-                                                <button type="submit" name="addSupplierBTN" class="btn btn-submit me-2">Submit</button>
-                                                <button type="reset" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                                            </div>
-                                        </form>
+
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                                <div class="modal-footer">
+                                    <button type="submit" name="addSupplierBTN" class="btn btn-submit me-2">Submit</button>
+                                    <button type="reset" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -625,6 +660,52 @@ if (isset($_POST['addSupplierBTN'])) {
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                 .join(' ');
         }
+
+        // Add Account
+        document.addEventListener("DOMContentLoaded", function() {
+            const wrapper = document.getElementById("accounts-wrapper");
+            const addBtn = document.getElementById("add-account");
+
+            addBtn.addEventListener("click", function() {
+                const newRow = document.createElement("div");
+                newRow.classList.add("row", "account-row", "mb-2");
+                newRow.innerHTML = `
+            <div class="col-lg-4 col-sm-6 col-12">
+                <input type="text" name="supplier_account_holder[]" class="form-control"
+                       placeholder="Account Holder Name" required
+                       oninput="capitalizeFirstLetter(this)">
+            </div>
+            <div class="col-lg-4 col-sm-6 col-12">
+                <input type="text" name="supplier_account_number[]" class="form-control"
+                       placeholder="Account Number" required>
+            </div>
+            <div class="col-lg-3 col-sm-6 col-12">
+                <select name="supplier_bank_name[]" class="form-control" required>
+                    <option value="" selected disabled>Choose Bank</option>
+                    <option>NMB</option>
+                    <option>CRDB</option>
+                    <option>NBC</option>
+                </select>
+            </div>
+            <div class="col-lg-1 col-sm-6 col-12 d-flex align-items-center">
+                <button type="button" class="btn btn-danger btn-sm remove-account">&times;</button>
+            </div>
+        `;
+                wrapper.appendChild(newRow);
+
+                // Attach remove button event
+                newRow.querySelector(".remove-account").addEventListener("click", function() {
+                    newRow.remove();
+                });
+            });
+
+            // Attach to initial row
+            document.querySelectorAll(".remove-account").forEach(function(btn) {
+                btn.addEventListener("click", function() {
+                    btn.closest(".account-row").remove();
+                });
+            });
+        });
 
         // Update address function
         function updateAddress() {
@@ -675,7 +756,7 @@ if (isset($_POST['addSupplierBTN'])) {
                 return 'Supplier name or shop can\'t be empty';
             }
 
-            if (name === 'supplier_bank' && value === '') {
+            if (name === 'supplier_bank_name' && value === '') {
                 return 'Please select a bank.';
             }
 
@@ -699,18 +780,21 @@ if (isset($_POST['addSupplierBTN'])) {
         });
 
         // Function to confirm supplier deletion 
-        function confirmDelete(supplierId) {
+        function toggleSupplierStatus(supplierId, isActive) {
             Swal.fire({
+                icon: 'warning',
                 title: 'Are you sure?',
-                text: "This action cannot be undone.",
+                text: isActive ? "Activate this supplier?" : "Deactivate this supplier?",
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete!',
+                confirmButtonText: 'Yes!',
                 cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    window.location.href = 'deletesupplier.php?id=' + supplierId;
+                    window.location.href = 'supplier_status.php?id=' + supplierId;
+                } else {
+                    document.getElementById("supplier" + supplierId).checked = !isActive;
                 }
             });
         }
@@ -720,10 +804,37 @@ if (isset($_POST['addSupplierBTN'])) {
             const urlParams = new URLSearchParams(window.location.search);
             const status = urlParams.get('status');
 
-            if (status === 'success') {
+            if (status === 'deactivated') {
                 Swal.fire({
-                    title: 'Deleted!',
-                    text: 'Supplier has been deleted successfully.',
+                    icon: 'success',
+                    title: 'Deactivated!',
+                    text: 'Supplier has been deactivated successfully.',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('status');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                });
+            }
+            if (status === 'activated') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Activated!',
+                    text: 'Supplier has been activated successfully.',
+                    timer: 3000,
+                    showConfirmButton: true
+                }).then(() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('status');
+                    window.history.replaceState({}, document.title, url.pathname + url.search);
+                });
+            }
+            if (status === 'notfound') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'Supplier not found.',
                     timer: 3000,
                     showConfirmButton: true
                 }).then(() => {
@@ -734,8 +845,9 @@ if (isset($_POST['addSupplierBTN'])) {
             }
             if (status === 'error') {
                 Swal.fire({
+                    icon: 'error',
                     title: 'Error!',
-                    text: 'Failed to delete the supplier.',
+                    text: 'Action failed.',
                     timer: 3000,
                     showConfirmButton: true
                 }).then(() => {

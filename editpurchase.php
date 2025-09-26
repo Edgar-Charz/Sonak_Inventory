@@ -29,7 +29,14 @@ if (empty($purchaseNumber)) {
 }
 
 // Fetch purchase details
-$purchase_stmt = $conn->prepare("SELECT * FROM purchases WHERE purchaseNumber = ?");
+$purchase_stmt = $conn->prepare("SELECT purchases.*, 
+                                            bank_accounts.bankAccountBankName AS bankName, 
+                                            bank_accounts.bankAccountNumber, 
+                                            bank_accounts.bankAccountHolderName AS accountHolderName
+                                        FROM purchases 
+                                        LEFT JOIN bank_accounts 
+                                        ON purchases.purchaseSupplierAccountNumber = bank_accounts.bankAccountNumber 
+                                        WHERE purchases.purchaseNumber = ?");
 $purchase_stmt->bind_param("s", $purchaseNumber);
 $purchase_stmt->execute();
 $purchase_result = $purchase_stmt->get_result();
@@ -53,7 +60,7 @@ if ($purchase_result->num_rows == 0) {
 $purchase = $purchase_result->fetch_assoc();
 
 // Fetch purchase details (products)
-$details_stmt = $conn->prepare("SELECT * FROM purchase_details WHERE purchaseNumber = ?");
+$details_stmt = $conn->prepare("SELECT * FROM purchase_details WHERE purchaseDetailPurchaseNumber = ?");
 $details_stmt->bind_param("s", $purchaseNumber);
 $details_stmt->execute();
 $details_result = $details_stmt->get_result();
@@ -64,37 +71,39 @@ while ($row = $details_result->fetch_assoc()) {
 
 // Handle form submission for updating purchase
 if (isset($_POST['updatePurchaseBTN'])) {
-    
+
     $conn->begin_transaction();
     try {
         $supplierId     = $_POST['supplier_name'];
         $purchaseDate   = DateTime::createFromFormat('d-m-Y', $_POST['purchase_date'])->format('Y-m-d');
-        $totalProducts  = $_POST['total_products'];
-        $totalAmount    = $_POST['total_amount'];
-        $purchaseStatus = $_POST['purchase_status'];
         $purchaseNumber = $_POST['purchase_number'];
-
-        $agentId        = $_POST['agent_name'] ?? null;
-        $trackingNo     = $_POST['tracking_number'] ?? null;
-        $transportCost  = $_POST['agent_transport_cost'] ?? null;
-
-        $dateToAgent    = !empty($_POST['agent_abroad_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_abroad_date'])->format('Y-m-d') : null;
-        $dateReceivedTZ = !empty($_POST['agent_tanzania_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['agent_tanzania_date'])->format('Y-m-d') : null;
-        $dateAtSonak    = !empty($_POST['at_sonak_date']) ? DateTime::createFromFormat('d-m-Y', $_POST['at_sonak_date'])->format('Y-m-d') : null;
+        $bankAccountNumber = $_POST['bank_account_number'] ?? null;
 
         $updatedBy = $user_id;
 
+        // Validate bank account number
+        if ($bankAccountNumber) {
+            $validate_bank_stmt = $conn->prepare("SELECT bankAccountNumber FROM bank_accounts WHERE bankAccountNumber = ? AND bankAccountSupplierId = ?");
+            $validate_bank_stmt->bind_param("ss", $bankAccountNumber, $supplierId);
+            $validate_bank_stmt->execute();
+            $validate_bank_result = $validate_bank_stmt->get_result();
+            if ($validate_bank_result->num_rows == 0) {
+                throw new Exception("Invalid bank account number for the selected supplier.");
+            }
+            $validate_bank_stmt->close();
+        }
+
         // Update purchase
         $update_purchase_stmt = $conn->prepare(
-            "UPDATE purchases SET supplierId = ?, purchaseDate = ?, totalProducts = ?, totalAmount = ?, updatedBy = ?, updated_at = ? 
+            "UPDATE purchases SET purchaseSupplierId = ?, purchaseSupplierAccountNumber = ?, purchaseDate = ?, purchaseUpdatedBy = ?, updated_at = ? 
             WHERE purchaseNumber = ?"
         );
-        $update_purchase_stmt->bind_param("sssssss", $supplierId, $purchaseDate, $totalProducts, $totalAmount, $updatedBy, $current_time, $purchaseNumber);
+        $update_purchase_stmt->bind_param("ssssss", $supplierId, $bankAccountNumber, $purchaseDate, $updatedBy, $current_time, $purchaseNumber);
         $update_purchase_stmt->execute();
         $update_purchase_stmt->close();
 
         // Delete existing purchase details
-        $delete_details_stmt = $conn->prepare("DELETE FROM purchase_details WHERE purchaseNumber = ?");
+        $delete_details_stmt = $conn->prepare("DELETE FROM purchase_details WHERE purchaseDetailPurchaseNumber = ?");
         $delete_details_stmt->bind_param("s", $purchaseNumber);
         $delete_details_stmt->execute();
         $delete_details_stmt->close();
@@ -106,22 +115,20 @@ if (isset($_POST['updatePurchaseBTN'])) {
             $unitCost    = $product['unit_cost'];
             $rate        = $product['rate'];
             $totalCost   = $product['total_cost'];
-            $productSize = $product['size'] ?? null;
-
+            
             $insert_details_stmt = $conn->prepare("INSERT INTO purchase_details(
-                purchaseNumber, productId, agentId, trackingNumber, productSize,
-                quantity, unitCost, rate, totalCost,
+                purchaseDetailPurchaseNumber, purchaseDetailProductId, purchaseDetailAgentId, purchaseDetailTrackingNumber,
+                purchaseDetailQuantity, purchaseDetailUnitCost, purchaseDetailRate, purchaseDetailTotalCost,
                 agentTransportationCost, dateToAgentAbroadWarehouse,
                 dateReceivedByAgentInCountryWarehouse, dateReceivedByCompany,
                 created_at, updated_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $insert_details_stmt->bind_param(
-                "siissidddssssss",
+                "siisidddssssss",
                 $purchaseNumber,
                 $productId,
                 $agentId,
                 $trackingNo,
-                $productSize,
                 $quantity,
                 $unitCost,
                 $rate,
@@ -142,10 +149,9 @@ if (isset($_POST['updatePurchaseBTN'])) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
+                    icon: 'success',
                     title: 'Success!',
-                    text: 'Purchase updated successfully!',
-                    timer: 5000,
-                    timerProgressBar: true
+                    text: 'Purchase updated successfully!'
                 }).then(function(){
                     window.location.href = 'purchaselist.php';
                 });
@@ -156,10 +162,9 @@ if (isset($_POST['updatePurchaseBTN'])) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
-                    title: 'Error!',
-                    text: 'Transaction failed: " . $conn->error . "',
                     icon: 'error',
-                    timer: 5000
+                    title: 'Error!',
+                    text: 'Transaction failed: " . addslashes($e->getMessage()) . "'
                 }).then(function(){
                     window.location.href = 'editpurchase.php?purchaseNumber=$purchaseNumber';
                 });
@@ -281,7 +286,7 @@ if (isset($_POST['updatePurchaseBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -307,12 +312,12 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                 <li><a href="userlist.php">User List</a></li>
                             </ul>
                         </li>
-                        <li class="submenu">
+                        <li class="submenu"> 
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -381,8 +386,14 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                     </div>
                                     <div class="col-lg-4 col-sm-6 col-12">
                                         <div class="form-group">
+                                            <label>Purchase Date</label>
+                                            <input type="text" name="purchase_date" class="form-control datetimepicker" value="<?= date('d-m-Y', strtotime($purchase['purchaseDate'])); ?>" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4 col-sm-6 col-12">
+                                        <div class="form-group">
                                             <label>Supplier Name</label>
-                                            <select class="form-control" name="supplier_name" required>
+                                            <select class="form-control" name="supplier_name" id="supplier_name" required>
                                                 <option value="" disabled>Select Supplier</option>
                                                 <?php
                                                 $suppliers_query = $conn->query("SELECT * FROM suppliers");
@@ -396,53 +407,29 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                     </div>
                                     <div class="col-lg-4 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Purchase Date</label>
-                                            <input type="text" name="purchase_date" class="form-control datetimepicker" value="<?= date('d-m-Y', strtotime($purchase['purchaseDate'])); ?>" required>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Agent</label>
-                                            <select class="form-control" name="agent_name">
-                                                <option value="" disabled>Select Agent</option>
-                                                <?php
-                                                $agents_query = $conn->query("SELECT * FROM agents");
-                                                while ($a = $agents_query->fetch_assoc()) {
-                                                    $selected = $a['agentId'] == $products[0]['agentId'] ? 'selected' : '';
-                                                    echo '<option value="' . $a['agentId'] . '" ' . $selected . '>' . $a['agentName'] . '</option>';
-                                                }
-                                                ?>
+                                            <label>Bank Name</label>
+                                            <select class="form-control" name="bank_name" id="bank_name" disabled>
+                                                <option value="<?= ($purchase['bankName'] ?? '') ?>" selected>
+                                                    <?= ($purchase['bankName'] ?? ($purchase['supplierId'] ? 'Choose Bank' : 'No supplier selected')) ?>
+                                                </option>
                                             </select>
                                         </div>
                                     </div>
                                     <div class="col-lg-4 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Tracking No.</label>
-                                            <input type="text" name="tracking_number" class="form-control" value="<?= ($products[0]['trackingNumber'] ?? ''); ?>">
+                                            <label>Bank Account Number</label>
+                                            <select class="form-control" name="bank_account_number" id="bank_account_number" disabled>
+                                                <option value="<?= ($purchase['bankAccountNumber'] ?? '') ?>" selected>
+                                                    <?= ($purchase['bankAccountNumber'] ?? ($purchase['bankName'] ? 'Choose Account Number' : 'No bank selected')) ?>
+                                                </option>
+                                            </select>
                                         </div>
                                     </div>
                                     <div class="col-lg-4 col-sm-6 col-12">
                                         <div class="form-group">
-                                            <label>Agent Transport Cost</label>
-                                            <input type="number" name="agent_transport_cost" id="agent_transport_cost" class="form-control" value="<?= ($products[0]['agentTransportationCost'] ?? '0'); ?>">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Date to Agent Abroad</label>
-                                            <input type="text" name="agent_abroad_date" class="form-control datetimepicker" value="<?= !empty($products[0]['dateToAgentAbroadWarehouse']) ? date('d-m-Y', strtotime($products[0]['dateToAgentAbroadWarehouse'])) : ''; ?>">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Date Received in Tanzania</label>
-                                            <input type="text" name="agent_tanzania_date" class="form-control datetimepicker" value="<?= !empty($products[0]['dateReceivedByAgentInCountryWarehouse']) ? date('d-m-Y', strtotime($products[0]['dateReceivedByAgentInCountryWarehouse'])) : ''; ?>">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Date Received by Company</label>
-                                            <input type="text" name="at_sonak_date" class="form-control datetimepicker" value="<?= !empty($products[0]['dateReceivedByCompany']) ? date('d-m-Y', strtotime($products[0]['dateReceivedByCompany'])) : ''; ?>">
+                                            <label>Account Holder Name</label>
+                                            <input type="text" name="account_holder_name" id="account_holder_name" class="form-control" readonly
+                                                value="<?= ($purchase['accountHolderName'] ?? ($purchase['bankAccountNumber'] ? 'Unknown' : 'No account selected')) ?>">
                                         </div>
                                     </div>
                                 </div>
@@ -458,14 +445,14 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                     foreach ($products as $index => $product) {
                                     ?>
                                         <div class="row product-row align-items-end gy-2 mb-3">
-                                            <div class="col-lg-2 col-sm-6 col-12">
+                                            <div class="col-lg-3 col-sm-6 col-12">
                                                 <label class="form-label">Product</label>
                                                 <select name="products[<?= $index ?>][product_name]" class="form-control productSelect" required>
                                                     <option value="" disabled>Select Product</option>
                                                     <?php
                                                     $products_query = $conn->query("SELECT * FROM products");
                                                     while ($p = $products_query->fetch_assoc()) {
-                                                        $selected = $p['productId'] == $product['productId'] ? 'selected' : '';
+                                                        $selected = $p['productId'] == $product['purchaseDetailProductId'] ? 'selected' : '';
                                                         echo '<option value="' . $p['productId'] . '" ' . $selected . '>' . $p['productName'] . '</option>';
                                                     }
                                                     ?>
@@ -473,23 +460,19 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                             </div>
                                             <div class="col-lg-2 col-sm-6 col-12">
                                                 <label class="form-label">Quantity</label>
-                                                <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['quantity']); ?>" min="1" required>
-                                            </div>
-                                            <div class="col-lg-1 col-sm-6 col-12">
-                                                <label class="form-label">Size</label>
-                                                <input type="text" name="products[<?= $index ?>][size]" class="form-control size" value="<?= ($product['productSize']); ?>">
+                                                <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['purchaseDetailQuantity']); ?>" min="1" required>
                                             </div>
                                             <div class="col-lg-2 col-sm-6 col-12">
                                                 <label class="form-label">Unit Cost</label>
-                                                <input type="number" name="products[<?= $index ?>][unit_cost]" class="form-control unitCost" value="<?= ($product['unitCost']); ?>" step="0.01" required>
+                                                <input type="number" name="products[<?= $index ?>][unit_cost]" class="form-control unitCost" value="<?= ($product['purchaseDetailUnitCost']); ?>" step="0.01" required>
                                             </div>
                                             <div class="col-lg-2 col-sm-6 col-12">
                                                 <label class="form-label">Rate</label>
-                                                <input type="number" name="products[<?= $index ?>][rate]" class="form-control rate" value="<?= ($product['rate']); ?>" step="0.01" required>
+                                                <input type="number" name="products[<?= $index ?>][rate]" class="form-control rate" value="<?= ($product['purchaseDetailRate']); ?>" step="0.01" required>
                                             </div>
                                             <div class="col-lg-2 col-sm-6 col-12">
                                                 <label class="form-label">Total Cost</label>
-                                                <input type="text" name="products[<?= $index ?>][total_cost]" class="form-control totalCost" value="<?= ($product['totalCost']); ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][total_cost]" class="form-control totalCost" value="<?= ($product['purchaseDetailTotalCost']); ?>" readonly>
                                             </div>
                                             <div class="col-lg-1 col-sm-6 col-12 text-end">
                                                 <label class="form-label d-block">&nbsp;</label>
@@ -534,10 +517,10 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Total Amount</label>
-                                            <input type="text" id="totalAmount" name="total_amount" class="form-control" value="<?= ($purchase['totalAmount']); ?>" readonly>
+                                            <input type="text" id="totalAmount" name="total_amount" class="form-control" readonly>
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
+                                    <!-- <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Purchase Status</label>
                                             <select class="select" name="purchase_status" required>
@@ -547,7 +530,7 @@ if (isset($_POST['updatePurchaseBTN'])) {
                                                 <option value="2" <?= $purchase['purchaseStatus'] == 2 ? 'selected' : ''; ?>>Cancelled</option>
                                             </select>
                                         </div>
-                                    </div>
+                                    </div> -->
                                 </div>
                                 <div class="d-flex justify-content-end mt-3">
                                     <button type="button" class="btn btn-secondary me-2" id="backStep2">Back</button>
@@ -563,6 +546,216 @@ if (isset($_POST['updatePurchaseBTN'])) {
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
+            const supplierSelect = document.getElementById('supplier_name');
+            const bankSelect = document.getElementById('bank_name');
+            const accountSelect = document.getElementById('bank_account_number');
+            const holderInput = document.getElementById('account_holder_name');
+
+            // Clear downstream fields
+            function clearFields(from) {
+                if (from <= 1) {
+                    bankSelect.innerHTML = '<option value="" selected>No supplier selected</option>';
+                    bankSelect.disabled = true;
+                }
+                if (from <= 2) {
+                    accountSelect.innerHTML = '<option value="" selected>No bank selected</option>';
+                    accountSelect.disabled = true;
+                }
+                if (from <= 3) {
+                    holderInput.value = 'No account selected';
+                    holderInput.readOnly = true;
+                }
+            }
+
+            // Initialize bank details on page load
+            function initializeBankDetails() {
+                const supplierId = supplierSelect.value;
+                if (supplierId) {
+                    fetch(`get_supplier_bank_details.php?supplierId=${supplierId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.data.length > 0) {
+                                bankSelect.innerHTML = '<option value="" disabled>Choose Bank</option>';
+                                data.data.forEach(bank => {
+                                    const option = document.createElement('option');
+                                    option.value = bank;
+                                    option.textContent = bank;
+                                    if (bank === '<?= ($purchase['bankName'] ?? '') ?>') {
+                                        option.selected = true;
+                                    }
+                                    bankSelect.appendChild(option);
+                                });
+                                bankSelect.disabled = false;
+
+                                // Fetch account numbers for the selected bank
+                                const bankName = bankSelect.value;
+                                if (bankName) {
+                                    fetch(`get_supplier_bank_details.php?supplierId=${supplierId}&bankName=${encodeURIComponent(bankName)}`)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.success && data.data.length > 0) {
+                                                accountSelect.innerHTML = '<option value="" disabled>Choose Account Number</option>';
+                                                data.data.forEach(account => {
+                                                    const option = document.createElement('option');
+                                                    option.value = account.accountNumber;
+                                                    option.textContent = account.accountNumber;
+                                                    option.dataset.holder = account.holderName;
+                                                    if (account.accountNumber === '<?= ($purchase['bankAccountNumber'] ?? '') ?>') {
+                                                        option.selected = true;
+                                                    }
+                                                    accountSelect.appendChild(option);
+                                                });
+                                                accountSelect.disabled = false;
+
+                                                // Set account holder name
+                                                const selectedOption = accountSelect.options[accountSelect.selectedIndex];
+                                                if (selectedOption.value) {
+                                                    holderInput.value = selectedOption.dataset.holder || 'Unknown';
+                                                }
+                                            } else {
+                                                clearFields(2);
+                                            }
+                                        })
+                                        .catch(error => {
+                                            Swal.fire({
+                                                title: 'Error',
+                                                text: 'Failed to fetch account numbers: ' + error.message,
+                                                icon: 'error'
+                                            });
+                                        });
+                                }
+                            } else {
+                                clearFields(1);
+                            }
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Failed to fetch bank accounts: ' + error.message,
+                                icon: 'error'
+                            });
+                        });
+                }
+            }
+
+            // Call initialization on page load
+            initializeBankDetails();
+
+            // On supplier change, fetch bank names
+            supplierSelect.addEventListener('change', function() {
+                const supplierId = this.value;
+                clearFields(1);
+
+                if (supplierId) {
+                    fetch(`get_supplier_bank_details.php?supplierId=${supplierId}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.data.length > 0) {
+                                bankSelect.innerHTML = '<option value="" selected>Choose Bank</option>';
+                                data.data.forEach(bank => {
+                                    const option = document.createElement('option');
+                                    option.value = bank;
+                                    option.textContent = bank;
+                                    bankSelect.appendChild(option);
+                                });
+                                bankSelect.disabled = false;
+                            } else {
+                                Swal.fire({
+                                    title: 'No Bank Accounts',
+                                    text: data.message || 'No bank accounts found for this supplier.',
+                                    icon: 'info'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Failed to fetch bank accounts: ' + error.message,
+                                icon: 'error'
+                            });
+                        });
+                }
+            });
+
+            // On bank name change, fetch account numbers
+            bankSelect.addEventListener('change', function() {
+                const supplierId = supplierSelect.value;
+                const bankName = this.value;
+                clearFields(2);
+
+                if (bankName) {
+                    fetch(`get_supplier_bank_details.php?supplierId=${supplierId}&bankName=${encodeURIComponent(bankName)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.data.length > 0) {
+                                accountSelect.innerHTML = '<option value="" selected>Choose Account Number</option>';
+                                data.data.forEach(account => {
+                                    const option = document.createElement('option');
+                                    option.value = account.accountNumber;
+                                    option.textContent = account.accountNumber;
+                                    option.dataset.holder = account.holderName;
+                                    accountSelect.appendChild(option);
+                                });
+                                accountSelect.disabled = false;
+                            } else {
+                                Swal.fire({
+                                    title: 'No Accounts',
+                                    text: data.message || 'No accounts found for this bank.',
+                                    icon: 'info',
+                                    timer: 3000,
+                                    timerProgressBar: true
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Failed to fetch account numbers: ' + error.message,
+                                icon: 'error'
+                            });
+                        });
+                }
+            });
+
+            // On account number change, update holder name
+            accountSelect.addEventListener('change', function() {
+                clearFields(3);
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    holderInput.value = selectedOption.dataset.holder || 'Unknown';
+                }
+            });
+
+            // Step 1 validation on Next
+            document.getElementById('goStep2').addEventListener('click', function(e) {
+                let valid = true;
+                let errorMsg = "";
+                const requiredFields = [
+                    'purchase_number',
+                    'supplier_name',
+                    'purchase_date',
+                    'bank_name',
+                    'bank_account_number',
+                    'account_holder_name'
+                ];
+                requiredFields.forEach(function(name) {
+                    const field = document.getElementsByName(name)[0];
+                    if (field && (field.value === '' || field.value === null || field.value === 'No supplier selected' || field.value === 'No bank selected' || field.value === 'No account selected' || field.value === 'Choose Bank' || field.value === 'Choose Account Number')) {
+                        valid = false;
+                        errorMsg += `Please fill the ${name.replace('_', ' ')} field.<br>`;
+                    }
+                });
+                if (!valid) {
+                    Swal.fire({
+                        title: 'Error!',
+                        html: errorMsg,
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+                showStep(2);
+            });
+
             // Step navigation functions
             function showStep(stepNumber) {
                 document.getElementById('step1').style.display = 'none';
@@ -600,19 +793,17 @@ if (isset($_POST['updatePurchaseBTN'])) {
                 document.querySelectorAll(".product-row").forEach(row => {
                     const productName = row.querySelector(".productSelect").options[row.querySelector(".productSelect").selectedIndex].text;
                     const quantity = row.querySelector(".quantity").value;
-                    const size = row.querySelector(".size").value;
                     const unitCost = parseFloat(row.querySelector(".unitCost").value).toFixed(2);
                     const rate = parseFloat(row.querySelector(".rate").value).toFixed(2);
                     const totalCost = parseFloat(row.querySelector(".totalCost").value).toFixed(2);
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
-                        <td>${productName}</td>
-                        <td>${quantity}</td>
-                        <td>${size}</td>
-                        <td>${unitCost}</td>
-                        <td>${rate}</td>
-                        <td>${totalCost}</td>
-                    `;
+                <td>${productName}</td>
+                <td>${quantity}</td>
+                <td>${unitCost}</td>
+                <td>${rate}</td>
+                <td>${totalCost}</td>
+            `;
                     tableBody.appendChild(tr);
                 });
                 showStep(3);
@@ -630,43 +821,39 @@ if (isset($_POST['updatePurchaseBTN'])) {
                 let row = document.createElement("div");
                 row.classList.add("row", "product-row", "align-items-end", "gy-2", "mb-3");
                 row.innerHTML = `
-                    <div class="col-lg-2 col-sm-6 col-12">
-                        <label class="form-label">Product</label>
-                        <select name="products[${index}][product_name]" class="form-control productSelect" required>
-                            <option value="" disabled selected>Select Product</option>
-                            <?php
-                            $products_query = $conn->query("SELECT * FROM products");
-                            while ($p = $products_query->fetch_assoc()) {
-                                echo '<option value="' . $p['productId'] . '">' . $p['productName'] . '</option>';
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div class="col-lg-2 col-sm-6 col-12">
-                        <label class="form-label">Quantity</label>
-                        <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="1" min="1">
-                    </div>
-                    <div class="col-lg-1 col-sm-6 col-12">
-                        <label class="form-label">Size</label>
-                        <input type="text" name="products[${index}][size]" class="form-control size">
-                    </div>
-                    <div class="col-lg-2 col-sm-6 col-12">
-                        <label class="form-label">Unit Cost</label>
-                        <input type="number" name="products[${index}][unit_cost]" class="form-control unitCost" value="0" step="0.01">
-                    </div>
-                    <div class="col-lg-2 col-sm-6 col-12">
-                        <label class="form-label">Rate</label>
-                        <input type="number" name="products[${index}][rate]" class="form-control rate" value="1" step="0.01">
-                    </div>
-                    <div class="col-lg-2 col-sm-6 col-12">
-                        <label class="form-label">Total Cost</label>
-                        <input type="text" name="products[${index}][total_cost]" class="form-control totalCost" readonly>
-                    </div>
-                    <div class="col-lg-1 col-sm-6 col-12 text-end">
-                        <label class="form-label d-block">&nbsp;</label>
-                        <button type="button" class="btn btn-danger removeProduct">X</button>
-                    </div>
-                `;
+            <div class="col-lg-2 col-sm-6 col-12">
+                <label class="form-label">Product</label>
+                <select name="products[${index}][product_name]" class="form-control productSelect" required>
+                    <option value="" disabled selected>Select Product</option>
+                    <?php
+                    $products_query = $conn->query("SELECT * FROM products");
+                    while ($p = $products_query->fetch_assoc()) {
+                        echo '<option value="' . $p['productId'] . '">' . $p['productName'] . '</option>';
+                    }
+                    ?>
+                </select>
+            </div>
+            <div class="col-lg-2 col-sm-6 col-12">
+                <label class="form-label">Quantity</label>
+                <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="1" min="1">
+            </div>
+            <div class="col-lg-2 col-sm-6 col-12">
+                <label class="form-label">Unit Cost</label>
+                <input type="number" name="products[${index}][unit_cost]" class="form-control unitCost" value="0" step="0.01">
+            </div>
+            <div class="col-lg-2 col-sm-6 col-12">
+                <label class="form-label">Rate</label>
+                <input type="number" name="products[${index}][rate]" class="form-control rate" value="1" step="0.01">
+            </div>
+            <div class="col-lg-2 col-sm-6 col-12">
+                <label class="form-label">Total Cost</label>
+                <input type="text" name="products[${index}][total_cost]" class="form-control totalCost" readonly>
+            </div>
+            <div class="col-lg-1 col-sm-6 col-12 text-end">
+                <label class="form-label d-block">&nbsp;</label>
+                <button type="button" class="btn btn-danger removeProduct">X</button>
+            </div>
+        `;
 
                 productsContainer.appendChild(row);
                 ["quantity", "unitCost", "rate"].forEach(cls => {

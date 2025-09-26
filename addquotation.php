@@ -18,31 +18,31 @@ if (isset($_POST['addQuotationBTN'])) {
         $referenceNumber    = $_POST['reference_number'];
         $customerId         = $_POST['customer_name'];
         $quotationDate      = DateTime::createFromFormat('d-m-Y', $_POST['quotation_date'])->format('Y-m-d');
-        $subTotal           = $_POST['sub_total'];
+        $subTotal           = str_replace(',', '', $_POST['sub_total']);
         $vat                = $_POST['vat'];
-        $vatAmount          = $_POST['vat_amount'];
+        $vatAmount          = str_replace(',', '', $_POST['vat_amount']);
         $discount           = $_POST['discount'];
-        $discountAmount     = $_POST['discount_amount'];
-        $shippingAmount     = $_POST['shipping_amount'];
-        $grandTotal         = $_POST['total_amount'];
+        $discountAmount     = str_replace(',', '', $_POST['discount_amount']);
+        $shippingAmount     = str_replace(',', '', $_POST['shipping_amount']);
+        $grandTotal         = str_replace(',', '', $_POST['total_amount']);
         $note               = $_POST['note'];
         $totalProducts      = $_POST['total_products'];
         $products           = $_POST['products'];
 
         // Check if reference number exists
-        $check = $conn->prepare("SELECT totalAmount, totalProducts FROM quotations WHERE referenceNumber = ?");
+        $check = $conn->prepare("SELECT quotationTotalAmount, quotationTotalProducts FROM quotations WHERE quotationReferenceNumber = ?");
         $check->bind_param("s", $referenceNumber);
         $check->execute();
         $result = $check->get_result();
 
         if ($result->num_rows > 0) {
             $row = $result->fetch_assoc();
-            $newTotal = $row['totalAmount'] + $grandTotal;
-            $newTotalProducts = $row['totalProducts'] + $totalProducts;
+            $newTotal = $row['quotationTotalAmount'] + $grandTotal;
+            $newTotalProducts = $row['quotationTotalProducts'] + $totalProducts;
 
             $update = $conn->prepare("UPDATE quotations
-                SET customerId = ?, updatedBy = ?, totalProducts = ?, subTotal = subTotal + ?, taxPercentage = ?, taxAmount = taxAmount + ?, discountPercentage = ?, discountAmount = discountAmount + ?, shippingAmount = ?, totalAmount = ?, note = ?, updated_at = ?
-                WHERE referenceNumber = ?");
+                SET quotationCustomerId = ?, quotationUpdatedBy = ?, quotationTotalProducts = ?, quotationSubTotal = quotationSubTotal + ?, quotationTaxPercentage = ?, quotationTaxAmount = quotationTaxAmount + ?, quotationDiscountPercentage = ?, quotationDiscountAmount = quotationDiscountAmount + ?, quotationShippingAmount = ?, quotationTotalAmount = ?, quotationDescription = ?, updated_at = ?
+                WHERE quotationReferenceNumber = ?");
             $update->bind_param(
                 "iiidididddsss",
                 $customerId,
@@ -63,7 +63,7 @@ if (isset($_POST['addQuotationBTN'])) {
             $update->close();
         } else {
             $insertQuotation = $conn->prepare("INSERT INTO quotations 
-                (referenceNumber, customerId, createdBy, updatedBy, quotationDate, totalProducts, subTotal, taxPercentage, taxAmount, discountPercentage, discountAmount, shippingAmount, totalAmount, note, created_at, updated_at) 
+                (quotationReferenceNumber, quotationCustomerId, quotationCreatedBy, quotationUpdatedBy, quotationDate, quotationTotalProducts, quotationSubTotal, quotationTaxPercentage, quotationTaxAmount, quotationDiscountPercentage, quotationDiscountAmount, quotationShippingAmount, quotationTotalAmount, quotationDescription, created_at, updated_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $insertQuotation->bind_param(
                 "siiisidididddsss",
@@ -93,31 +93,31 @@ if (isset($_POST['addQuotationBTN'])) {
         // Insert/Update quotation details
         foreach ($products as $p) {
             $productId   = $p['product_id'];
-            $unitPrice   = $p['unit_cost'];
-            $quantity    = $p['quantity'];
-            $totalCost   = $p['total_cost'];
+            $unitPrice   = str_replace(',', '', $p['unit_cost']);
+            $quantity    = str_replace(',', '', $p['quantity']);
+            $totalCost   = str_replace(',', '', $p['total_cost']);
 
-            $checkDetail = $conn->prepare("SELECT quotationDetailsId, quantity, subTotal 
+            $checkDetail = $conn->prepare("SELECT quotationDetailUId, quotationDetailQuantity, quotationDetailSubTotal 
                 FROM quotation_details 
-                WHERE referenceNumber = ? AND productId = ?");
+                WHERE quotationDetailReferenceNumber = ? AND quotationDetailProductId = ?");
             $checkDetail->bind_param("si", $referenceNumber, $productId);
             $checkDetail->execute();
             $result = $checkDetail->get_result();
 
             if ($result->num_rows > 0) {
                 $row = $result->fetch_assoc();
-                $newQuantity = $row['quantity'] + $quantity;
-                $newTotal    = $row['subTotal'] + $totalCost;
+                $newQuantity = $row['quotationDetailQuantity'] + $quantity;
+                $newTotal    = $row['quotationDetailSubTotal'] + $totalCost;
 
                 $updateDetail = $conn->prepare("UPDATE quotation_details 
-                    SET quantity = ?, subTotal = ?, updated_at = ? 
-                    WHERE quotationDetailsId = ?");
-                $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['quotationDetailsId']);
+                    SET quotationDetailQuantity = ?, quotationDetailSubTotal = ?, updated_at = ? 
+                    WHERE quotationDetailUId = ?");
+                $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['quotationDetailUId']);
                 $updateDetail->execute();
                 $updateDetail->close();
             } else {
                 $insertDetail = $conn->prepare("INSERT INTO quotation_details 
-                    (referenceNumber, productId, quantity, unitPrice, subTotal, created_at, updated_at) 
+                    (quotationDetailReferenceNumber, quotationDetailProductId, quotationDetailQuantity, quotationDetailUnitPrice, quotationDetailSubTotal, created_at, updated_at) 
                     VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $insertDetail->bind_param("siiddss", $referenceNumber, $productId, $quantity, $unitPrice, $totalCost, $current_time, $current_time);
                 $insertDetail->execute();
@@ -132,11 +132,12 @@ if (isset($_POST['addQuotationBTN'])) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
+                    icon: 'success',
                     title: 'Success',
                     text: 'Quotation saved successfully',
                     timer: 5000
                 }).then(function() {
-                    window.location.href = 'addquotation.php';
+                    window.location.href = 'quotationList.php';
                 });
             });
         </script>";
@@ -145,8 +146,9 @@ if (isset($_POST['addQuotationBTN'])) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
+                    icon: 'error',
                     title: 'Error',
-                    text: 'Transaction failed: " . $conn->error . "',
+                    text: 'Transaction failed: " . $e->getMessage() . "',
                     icon: 'error',
                     timer: 5000
                 });
@@ -157,17 +159,17 @@ if (isset($_POST['addQuotationBTN'])) {
 
 function generateReferenceNumber($conn)
 {
-    $query = "SELECT referenceNumber 
+    $query = "SELECT quotationReferenceNumber 
                 FROM quotations
-                WHERE referenceNumber 
+                WHERE quotationReferenceNumber 
                 LIKE 'SNK-RF%' 
-                ORDER BY referenceNumber
+                ORDER BY quotationReferenceNumber
                 DESC LIMIT 1";
     $result = $conn->query($query);
 
     if ($result && $result->num_rows > 0) {
         $row = $result->fetch_assoc();
-        $lastNumber = intval(substr($row['referenceNumber'], 6));
+        $lastNumber = intval(substr($row['quotationReferenceNumber'], 6));
         $nextNumber = $lastNumber + 1;
     } else {
         $nextNumber = 1;
@@ -301,7 +303,7 @@ function generateReferenceNumber($conn)
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -330,9 +332,9 @@ function generateReferenceNumber($conn)
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -411,7 +413,7 @@ function generateReferenceNumber($conn)
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Reference Number</label>
-                                            <input type="text" name="reference_number" class="form-control" value="<?= generateReferenceNumber($conn); ?>" required>
+                                            <input type="text" name="reference_number" class="form-control" value="<?= generateReferenceNumber($conn); ?>" required readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-6 col-sm-6 col-12">
@@ -449,7 +451,7 @@ function generateReferenceNumber($conn)
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Shipping Amount</label>
-                                            <input type="number" name="shipping_amount" id="shippingAmount" class="form-control" value="0">
+                                            <input type="text" name="shipping_amount" id="shippingAmount" class="form-control" value="0">
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
@@ -559,7 +561,7 @@ function generateReferenceNumber($conn)
                 });
                 if (!valid) {
                     Swal.fire({
-                        title: 'Validation Error!',
+                        title: 'Error!',
                         html: errorMsg,
                         confirmButtonText: 'OK'
                     });
@@ -595,9 +597,9 @@ function generateReferenceNumber($conn)
                         }
                     });
                 }
-                if (!valid) {
+                if (!valid) { 
                     Swal.fire({
-                        title: 'Validation Error!',
+                        title: 'Error!',
                         html: errorMsg,
                         confirmButtonText: 'OK'
                     });
@@ -605,15 +607,19 @@ function generateReferenceNumber($conn)
                 }
                 // First, update Totals
                 calculateSummary();
+
                 // Populate summary table
                 const summaryBody = document.querySelector("#orderSummaryTable tbody");
                 summaryBody.innerHTML = ""; // Clear previous rows
+
                 document.querySelectorAll(".product-row").forEach(row => {
                     let productSelect = row.querySelector(".productSelect");
                     let productName = productSelect.options[productSelect.selectedIndex]?.text || "N/A";
+
                     let qty = parseFloat(row.querySelector(".quantity").value) || 0;
                     let unitCost = parseFloat(row.querySelector(".unitCost").value) || 0;
                     let total = parseFloat(row.querySelector(".totalCost").value) || 0;
+
                     let tr = document.createElement("tr");
                     tr.innerHTML = `
                                 <td>${productName}</td>
@@ -625,6 +631,7 @@ function generateReferenceNumber($conn)
                 });
                 showStep(3);
             });
+
             // Step navigation functions
             function showStep(stepNumber) {
                 document.getElementById('step1').style.display = 'none';
@@ -653,6 +660,15 @@ function generateReferenceNumber($conn)
                 }
             }
 
+            // Function to format numbers
+            function numberFormatter(number, decimals = 0) {
+                if (!number || isNaN(number)) return (0).toFixed(decimals);
+                return parseFloat(number).toLocaleString("en-US", {
+                    minimumFractionDigits: decimals,
+                    maximumFractionDigits: decimals
+                });
+            }
+
             // Step navigation event listeners
             document.getElementById('goStep2').addEventListener('click', function() {
                 showStep(2);
@@ -671,18 +687,18 @@ function generateReferenceNumber($conn)
                 document.querySelectorAll(".product-row").forEach(row => {
                     let productSelect = row.querySelector(".productSelect");
                     let productName = productSelect.options[productSelect.selectedIndex]?.text || "N/A";
-                    let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                    let unitCost = parseFloat(row.querySelector(".unitCost").value) || 0;
-                    let total = parseFloat(row.querySelector(".totalCost").value) || 0;
 
-                    // Append row to summary table
+                    let qty = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
+                    let unitCost = parseFloat(row.querySelector(".unitCost").value.replace(/,/g, '')) || 0;
+                    let total = parseFloat(row.querySelector(".totalCost").value.replace(/,/g, '')) || 0;
+
                     let tr = document.createElement("tr");
                     tr.innerHTML = `
-                                <td>${productName}</td>
-                                <td>${qty}</td>
-                                <td>${unitCost.toFixed(2)}</td>
-                                <td>${total.toFixed(2)}</td>
-                            `;
+                                    <td>${productName}</td>
+                                    <td>${numberFormatter(qty, 0)}</td>
+                                    <td>${numberFormatter(unitCost, 2)}</td>
+                                    <td>${numberFormatter(total, 2)}</td>
+                                `;
                     summaryBody.appendChild(tr);
                 });
                 showStep(3);
@@ -693,6 +709,7 @@ function generateReferenceNumber($conn)
 
             // Products row container
             const productsContainer = document.getElementById("productsContainer");
+
 
             // Add product row
             document.getElementById("addProductRow").onclick = function() {
@@ -709,8 +726,8 @@ function generateReferenceNumber($conn)
                             $products_query = $conn->query("SELECT * FROM products");
                             while ($p = $products_query->fetch_assoc()) {
                                 echo '<option value="' . $p['productId'] . '" 
-                                    data-price="' . $p['sellingPrice'] . '"
-                                    data-quantity="' . $p['quantity'] . '">'
+                                    data-price="' . $p['productSellingPrice'] . '"
+                                    data-quantity="' . $p['productQuantity'] . '">'
                                     . $p['productName'] . '</option>';
                             }
                             ?>
@@ -741,26 +758,23 @@ function generateReferenceNumber($conn)
 
                 // Attach events
                 row.querySelector(".productSelect").addEventListener("change", function() {
-                    let price = this.options[this.selectedIndex].getAttribute("data-price");
-                    let available = this.options[this.selectedIndex].getAttribute("data-quantity");
+                    let price = parseFloat(this.options[this.selectedIndex].getAttribute("data-price")) || 0;
+                    let available = parseFloat(this.options[this.selectedIndex].getAttribute("data-quantity")) || 0;
 
-                    row.querySelector(".unitCost").value = price;
-                    row.querySelector(".availableQuantity").value = available;
+                    row.querySelector(".unitCost").value = numberFormatter(price, 2);
+                    row.querySelector(".availableQuantity").value = numberFormatter(available, 0);
 
                     updateRowTotal(row);
                 });
 
                 row.querySelector(".quantity").addEventListener("input", function() {
-
-                    // Update available quantity in real time
                     let enteredQty = parseFloat(this.value) || 0;
                     let originalAvailable = parseFloat(row.querySelector(".productSelect")
                         .options[row.querySelector(".productSelect").selectedIndex]
                         .getAttribute("data-quantity")) || 0;
 
-                    // Block user from entering more than available
                     if (enteredQty > originalAvailable) {
-                        this.value = originalAvailable; // reset to max available
+                        this.value = originalAvailable;
                         enteredQty = originalAvailable;
                         Swal.fire({
                             title: 'Warning',
@@ -769,9 +783,8 @@ function generateReferenceNumber($conn)
                         });
                     }
 
-                    // Update available quantity
                     let remaining = originalAvailable - enteredQty;
-                    row.querySelector(".availableQuantity").value = remaining;
+                    row.querySelector(".availableQuantity").value = numberFormatter(remaining, 0);
 
                     updateRowTotal(row);
                 });
@@ -782,14 +795,16 @@ function generateReferenceNumber($conn)
                 };
             };
 
+            // Update row total
             function updateRowTotal(row) {
                 let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                let price = parseFloat(row.querySelector(".unitCost").value) || 0;
+                let price = parseFloat(row.querySelector(".unitCost").value.replace(/,/g, '')) || 0;
                 let total = qty * price;
-                row.querySelector(".totalCost").value = total.toFixed(2);
+                row.querySelector(".totalCost").value = numberFormatter(total, 2);
                 calculateSummary();
             }
 
+            // Calculate summary
             function calculateSummary() {
                 let subTotal = 0;
                 let totalProducts = 0;
@@ -797,39 +812,72 @@ function generateReferenceNumber($conn)
                 // Calculate subtotal & total products
                 document.querySelectorAll(".product-row").forEach(row => {
                     let qty = parseFloat(row.querySelector(".quantity").value) || 0;
-                    let cost = parseFloat(row.querySelector(".totalCost").value) || 0;
+                    let cost = parseFloat(row.querySelector(".totalCost").value.replace(/,/g, '')) || 0;
                     subTotal += cost;
                     totalProducts += qty;
                 });
 
                 // Add Shipping Amount
-                let shippingAmount = parseFloat(document.getElementById("shippingAmount").value) || 0;
-                subTotal += shippingAmount;
+                let shippingAmount = parseFloat(document.getElementById("shippingAmount").value.replace(/,/g, '')) || 0;
+                subTotal += shippingAmount; // use raw number for calculation
 
-                document.getElementById("subTotal").value = subTotal.toFixed(2);
+
+                // Sub totals
+                document.getElementById("subTotal").value = numberFormatter(subTotal, 2);
                 document.getElementById("totalProducts").value = totalProducts;
 
                 // VAT
                 let vatPercent = parseFloat(document.getElementById("vat").value) || 0;
                 let vatAmount = subTotal * vatPercent / 100;
-                document.getElementById("vatAmount").value = vatAmount.toFixed(2);
+                document.getElementById("vatAmount").value = numberFormatter(vatAmount, 2);
 
                 // Discount
                 let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
                 let discountAmount = subTotal * discountPercent / 100;
-                document.getElementById("discountAmount").value = discountAmount.toFixed(2);
-
+                document.getElementById("discountAmount").value = numberFormatter(discountAmount, 2);
 
                 // Grand Total = Subtotal - Discount + VAT
                 let grandTotal = subTotal - discountAmount + vatAmount;
-                document.getElementById("grandTotal").value = grandTotal.toFixed(2);
-
+                document.getElementById("grandTotal").value = numberFormatter(grandTotal, 2);
             }
 
             // Event listeners
             document.getElementById("vat").addEventListener("input", calculateSummary);
             document.getElementById("discount").addEventListener("input", calculateSummary);
-            document.getElementById("shippingAmount").addEventListener("input", calculateSummary);
+            // document.getElementById("shippingAmount").addEventListener("input", calculateSummary);
+
+            function debounce(fn, delay) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => fn.apply(this, args), delay);
+                };
+            }
+
+            const shippingInput = document.getElementById("shippingAmount");
+
+            // Allow only numbers and dot while typing
+            shippingInput.addEventListener("input", () => {
+                shippingInput.value = shippingInput.value.replace(/[^0-9.]/g, '');
+            });
+
+            // Format after typing pause and update totals
+            shippingInput.addEventListener("input", debounce(() => {
+                const raw = shippingInput.value.replace(/,/g, '');
+                const shippingAmount = parseFloat(raw) || 0;
+
+                shippingInput.value = numberFormatter(shippingAmount);
+                calculateSummary();
+            }, 1000));
+
+            // Format again on blur
+            shippingInput.addEventListener("blur", () => {
+                const raw = shippingInput.value.replace(/,/g, '');
+                const shippingAmount = parseFloat(raw) || 0;
+
+                shippingInput.value = numberFormatter(shippingAmount, 2);
+                calculateSummary();
+            });
 
         });
     </script>

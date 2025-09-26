@@ -136,7 +136,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -165,9 +165,9 @@ $current_time = $time->format("Y-m-d H:i:s");
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php" class="active">Customer Report</a></li>
@@ -210,15 +210,19 @@ $current_time = $time->format("Y-m-d H:i:s");
                 // Get customer information and order statistics
                 $customer_query = $conn->query("SELECT 
                                     customers.*,
-                                    COUNT(orders.invoiceNumber) AS total_orders,
+                                    COUNT(orders.orderInvoiceNumber) AS total_orders,
                                     SUM(CASE WHEN orders.orderStatus = 1 THEN 1 ELSE 0 END) AS completed_orders,
                                     SUM(CASE WHEN orders.orderStatus = 0 THEN 1 ELSE 0 END) AS pending_orders,
                                     SUM(CASE WHEN orders.orderStatus = 2 THEN 1 ELSE 0 END) AS cancelled_orders,
-                                    SUM(orders.total) AS total_amount,
-                                    SUM(orders.paid) AS total_paid,
-                                    SUM(orders.due) AS total_due
+                                    SUM(CASE WHEN orders.orderStatus = 3 THEN 1 ELSE 0 END) AS deleted_orders,
+
+                                    SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderTotalAmount ELSE 0 END) AS total_amount,
+                                    SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderPaidAmount ELSE 0 END) AS total_paid,
+                                    SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderDueAmount ELSE 0 END) AS total_due
+
+
                                 FROM customers 
-                                LEFT JOIN orders ON customers.customerId = orders.customerId
+                                LEFT JOIN orders ON customers.customerId = orders.orderCustomerId
                                 WHERE $whereClause
                                 GROUP BY customers.customerId");
 
@@ -270,36 +274,51 @@ $current_time = $time->format("Y-m-d H:i:s");
 
                         <!-- Order Statistics Table -->
                         <div class="col-lg-6">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="card-title">Order Statistics</h5>
-                                </div>
-                                <div class="card-body">
-                                    <div class="table-responsive">
-                                        <table class="table table-striped mb-0">
-                                            <tbody>
-                                                <tr>
-                                                    <td><strong>Total Orders:</strong></td>
-                                                    <td><span class="badge bg-primary" style="font-size: 14px;"><?= $customer['total_orders']; ?></span></td>
-                                                </tr>
-                                                <tr>
-                                                    <td><strong>Completed:</strong></td>
-                                                    <td><span class="badge bg-success"><?= $customer['completed_orders']; ?></span></td>
-                                                </tr>
-                                                <tr>
-                                                    <td><strong>Pending:</strong></td>
-                                                    <td><span class="badge bg-warning"><?= $customer['pending_orders']; ?></span></td>
-                                                </tr>
-                                                <tr>
-                                                    <td><strong>Cancelled:</strong></td>
-                                                    <td><span class="badge bg-danger"><?= $customer['cancelled_orders']; ?></span></td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title">Order Statistics</h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <!-- Total Orders -->
+                <div class="col-6 col-md-4 col-lg-3 mb-3">
+                    <div class="p-2 border rounded bg-light">
+                        <h6 class="mb-1">Total Orders</h6>
+                        <span class="badge bg-primary" style="font-size: 14px;"><?= htmlspecialchars($customer['total_orders']); ?></span>
+                    </div>
+                </div>
+                <!-- Completed Orders -->
+                <div class="col-6 col-md-4 col-lg-3 mb-3">
+                    <div class="p-2 border rounded bg-light">
+                        <h6 class="mb-1">Completed</h6>
+                        <span class="badge bg-success" style="font-size: 14px;"><?= htmlspecialchars($customer['completed_orders']); ?></span>
+                    </div>
+                </div>
+                <!-- Pending Orders -->
+                <div class="col-6 col-md-4 col-lg-3 mb-3">
+                    <div class="p-2 border rounded bg-light">
+                        <h6 class="mb-1">Pending</h6>
+                        <span class="badge bg-warning" style="font-size: 14px;"><?= htmlspecialchars($customer['pending_orders']); ?></span>
+                    </div>
+                </div>
+                <!-- Cancelled Orders -->
+                <div class="col-6 col-md-4 col-lg-3 mb-3">
+                    <div class="p-2 border rounded bg-light">
+                        <h6 class="mb-1">Cancelled</h6>
+                        <span class="badge bg-secondary" style="font-size: 14px;"><?= htmlspecialchars($customer['cancelled_orders']); ?></span>
+                    </div>
+                </div>
+                <!-- Deleted Orders -->
+                <div class="col-6 col-md-4 col-lg-3 mb-3">
+                    <div class="p-2 border rounded bg-light">
+                        <h6 class="mb-1">Deleted</h6>
+                        <span class="badge bg-danger" style="font-size: 14px;"><?= htmlspecialchars($customer['deleted_orders']); ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
                     </div>
 
                     <!-- Financial Summary Table -->
@@ -379,23 +398,19 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                 <tr>
                                                     <th>#</th>
                                                     <th>Invoice No.</th>
-                                                    <th>Date</th>
-                                                    <th>Product Name</th>
-                                                    <th>Quantity</th>
-                                                    <th>SubTotal</th>
-                                                    <th>VAT</th>
-                                                    <th>Discount</th>
-                                                    <th>Total</th>
-                                                    <th>Paid</th>
-                                                    <th>Due</th>
-                                                    <th>Status</th>
-                                                    <th>Actions</th>
+                                                    <th class="text-center">Date</th>
+                                                    <th class="text-center">Total Products QTY</th>
+                                                    <th class="text-center">Total Amount</th>
+                                                    <th class="text-center">Paid</th>
+                                                    <th class="text-center">Due</th>
+                                                    <th class="text-center">Status</th>
+                                                    <th class="text-center">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 <?php
                                                 // Filter conditions
-                                                $whereClause = "orders.customerId = '$customer_id'";
+                                                $whereClause = "orders.orderCustomerId = '$customer_id'";
 
                                                 if (!empty($_GET['from_date'])) {
                                                     $fromDate = date('Y-m-d', strtotime($_GET['from_date']));
@@ -413,11 +428,12 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                 products.productName,
                                                                 customers.customerId
                                                             FROM orders
-                                                            JOIN customers ON orders.customerId = customers.customerId
-                                                            JOIN order_details ON orders.invoiceNumber = order_details.invoiceNumber
-                                                            JOIN products ON order_details.productId = products.productId
+                                                            JOIN customers ON orders.orderCustomerId = customers.customerId
+                                                            JOIN order_details ON orders.orderInvoiceNumber = order_details.orderDetailInvoiceNumber
+                                                            JOIN products ON order_details.orderDetailProductId = products.productId
                                                             WHERE $whereClause
-                                                            ORDER BY orders.invoiceNumber DESC");
+                                                            GROUP BY orders.orderInvoiceNumber
+                                                            ORDER BY orders.orderInvoiceNumber DESC");
                                                 $sn = 1;
                                                 while ($detail = $details_query->fetch_assoc()) {
                                                     // Determine status badge
@@ -430,29 +446,28 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                             $statusBadge = '<span class="badges bg-success">Completed</span>';
                                                             break;
                                                         case 2:
-                                                            $statusBadge = '<span class="badges bg-danger">Cancelled</span>';
+                                                            $statusBadge = '<span class="badges bg-lightgrey">Cancelled</span>';
+                                                            break;
+                                                        case 3:
+                                                            $statusBadge = '<span class="badges bg-danger">Deleted</span>';
                                                             break;
                                                     }
                                                 ?>
                                                     <tr>
                                                         <td><?= $sn++; ?></td>
-                                                        <td><?= $detail['invoiceNumber']; ?></td>
-                                                        <td><?= date('M d, Y', strtotime($detail['orderDate'])); ?></td>
-                                                        <td><?= ($detail['productName']); ?></td>
-                                                        <td><?= $detail['quantity']; ?></td>
-                                                        <td><?= number_format($detail['subTotal'], 2); ?></td>
-                                                        <td><?= $detail['vat']; ?>%</td>
-                                                        <td>-</td>
-                                                        <td><strong><?= number_format($detail['total'], 2); ?></strong></td>
-                                                        <td class="text-success"><strong><?= number_format($detail['paid'], 2); ?></strong></td>
-                                                        <td class="text-danger"><strong><?= number_format($detail['due'], 2); ?></strong></td>
-                                                        <td><?= $statusBadge; ?></td>
-                                                        <td>
+                                                        <td><?= $detail['orderInvoiceNumber']; ?></td>
+                                                        <td class="text-center"><?= date('M d, Y', strtotime($detail['orderDate'])); ?></td>
+                                                        <td class="text-center"><?= number_format($detail['orderTotalProducts']); ?></td>
+                                                        <td class="text-center"><strong><?= number_format($detail['orderTotalAmount'], 2); ?></strong></td>
+                                                        <td class="text-success"><strong><?= number_format($detail['orderPaidAmount'], 2); ?></strong></td>
+                                                        <td class="text-danger"><strong><?= number_format($detail['orderDueAmount'], 2); ?></strong></td>
+                                                        <td class="text-center"><?= $statusBadge; ?></td>
+                                                        <td class="text-center">
                                                             <div class="btn-group btn-group-sm">
-                                                                <a href="sales-details.php?invoiceNumber=<?= $detail['invoiceNumber']; ?>" class="btn btn-outline-primary btn-sm" title="View Details">
+                                                                <a href="sales-details.php?invoiceNumber=<?= $detail['orderInvoiceNumber']; ?>" class="btn btn-outline-primary btn-sm" title="View Details">
                                                                     <i class="fas fa-eye text-dark">
                                                                         View
-                                                                    </i> 
+                                                                    </i>
                                                                 </a>
                                                             </div>
 

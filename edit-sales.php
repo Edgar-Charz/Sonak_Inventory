@@ -52,8 +52,11 @@ if ($order_result->num_rows == 0) {
 
 $order = $order_result->fetch_assoc();
 
-// Fetch order details (products)
-$details_stmt = $conn->prepare("SELECT od.*, p.quantity AS current_stock, p.sellingPrice, p.productName FROM order_details od JOIN products p ON od.productId = p.productId WHERE od.invoiceNumber = ?");
+// Fetch order details
+$details_stmt = $conn->prepare("SELECT order_details.*, products.quantity AS current_stock, products.sellingPrice, products.productName 
+                                        FROM order_details 
+                                        JOIN products ON order_details.orderDetailProductId = products.productId 
+                                        WHERE order_details.orderDetailInvoiceNumber = ?");
 $details_stmt->bind_param("s", $invoiceNumber);
 $details_stmt->execute();
 $details_result = $details_stmt->get_result();
@@ -95,7 +98,7 @@ if (isset($_POST['updateSaleBTN'])) {
         }
 
         // Delete old order details
-        $delete_details_stmt = $conn->prepare("DELETE FROM order_details WHERE invoiceNumber = ?");
+        $delete_details_stmt = $conn->prepare("DELETE FROM order_details WHERE orderDetailInvoiceNumber = ?");
         $delete_details_stmt->bind_param("s", $invoiceNumber);
         $delete_details_stmt->execute();
         $delete_details_stmt->close();
@@ -129,7 +132,7 @@ if (isset($_POST['updateSaleBTN'])) {
 
             // Insert new detail
             $insert_detail_stmt = $conn->prepare("INSERT INTO order_details 
-                (invoiceNumber, productId, unitCost, quantity, totalCost, created_at, updated_at) 
+                (orderDetailInvoiceNumber, orderDetailProductId, orderDetailUnitCost, orderDetailQuantity, orderDetailTotalCost, created_at, updated_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?)");
             $insert_detail_stmt->bind_param("ssdidss", $invoiceNumber, $productId, $unitPrice, $quantity, $totalCost, $current_time, $current_time);
             $insert_detail_stmt->execute();
@@ -284,7 +287,7 @@ if (isset($_POST['updateSaleBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php" class="active">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -313,9 +316,9 @@ if (isset($_POST['updateSaleBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -430,10 +433,10 @@ if (isset($_POST['updateSaleBTN'])) {
                                                     <?php
                                                     $products_query = $conn->query("SELECT * FROM products");
                                                     while ($p = $products_query->fetch_assoc()) {
-                                                        $selected = ($p['productId'] == $product['productId']) ? 'selected' : '';
+                                                        $selected = ($p['productId'] == $product['orderDetailProductId']) ? 'selected' : '';
                                                         echo '<option value="' . $p['productId'] . '" 
                                                             data-price="' . $p['sellingPrice'] . '"
-                                                            data-quantity="' . ($p['quantity'] + $product['quantity']) . '" ' . $selected . '>'
+                                                            data-quantity="' . ($p['quantity'] + $product['orderDetailQuantity']) . '" ' . $selected . '>'
                                                             . $p['productName'] . '</option>';
                                                     }
                                                     ?>
@@ -441,19 +444,19 @@ if (isset($_POST['updateSaleBTN'])) {
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Unit Cost</label>
-                                                <input type="text" name="products[<?= $index ?>][unit_cost]" class="form-control unitCost" value="<?= ($product['unitCost']); ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][unit_cost]" class="form-control unitCost" value="<?= ($product['orderDetailUnitCost']); ?>" readonly>
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Available</label>
-                                                <input type="text" name="products[<?= $index ?>][available_quantity]" class="form-control availableQuantity" value="<?= $product['current_stock'] + $product['quantity']; ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][available_quantity]" class="form-control availableQuantity" value="<?= $product['current_stock'] + $product['orderDetailQuantity']; ?>" readonly>
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Quantity</label>
-                                                <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['quantity']); ?>" min="0">
+                                                <input type="number" name="products[<?= $index ?>][quantity]" class="form-control quantity" value="<?= ($product['orderDetailQuantity']); ?>" min="0">
                                             </div>
                                             <div class="col-lg-2">
                                                 <label class="form-label">Total Cost</label>
-                                                <input type="text" name="products[<?= $index ?>][total_cost]" class="form-control totalCost" value="<?= ($product['totalCost']); ?>" readonly>
+                                                <input type="text" name="products[<?= $index ?>][total_cost]" class="form-control totalCost" value="<?= ($product['orderDetailTotalCost']); ?>" readonly>
                                             </div>
                                             <div class="col-lg-1 text-end">
                                                 <label class="form-label d-block">&nbsp;</label>
@@ -525,7 +528,7 @@ if (isset($_POST['updateSaleBTN'])) {
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Paid Amount</label>
-                                            <input type="number" name="pay" id="pay" class="form-control" value="<?= ($order['paid']); ?>">
+                                            <input type="number" name="pay" id="pay" class="form-control" value="<?= ($order['paid']); ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">

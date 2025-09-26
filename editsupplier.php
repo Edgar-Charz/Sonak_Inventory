@@ -21,164 +21,174 @@ if (isset($_POST['updateSupplierBTN'])) {
     $supplier_email = trim($_POST['supplier_email']);
     $supplier_address = trim($_POST['supplier_address']);
     $shop_name = trim($_POST['supplier_shop']);
-    $type = trim($_POST['supplier_type']);
-    $account_holder = trim($_POST['supplier_account_holder']);
-    $account_number = trim($_POST['supplier_account_number']);
-    $bank_name = trim($_POST['supplier_bank']);
+    $supplier_type = trim($_POST['supplier_type']);
     $supplier_status = $_POST['supplier_status'];
 
-    // Get current supplier data to compare for changes
-    $current_data_query = "SELECT `supplierName`, `supplierEmail`, `supplierPhone`, `supplierAddress`, `shopName`, `type`, `supplierAccountHolder`, `supplierAccountNumber`, `bankName`, `supplierStatus` 
-                                    FROM suppliers WHERE supplierId = ?";
-    $current_data_stmt = $conn->prepare($current_data_query);
-    $current_data_stmt->bind_param("i", $supplierId);
-    $current_data_stmt->execute();
-    $current_result = $current_data_stmt->get_result();
-    $current_data = $current_result->fetch_assoc();
 
-    // Check if no changes were made
-    if (
-        $current_data &&
-        $current_data['supplierName'] == $supplier_name &&
-        $current_data['supplierPhone'] == $supplier_phone &&
-        $current_data['supplierEmail'] == $supplier_email &&
-        $current_data['supplierAddress'] == $supplier_address &&
-        $current_data['shopName'] == $shop_name &&
-        $current_data['type'] == $type &&
-        $current_data['supplierAccountHolder'] == $account_holder &&
-        $current_data['supplierAccountNumber'] == $account_number &&
-        $current_data['bankName'] == $bank_name &&
-        $current_data['supplierStatus'] == $supplier_status
-    ) {
+    // Existing accounts
+    $existing_account_uids = $_POST['existing_account_uid'] ?? [];
+    $existing_account_holders = $_POST['existing_supplier_account_holder'] ?? [];
+    $existing_account_numbers = $_POST['existing_supplier_account_number'] ?? [];
+    $existing_bank_names = $_POST['existing_supplier_bank_name'] ?? [];
 
-        echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        title: 'Info!',
-                        text: 'No changes were made to the supplier.',
-                        timer: 5000,
-                        timerProgressBar: true
-                    }).then(function() {
-                        window.location.href = 'supplierlist.php';
-                    });
-                });
-             </script>";
-    } else {
-        // Check if email already exists for another supplier
-        $check_email_query = "SELECT supplierId FROM suppliers WHERE supplierEmail = ? AND supplierId != ?";
-        $check_email_stmt = $conn->prepare($check_email_query);
+    // New added accounts
+    $new_account_holders = $_POST['supplier_account_holder'] ?? [];
+    $new_account_numbers = $_POST['supplier_account_number'] ?? [];
+    $new_bank_names = $_POST['supplier_bank_name'] ?? [];
+
+    // Removed accounts
+    $delete_accounts = $_POST['delete_existing_account'] ?? [];
+
+    // Enable MySQLi exceptions
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+    // Begin transaction
+    $conn->begin_transaction();
+
+    try {
+        // Check if supplier email exists
+        $check_email_stmt = $conn->prepare("SELECT * FROM suppliers WHERE supplierEmail = ? AND supplierId != ?");
         $check_email_stmt->bind_param("si", $supplier_email, $supplierId);
         $check_email_stmt->execute();
         $email_result = $check_email_stmt->get_result();
 
         if ($email_result->num_rows > 0) {
-            echo "<script>
-                    document.addEventListener('DOMContentLoaded', function () {
-                        Swal.fire({
-                            text: 'Email address already exists for another supplier.',
-                            title: 'Error!',
-                            timer: 5000,
-                            timerProgressBar: true
-                        }).then(function() {
-                            window.location.href = 'editsupplier.php?id=$supplierId';
-                        });
-                    });
-                 </script>";
-        } else {
-            // Check if suppliername already exists for another supplier
-            $check_suppliername_query = "SELECT supplierId FROM suppliers WHERE supplierName = ? AND supplierId != ?";
-            $check_suppliername_stmt = $conn->prepare($check_suppliername_query);
-            $check_suppliername_stmt->bind_param("si", $supplierName, $supplierId);
-            $check_suppliername_stmt->execute();
-            $suppliername_result = $check_suppliername_stmt->get_result();
+            throw new Exception("Supplier with this email already exists!");
+        }
 
-            if ($suppliername_result->num_rows > 0) {
-                echo "<script>
-                        document.addEventListener('DOMContentLoaded', function () {
-                            Swal.fire({
-                                text: 'Username already exists for another supplier.',
-                                title: 'Error',
-                                timer: 5000,
-                                timerProgressBar: true
-                            }).then(function() {
-                                window.location.href = 'editsupplier.php?id=$supplierId';
-                            });
-                        });
-                     </script>";
-            } else {
-                // Check if phone number already exists for another supplier
-                $check_phone_query = "SELECT supplierId FROM suppliers WHERE supplierPhone = ? AND supplierId != ?";
-                $check_phone_stmt = $conn->prepare($check_phone_query);
-                $check_phone_stmt->bind_param("si", $supplier_phone, $supplierId);
-                $check_phone_stmt->execute();
-                $phone_result = $check_phone_stmt->get_result();
+        // Check if supplier name exists
+        $check_name_stmt = $conn->prepare("SELECT * FROM suppliers WHERE supplierName = ? AND supplierId != ?");
+        $check_name_stmt->bind_param("si", $supplier_name, $supplierId);
+        $check_name_stmt->execute();
+        $name_result = $check_name_stmt->get_result();
 
-                if ($phone_result->num_rows > 0) {
-                    echo "<script>
-                            document.addEventListener('DOMContentLoaded', function () {
-                                Swal.fire({
-                                    text: 'Phone number already exists for another supplier.',
-                                    title: 'Error',
-                                    timer: 5000,
-                                    timerProgressBar: true
-                                }).then(function() {
-                                    window.location.href = 'editsupplier.php?id=$supplierId';
-                                });
-                            });
-                         </script>";
-                } else {
-                    // Proceed with the update
-                    $update_supplier_query = "UPDATE suppliers 
-                                                SET supplierName=?, supplierPhone=?, supplierEmail=?, supplierAddress=?, shopName=?, type=?, supplierAccountHolder=?, supplierAccountNumber=?, bankName=?, supplierStatus=?, updated_at=? 
-                                                WHERE supplierId=?";
-                    $update_supplier_stmt = $conn->prepare($update_supplier_query);
-                    $update_supplier_stmt->bind_param("sssssssssssi", $supplier_name, $supplier_phone, $supplier_email, $supplier_address, $shop_name, $type, $account_holder, $account_number, $bank_name, $supplier_status, $current_time, $supplierId);
+        if ($name_result->num_rows > 0) {
+            throw new Exception("Supplier with this name already exists!");
+        }
 
-                    if ($update_supplier_stmt->execute()) {
-                        if ($update_supplier_stmt->affected_rows > 0) {
-                            echo "<script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        Swal.fire({
-                                            text: 'User updated successfully.',
-                                            title: 'Success',
-                                            timer: 5000,
-                                            timerProgressBar: true
-                                        }).then(function() {
-                                            window.location.href = 'supplierlist.php';
-                                        });
-                                    });
-                                  </script>";
-                        } else {
-                            echo "<script>
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        Swal.fire({
-                                            text: 'No changes were made to the supplier.',
-                                            title: 'Info',
-                                            timer: 5000,
-                                            timerProgressBar: true
-                                        }).then(function() {
-                                            window.location.href = 'supplierlist.php';
-                                        });
-                                    });
-                                  </script>";
-                        }
+        // Update supplier info
+        $update_supplier_query = "UPDATE suppliers 
+            SET supplierName=?, supplierPhone=?, supplierEmail=?, supplierAddress=?, supplierShopName=?, supplierType=?, supplierStatus=?, updated_at=? 
+            WHERE supplierId=?";
+        $update_stmt = $conn->prepare($update_supplier_query);
+        $update_stmt->bind_param(
+            "ssssssssi",
+            $supplier_name,
+            $supplier_phone,
+            $supplier_email,
+            $supplier_address,
+            $shop_name,
+            $supplier_type,
+            $supplier_status,
+            $current_time,
+            $supplierId
+        );
+        $update_stmt->execute();
+
+        // Update existing accounts
+        for ($i = 0; $i < count($existing_account_uids); $i++) {
+            $account_uid = $existing_account_uids[$i];
+
+            if (in_array($account_uid, $delete_accounts)) continue;
+
+            $update_account_query = "UPDATE bank_accounts 
+                SET bankAccountHolderName=?, bankAccountNumber=?, bankAccountBankName=?, updated_at=? 
+                WHERE bankAccountUId=?";
+            $update_account_stmt = $conn->prepare($update_account_query);
+            $update_account_stmt->bind_param(
+                "ssssi",
+                $existing_account_holders[$i],
+                $existing_account_numbers[$i],
+                $existing_bank_names[$i],
+                $current_time,
+                $account_uid
+            );
+            $update_account_stmt->execute();
+        }
+
+        // Delete marked accounts
+        if (!empty($delete_accounts)) {
+            $placeholders = implode(',', array_fill(0, count($delete_accounts), '?'));
+            $types = str_repeat('i', count($delete_accounts));
+            $update_query = "UPDATE bank_accounts SET bankAccountStatus = 0 WHERE bankAccountUId IN ($placeholders)";
+            $update_stmt = $conn->prepare($update_query);
+            $update_stmt->bind_param($types, ...$delete_accounts);
+            $update_stmt->execute();
+        }
+
+        // Insert new accounts
+        $insert_account_query = "INSERT INTO bank_accounts 
+            (bankAccountSupplierId, bankAccountBankName, bankAccountHolderName, bankAccountNumber, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?)";
+        $insert_stmt = $conn->prepare($insert_account_query);
+
+        for ($i = 0; $i < count($new_account_holders); $i++) {
+            $account_holder = trim($new_account_holders[$i]);
+            $account_number = trim($new_account_numbers[$i]);
+            $bank_name  = trim($new_bank_names[$i]);
+
+            if (!empty($account_holder) && !empty($account_number) && !empty($bank_name)) {
+
+                // Check for duplicate account number
+                $check_account_query = "SELECT bankAccountUId FROM bank_accounts WHERE bankAccountNumber = ? AND bankAccountSupplierId != ?";
+                $check_account_stmt = $conn->prepare($check_account_query);
+                $check_account_stmt->bind_param("si", $account_number, $supplier_id);
+                $check_account_stmt->execute();
+                $check_result = $check_account_stmt->get_result();
+
+                if ($check_result->num_rows > 0) {
+                    throw new Exception("Bank account number $account_number already exists for another supplier.");
+                }
+                try {
+                    $insert_stmt->bind_param(
+                        "isssss",
+                        $supplierId,
+                        $bank_name,
+                        $account_holder,
+                        $account_number,
+                        $current_time,
+                        $current_time
+                    );
+                    $insert_stmt->execute();
+                } catch (mysqli_sql_exception $e) {
+                    if ($e->getCode() == 1062) {
+                        throw new Exception("Bank account number $account_number already exists!");
                     } else {
-                        echo "<script>
-                                document.addEventListener('DOMContentLoaded', function() {
-                                    Swal.fire({
-                                        text: 'Error updating supplier: " . $conn->error . "',
-                                        title: 'Error',
-                                        timer: 5000,
-                                        timerProgressBar: true
-                                    });
-                                });
-                            </script>";
+                        throw $e;
                     }
                 }
             }
         }
+
+        // Commit transaction
+        $conn->commit();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'success',
+                    text: 'Supplier updated successfully!'
+                }).then(function() {
+                    window.location.href='supplierlist.php';
+                });
+            });
+        </script>";
+    } catch (Exception $e) {
+        $conn->rollback();
+
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'error',
+                    text: '" . addslashes($e->getMessage()) . "',
+                }).then(function() {
+                    window.location.href='editsupplier.php?id=" . $supplierId . "';
+                });
+            });
+        </script>";
     }
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -187,7 +197,7 @@ if (isset($_POST['updateSupplierBTN'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <title>Sonak Inventory</title>
+    <title>Sonak Inventory | Edit Supplier</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
 
@@ -299,7 +309,7 @@ if (isset($_POST['updateSupplierBTN'])) {
                             <a href="javascript:void(0);"><img src="assets/img/icons/sales1.svg" alt="img"><span> Sales</span> <span class="menu-arrow"></span></a>
                             <ul>
                                 <li><a href="saleslist.php">Sales List</a></li>
-                                <li><a href="add-sales.php">Add Sales</a></li>
+                                <!-- <li><a href="add-sales.php">Add Sales</a></li> -->
                             </ul>
                         </li>
                         <li class="submenu">
@@ -328,9 +338,9 @@ if (isset($_POST['updateSupplierBTN'])) {
                         <li class="submenu">
                             <a href="javascript:void(0);"><img src="assets/img/icons/time.svg" alt="img"><span> Report</span> <span class="menu-arrow"></span></a>
                             <ul>
-                                <li><a href="inventoryreport.php">Inventory Report</a></li>
+                                <!-- <li><a href="inventoryreport.php">Inventory Report</a></li> -->
                                 <li><a href="salesreport.php">Sales Report</a></li>
-                                <li><a href="invoicereport.php">Invoice Report</a></li>
+                                <li><a href="sales_payment_report.php">Sales Payment Report</a></li>
                                 <li><a href="purchasereport.php">Purchase Report</a></li>
                                 <li><a href="supplierreport.php">Supplier Report</a></li>
                                 <li><a href="customerreport.php">Customer Report</a></li>
@@ -360,38 +370,44 @@ if (isset($_POST['updateSupplierBTN'])) {
 
                 <!-- Update Supplier Form -->
                 <div class="card">
-                    <div class="card-body">
-                        <?php
-                        // Fetch supplier data
-                        $supplier_stmt = $conn->prepare("SELECT * FROM suppliers WHERE supplierId = ?");
-                        $supplier_stmt->bind_param("i", $supplier_id);
-                        $supplier_stmt->execute();
-                        $supplier_result = $supplier_stmt->get_result();
-                        $supplier_row = $supplier_result->fetch_assoc();
-                        ?>
-                        <form action="" method="POST" id="update-supplier-form" enctype="multipart/form-data">
+                    <form action="" method="POST" id="update-supplier-form" enctype="multipart/form-data">
+                        <div class="card-body">
+                            <?php
+                            // Fetch supplier data
+                            $supplier_stmt = $conn->prepare("SELECT * FROM suppliers WHERE supplierId = ?");
+                            $supplier_stmt->bind_param("i", $supplier_id);
+                            $supplier_stmt->execute();
+                            $supplier_result = $supplier_stmt->get_result();
+                            $supplier_row = $supplier_result->fetch_assoc();
+
+                            // Fetch supplier bank accounts
+                            $accounts_query = $conn->prepare("SELECT * FROM bank_accounts WHERE bankAccountSupplierId = ?");
+                            $accounts_query->bind_param("i", $supplier_id);
+                            $accounts_query->execute();
+                            $accounts_result = $accounts_query->get_result();
+                            ?>
                             <div class="row">
                                 <input type="hidden" name="supplierId" value="<?= $supplier_id; ?>">
 
-                                <div class="col-lg-6 col-sm-6 col-12">
+                                <div class="col-lg-4 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Supplier Name</label>
-                                        <input type="text" name="supplier_name" class="form-control" value="<?= $supplier_row['supplierName']; ?>" required>
+                                        <input type="text" name="supplier_name" class="form-control" value="<?= $supplier_row['supplierName']; ?>" oninput="capitalizeFirstLetter(this)" required>
                                     </div>
                                 </div>
-                                <div class="col-lg-6 col-sm-6 col-12">
+                                <div class="col-lg-4 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Phone</label>
                                         <input type="text" name="supplier_phone" class="form-control" value="<?= $supplier_row['supplierPhone']; ?>" required>
                                     </div>
                                 </div>
-                                <div class="col-lg-6 col-sm-6 col-12">
+                                <div class="col-lg-4 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Email</label>
                                         <input type="email" name="supplier_email" class="form-control" value="<?= $supplier_row['supplierEmail']; ?>" required>
                                     </div>
                                 </div>
-                                <div class="col-lg-6 col-sm-6 col-12">
+                                <div class="col-lg-4 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Address</label>
                                         <input type="text" name="supplier_address" class="form-control" value="<?= $supplier_row['supplierAddress']; ?>" required>
@@ -400,31 +416,13 @@ if (isset($_POST['updateSupplierBTN'])) {
                                 <div class="col-lg-4 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Shop Name</label>
-                                        <input type="text" name="supplier_shop" class="form-control" value="<?= $supplier_row['shopName']; ?>" required>
+                                        <input type="text" name="supplier_shop" class="form-control" value="<?= $supplier_row['supplierShopName']; ?>" required>
                                     </div>
                                 </div>
                                 <div class="col-lg-4 col-sm-6 col-12">
                                     <div class="form-group">
                                         <label>Type</label>
-                                        <input type="text" name="supplier_type" class="form-control" value="<?= $supplier_row['type']; ?>" required>
-                                    </div>
-                                </div>
-                                <div class="col-lg-4 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Account Holder Name</label>
-                                        <input type="text" name="supplier_account_holder" class="form-control" value="<?= $supplier_row['supplierAccountHolder']; ?>" required>
-                                    </div>
-                                </div>
-                                <div class="col-lg-4 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Account Number</label>
-                                        <input type="text" name="supplier_account_number" class="form-control" value="<?= $supplier_row['supplierAccountNumber']; ?>" required>
-                                    </div>
-                                </div>
-                                <div class="col-lg-4 col-sm-6 col-12">
-                                    <div class="form-group">
-                                        <label>Bank Name</label>
-                                        <input type="text" name="supplier_bank" class="form-control" value="<?= $supplier_row['bankName']; ?>" required>
+                                        <input type="text" name="supplier_type" class="form-control" value="<?= $supplier_row['supplierType']; ?>" required>
                                     </div>
                                 </div>
                                 <div class="col-lg-4 col-sm-6 col-12">
@@ -436,25 +434,48 @@ if (isset($_POST['updateSupplierBTN'])) {
                                         </select>
                                     </div>
                                 </div>
-                                <!-- <div class="col-lg-12">
-                                    <div class="form-group">
-                                        <label> User Image</label>
-                                        <div class="image-upload">
-                                            <input type="file" name="supplier_image" accept="image/*">
-                                            <div class="image-uploads">
-                                                <img src="assets/img/icons/upload.svg" alt="img">
-                                                <h4>Drag and drop a file to upload</h4>
-                                            </div>
-                                        </div>
+
+                                <!-- Bank Accounts Section -->
+                                <div class="col-12">
+                                    <label>Bank Accounts</label>
+                                    <div id="accounts-wrapper">
+                                        <?php
+                                        if ($accounts_result->num_rows > 0) {
+                                            while ($acc = $accounts_result->fetch_assoc()) { ?>
+                                                <div class="row account-row mb-2" data-account-id="<?= $acc['bankAccountUId']; ?>">
+                                                    <input type="hidden" name="existing_account_uid[]" value="<?= $acc['bankAccountUId']; ?>">
+                                                    <div class="col-lg-4 col-sm-6 col-12">
+                                                        <input type="text" name="existing_supplier_account_holder[]" class="form-control"
+                                                            value="<?= $acc['bankAccountHolderName']; ?>" required>
+                                                    </div>
+                                                    <div class="col-lg-4 col-sm-6 col-12">
+                                                        <input type="text" name="existing_supplier_account_number[]" class="form-control"
+                                                            value="<?= $acc['bankAccountNumber']; ?>" required>
+                                                    </div>
+                                                    <div class="col-lg-3 col-sm-6 col-12">
+                                                        <select name="existing_supplier_bank_name[]" class="form-control" required>
+                                                            <option value="NMB" <?= $acc['bankAccountBankName'] == 'NMB' ? 'selected' : ''; ?>>NMB</option>
+                                                            <option value="CRDB" <?= $acc['bankAccountBankName'] == 'CRDB' ? 'selected' : ''; ?>>CRDB</option>
+                                                            <option value="NBC" <?= $acc['bankAccountBankName'] == 'NBC' ? 'selected' : ''; ?>>NBC</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-lg-1 col-sm-6 col-12 d-flex align-items-center">
+                                                        <button type="button" class="btn btn-danger btn-sm remove-account-existing">&times;</button>
+                                                    </div>
+                                                </div>
+                                        <?php }
+                                        } ?>
                                     </div>
-                                </div> -->
-                                <div class="col-lg-12">
+                                    <button type="button" class="btn btn-success btn-sm mt-2" id="add-account">+ Add Account</button>
+                                </div>
+
+                                <div class="col-lg-12 mt-3">
                                     <button type="submit" name="updateSupplierBTN" class="btn btn-primary">Save Changes</button>
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                                 </div>
                             </div>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
                 <!-- /Update Supplier Form -->
 
@@ -463,6 +484,63 @@ if (isset($_POST['updateSupplierBTN'])) {
     </div>
 
     <script>
+        // Function to capitalize
+        function capitalizeFirstLetter(input) {
+            if (typeof input.value !== 'string' || input.value.length === 0) return;
+            input.value = input.value.toLowerCase()
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+
+        // Add new bank account row
+        document.getElementById('add-account').addEventListener('click', function() {
+            let wrapper = document.getElementById('accounts-wrapper');
+            let row = document.createElement('div');
+            row.classList.add('row', 'account-row', 'mb-2');
+            row.innerHTML = `
+            <div class="col-lg-4 col-sm-6 col-12">
+                <input type="text" name="supplier_account_holder[]" class="form-control" placeholder="Account Holder Name" required>
+            </div>
+            <div class="col-lg-4 col-sm-6 col-12">
+                <input type="text" name="supplier_account_number[]" class="form-control" placeholder="Account Number" required>
+            </div>
+            <div class="col-lg-3 col-sm-6 col-12">
+                <select name="supplier_bank_name[]" class="form-control" required>
+                    <option value="" selected disabled>Choose Bank</option>
+                    <option>NMB</option>
+                    <option>CRDB</option>
+                    <option>NBC</option>
+                </select>
+            </div>
+            <div class="col-lg-1 col-sm-6 col-12 d-flex align-items-center">
+                <button type="button" class="btn btn-danger btn-sm remove-account">&times;</button>
+            </div>`;
+            wrapper.appendChild(row);
+
+            // Remove new row
+            row.querySelector('.remove-account').addEventListener('click', function() {
+                row.remove();
+            });
+        });
+
+        // Remove existing account
+        document.querySelectorAll('.remove-account-existing').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                let row = this.closest('.account-row');
+                let accountId = row.getAttribute('data-account-id');
+
+                // Mark for deletion
+                let input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'delete_existing_account[]';
+                input.value = accountId;
+                row.appendChild(input);
+
+                row.style.display = 'none';
+            });
+        });
+
         // Form inputs Validation
         function validateInput(input) {
             var name = input.getAttribute('name');

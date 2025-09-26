@@ -24,7 +24,7 @@ if (isset($_POST['signupBTN'])) {
                     text: 'All fields are required!'
                 });
             });
-        </script>";
+        </script>"; 
     } else {
         $check_stmt = $conn->prepare("SELECT userEmail FROM users WHERE userEmail = ?");
         $check_stmt->bind_param("s", $email);

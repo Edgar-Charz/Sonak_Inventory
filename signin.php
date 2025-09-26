@@ -47,22 +47,23 @@ if (isset($_POST["loginBTN"])) {
                 $_SESSION['login_success'] = true;
 
                 echo "<script>
-            document.addEventListener('DOMContentLoaded', function () {
-                var loginBtn = document.querySelector('button[name=\"loginBTN\"]');
-                if (loginBtn) {
-                    loginBtn.textContent = 'Redirecting...';
-                    loginBtn.disabled = true;
-                }
+                            document.addEventListener('DOMContentLoaded', function () {
+                            var loginBtn = document.querySelector('button[name=\"loginBTN\"]');
+                            if (loginBtn) {
+                                loginBtn.textContent = 'Redirecting...';
+                                loginBtn.disabled = true;
+                            }
 
-                setTimeout(function() {
-                    window.location.href = 'index.php';
-                }, 1000); 
-            });
-        </script>";
+                            setTimeout(function() {
+                                window.location.href = 'index.php';
+                            }, 100); 
+                        });
+                    </script>";
             } else {
                 echo "<script>
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
+                        icon: 'error',
                         title: 'Error!',
                         text: 'Incorrect password!'
                     }).then(function(){
@@ -75,7 +76,8 @@ if (isset($_POST["loginBTN"])) {
             echo "<script>
                 document.addEventListener('DOMContentLoaded', function () {
                     Swal.fire({
-                        title: 'Error!',
+                        icon: 'error',
+                        title: 'Oops!',
                         text: 'Your account is inactive. Please contact support.'
                     }).then(function(){
                         window.location.href = 'signin.php';
@@ -87,6 +89,7 @@ if (isset($_POST["loginBTN"])) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
+                    icon: 'warning',
                     title: 'Error!',
                     text: 'No account found with that email!'
                 }).then(function(){
