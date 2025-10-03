@@ -425,7 +425,10 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                             $statusBadge = '<span class="badges bg-success">Completed</span>';
                                                             break;
                                                         case 2:
-                                                            $statusBadge = '<span class="badges bg-danger">Cancelled</span>';
+                                                            $statusBadge = '<span class="badges bg-lightgrey">Cancelled</span>';
+                                                            break;
+                                                        default:
+                                                            $statusBadge = '<span class="badges bg-danger">Deleted</span>';
                                                             break;
                                                     }
                                                 ?>

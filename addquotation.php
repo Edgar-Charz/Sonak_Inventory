@@ -456,6 +456,18 @@ function generateReferenceNumber($conn)
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
+                                            <label>Discount(%)</label>
+                                            <input type="number" name="discount" id="discount" class="form-control" value="0">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount Amount</label>
+                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
                                             <label>SubTotal</label>
                                             <input type="text" name="sub_total" id="subTotal" class="form-control" readonly>
                                         </div>
@@ -470,18 +482,6 @@ function generateReferenceNumber($conn)
                                         <div class="form-group">
                                             <label>VAT Amount</label>
                                             <input type="text" name="vat_amount" id="vatAmount" class="form-control" readonly>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Discount(%)</label>
-                                            <input type="number" name="discount" id="discount" class="form-control" value="0">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Discount Amount</label>
-                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
@@ -523,7 +523,7 @@ function generateReferenceNumber($conn)
                                 <div class="col-lg-12">
                                     <div class="form-group">
                                         <label>Description</label>
-                                        <textarea class="form-control" name="note"></textarea>
+                                        <textarea class="form-control" name="note" oninput="capitalizeWords(this);"></textarea>
                                     </div>
                                 </div>
 
@@ -540,7 +540,15 @@ function generateReferenceNumber($conn)
             </div>
         </div>
     </div>
-
+    <script>
+        // Function to capitalize
+        function capitalizeWords(input) {
+            if (typeof input.value !== 'string' || input.value.length === 0) return;
+            input.value = input.value.replace(/\b\w/g, function(char) {
+                return char.toUpperCase();
+            });
+        }
+    </script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             // Step 1 validation on Next
@@ -597,7 +605,7 @@ function generateReferenceNumber($conn)
                         }
                     });
                 }
-                if (!valid) { 
+                if (!valid) {
                     Swal.fire({
                         title: 'Error!',
                         html: errorMsg,
@@ -817,10 +825,15 @@ function generateReferenceNumber($conn)
                     totalProducts += qty;
                 });
 
-                // Add Shipping Amount
+                // Shipping Amount
                 let shippingAmount = parseFloat(document.getElementById("shippingAmount").value.replace(/,/g, '')) || 0;
-                subTotal += shippingAmount; // use raw number for calculation
+                subTotal += shippingAmount;
 
+                // Discount
+                let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
+                let discountAmount = subTotal * discountPercent / 100;
+                document.getElementById("discountAmount").value = numberFormatter(discountAmount, 2);
+                subTotal -= discountAmount;
 
                 // Sub totals
                 document.getElementById("subTotal").value = numberFormatter(subTotal, 2);
@@ -831,13 +844,8 @@ function generateReferenceNumber($conn)
                 let vatAmount = subTotal * vatPercent / 100;
                 document.getElementById("vatAmount").value = numberFormatter(vatAmount, 2);
 
-                // Discount
-                let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
-                let discountAmount = subTotal * discountPercent / 100;
-                document.getElementById("discountAmount").value = numberFormatter(discountAmount, 2);
-
-                // Grand Total = Subtotal - Discount + VAT
-                let grandTotal = subTotal - discountAmount + vatAmount;
+                // Grand Total = Subtotal + VAT
+                let grandTotal = subTotal + vatAmount;
                 document.getElementById("grandTotal").value = numberFormatter(grandTotal, 2);
             }
 

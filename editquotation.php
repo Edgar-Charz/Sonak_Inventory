@@ -449,6 +449,18 @@ function generateReferenceNumber($conn)
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
+                                            <label>Discount(%)</label>
+                                            <input type="number" name="discount" id="discount" class="form-control" value="<?= $quotation['quotationDiscountPercentage'] ?>">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount Amount</label>
+                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" value="<?= $quotation['quotationDiscountAmount'] ?>" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
                                             <label>Subtotal</label>
                                             <input type="text" name="sub_total" id="subTotal" class="form-control" value="<?= $quotation['quotationSubTotal'] ?>" readonly>
                                         </div>
@@ -463,18 +475,6 @@ function generateReferenceNumber($conn)
                                         <div class="form-group">
                                             <label>VAT Amount</label>
                                             <input type="text" name="vat_amount" id="vatAmount" class="form-control" value="<?= $quotation['quotationTaxAmount'] ?>" readonly>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Discount(%)</label>
-                                            <input type="number" name="discount" id="discount" class="form-control" value="<?= $quotation['quotationDiscountPercentage'] ?>">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Discount Amount</label>
-                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" value="<?= $quotation['quotationDiscountAmount'] ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
@@ -601,9 +601,9 @@ function generateReferenceNumber($conn)
                             updateAvailableQuantities();
                             calculateSummary();
                         });
-                        return false; 
+                        return false;
                     }
-                    return true; 
+                    return true;
                 }
 
                 // Step navigation event listeners
@@ -756,9 +756,15 @@ function generateReferenceNumber($conn)
                         totalProducts += qty;
                     });
 
-                    // Add shipping Amount
+                    // shipping Amount
                     const shippingAmount = parseFloat(document.getElementById("shippingAmount").value.replace(/,/g, '')) || 0;
                     subTotal += shippingAmount;
+
+                    // Discount
+                    const discountPercent = parseFloat(document.getElementById("discount").value) || 0;
+                    const discountAmount = subTotal * (discountPercent / 100);
+                    document.getElementById("discountAmount").value = numberFormatter(discountAmount, 2);
+                    subTotal -= discountAmount;
 
                     // Sub totals
                     document.getElementById("subTotal").value = numberFormatter(subTotal, 2);
@@ -769,13 +775,8 @@ function generateReferenceNumber($conn)
                     const vatAmount = subTotal * (vatPercent / 100);
                     document.getElementById("vatAmount").value = numberFormatter(vatAmount, 2);
 
-                    // Discount
-                    const discountPercent = parseFloat(document.getElementById("discount").value) || 0;
-                    const discountAmount = subTotal * (discountPercent / 100);
-                    document.getElementById("discountAmount").value = numberFormatter(discountAmount, 2);
-
                     // Grand Total
-                    const grandTotal = subTotal - discountAmount + vatAmount;
+                    const grandTotal = subTotal + vatAmount;
                     document.getElementById("grandTotal").value = numberFormatter(grandTotal, 2);
                 }
 

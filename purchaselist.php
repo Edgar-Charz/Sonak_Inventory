@@ -32,6 +32,26 @@ $current_time = $time->format("Y-m-d H:i:s");
     <link rel="stylesheet" href="assets/plugins/fontawesome/css/all.min.css">
 
     <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .swal-wide {
+            width: 600px !important;
+            padding: 2rem;
+        }
+
+        .swal-title-lg {
+            font-size: 1.75rem;
+        }
+
+        .swal-input-lg {
+            font-size: 1.1rem;
+            padding: 0.75rem;
+        }
+
+        .swal-btn-lg {
+            font-size: 1rem;
+            padding: 0.6rem 1.2rem;
+        }
+    </style>
 </head>
 
 <body>
@@ -299,7 +319,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                             JOIN users AS u1 ON purchases.purchaseCreatedBy = u1.userId
                                                                             JOIN users AS u2 ON purchases.purchaseUpdatedBy = u2.userId
                                                                             GROUP BY purchases.purchaseNumber
-                                                                            ORDER BY purchases.purchaseUId DESC;");
+                                                                            ORDER BY purchases.purchaseDate DESC;");
                                     if ($purchases_query->num_rows > 0) {
                                         while ($purchase_row = $purchases_query->fetch_assoc()) {
                                             $purchase_number = $purchase_row['purchaseNumber'];
@@ -333,12 +353,6 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                             </a>
                                                             <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                                                                 <!-- View Button -->
-                                                                <!-- <li>
-                                                                    <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#viewPurchase<?= $purchase_number; ?>">
-                                                                        <img src="assets/img/icons/eye.svg" alt="View" style="width: 16px; margin-right: 6px;">
-                                                                        View
-                                                                    </button>
-                                                                </li> -->
                                                                 <li>
                                                                     <a href="viewpurchase.php?purchaseNumber=<?= $purchase_number; ?>&purchaseStatus=<?= $purchase_row['purchaseStatus']; ?>" class="dropdown-item">
                                                                         <img src="assets/img/icons/eye.svg" alt="View" style="width: 16px; margin-right: 6px;">
@@ -366,12 +380,12 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                             Cancel
                                                                         </button>
                                                                     </li>
-                                                                    <li>
+                                                                    <!-- <li>
                                                                         <button type="button" class="dropdown-item" onclick="confirmCompletePurchase(<?= $purchase_uid; ?>)">
                                                                             <img src="assets/img/icons/check.svg" class="me-2" alt="Complete">
                                                                             Complete
                                                                         </button>
-                                                                    </li>
+                                                                    </li> -->
                                                                 <?php endif; ?>
 
                                                                 <!-- Reactivate-->
@@ -390,8 +404,14 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                             Delete
                                                                         </button>
                                                                     </li>
+                                                                <?php elseif ($status == 3): ?>
+                                                                    <li>
+                                                                        <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#showDeleteReason<?= $purchase_number; ?>">
+                                                                            <img src="assets/img/icons/info-circle.svg" class="me-2" alt="img">
+                                                                            Delete Reason
+                                                                        </button>
+                                                                    </li>
                                                                 <?php endif; ?>
-
 
                                                             </ul>
                                                         </div>
@@ -399,180 +419,66 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                 </td>
                                             </tr>
 
-                                            <!-- View Purchase Modal -->
-                                            <div class="modal fade" id="viewPurchase<?= $purchase_number; ?>" tabindex="-1" aria-labelledby="viewPurchaseModalLabel" aria-hidden="true">
-                                                <div class="modal-dialog modal-xl">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="viewPurchaseModalLabel"><?= $purchase_row['purchaseNumber']; ?></h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                                            <!-- Delete Reason Modal -->
+                                            <div class="modal fade" id="showDeleteReason<?= $purchase_number; ?>" tabindex="-1" aria-labelledby="showDeleteReasonModal<?= $purchase_number; ?>" aria-hidden="true">
+                                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                                    <div class="modal-content border-danger">
+                                                        <div class="modal-header bg-danger text-white">
+                                                            <h5 class="modal-title" id="showDeleteReasonModal<?= $reference_number; ?>">
+                                                                <i class="fa fa-info-circle me-2"></i> Delete Reason
+                                                            </h5>
+                                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close">x</button>
                                                         </div>
                                                         <div class="modal-body">
-                                                            <!-- <div class="row">
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Purchase No.</label>
-                                                                        <p class="form-control"><?= $purchase_row['purchaseNumber']; ?></p>
-                                                                    </div>
-                                                                </div>
+                                                            <div class="card shadow-sm border-0">
+                                                                <div class="card-body p-3">
+                                                                    <ul class="list-group list-group-flush">
+                                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                            <span class="fw-semibold text-muted">
+                                                                                <i class="bi bi-receipt me-2 text-primary"></i> Purchase Number
+                                                                            </span>
+                                                                            <span class="fw-bold text-primary"><?= $purchase_number; ?></span>
+                                                                        </li>
 
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Supplier Name</label>
-                                                                        <p class="form-control"><?= $purchase_row['supplierName']; ?></p>
-                                                                    </div>
-                                                                </div>
+                                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                            <span class="fw-semibold text-muted">
+                                                                                <i class="bi bi-calendar-x me-2 text-danger"></i> Deleted On
+                                                                            </span>
+                                                                            <span class="text-muted"><?= date('d M, Y', strtotime($purchase_row['updated_at'])); ?></span>
+                                                                        </li>
 
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Purchase Date </label>
-                                                                        <div class="input-groupicon">
-                                                                            <p class="form-control"><?= $purchase_row['purchaseDate']; ?></p>
-                                                                            <div class="addonset">
-                                                                                <img src="assets/img/icons/calendars.svg" alt="img">
+                                                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                                            <span class="fw-semibold text-muted">
+                                                                                <i class="bi bi-person-badge me-2 text-warning"></i> Deleted By
+                                                                            </span>
+                                                                            <span><?= $purchase_row['updater']; ?></span>
+                                                                        </li>
+
+                                                                        <!-- Reason in textarea -->
+                                                                        <li class="list-group-item">
+                                                                            <span class="fw-semibold text-muted d-block mb-2">
+                                                                                <i class="bi bi-exclamation-triangle me-2 text-danger" data-bs-toggle="tooltip" title="Reason for deletion"></i>
+                                                                                Reason For Deletion
+                                                                            </span>
+                                                                            <div class="bg-light border-start border-danger ps-3 py-2 rounded">
+                                                                                <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>
+                                                                                <span class="text-dark"><?= ($purchase_row['purchaseDescription']); ?></span>
                                                                             </div>
-                                                                        </div>
-                                                                    </div>
+                                                                        </li>
+                                                                    </ul>
                                                                 </div>
+                                                            </div>
+                                                        </div>
 
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Product Name</label>
-                                                                        <p class="form-control"><?= $purchase_row['productName']; ?></p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Product Size</label>
-                                                                        <p class="form-control"><?= $purchase_row['productSize']; ?></p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Quantity</label>
-                                                                        <p class="form-control"><?= $purchase_row['quantity']; ?></p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Agent</label>
-                                                                        <p class="form-control"><?= !empty($purchase_row['agentName']) ? $purchase_row['agentName'] : 'N/A'; ?> </p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Tracking No.</label>
-                                                                        <p class="form-control"><?= $purchase_row['trackingNumber']; ?></p>
-                                                                    </div>
-                                                                </div>
-                                                            </div> -->
-
-                                                            <!-- Costs Row -->
-                                                            <!-- <div class="row">
-                                                                <h5 class="mb-4 fw-bold">Cost Breakdown</h5>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label for="unit_cost" class="form-label">Unit Cost</label>
-                                                                        <p class="form-control"><?= $purchase_row['unitCost']; ?></p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label for="rate" class="form-label">Rate</label>
-                                                                        <p class="form-control"><?= $purchase_row['rate']; ?></p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label for="discount_percent" class="form-label">Discount (%)</label>
-
-                                                                    </div>
-                                                                </div>
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label for="total_cost" class="form-label">Total Cost</label>
-                                                                        <p class="form-control"><?= $purchase_row['totalCost']; ?></p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label for="agent_transport_cost" class="form-label">Agent Transport Cost</label>
-                                                                        <p class="form-control"><?= $purchase_row['agentTransportationCost']; ?></p>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label for="total_amount" class="form-label fw-bold">Total Amount</label>
-                                                                        <p class="form-control fw-bold"><?= $purchase_row['totalAmount']; ?></p>
-                                                                    </div>
-                                                                </div>
-                                                            </div> -->
-                                                            <!-- /Costs Row -->
-
-                                                            <!-- Tracking Details -->
-                                                            <!-- <div class="row mb-4">
-                                                                <div class="col-12">
-                                                                    <h6 class="fw-bold mb-3">Tracking Details</h6>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>To Agent Date</label>
-                                                                        <div class="input-groupicon">
-                                                                            <input type="text" value="<?= $purchase_row['dateToAgentAbroadWarehouse']; ?>" class="datetimepicker">
-                                                                            <div class="addonset">
-                                                                                <img src="assets/img/icons/calendars.svg" alt="img">
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Received In Tanzania Date</label>
-                                                                        <div class="input-groupicon">
-                                                                            <input type="text" value="<?= $purchase_row['dateReceivedByAgentInCountryWarehouse']; ?>" class="datetimepicker">
-                                                                            <div class="addonset">
-                                                                                <img src="assets/img/icons/calendars.svg" alt="img">
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>At Sonak</label>
-                                                                        <div class="input-groupicon">
-                                                                            <input type="text" value="<?= $purchase_row['dateReceivedByCompany']; ?>" class="datetimepicker">
-                                                                            <div class="addonset">
-                                                                                <img src="assets/img/icons/calendars.svg" alt="img">
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="col-lg-3 col-sm-6 col-12">
-                                                                    <div class="form-group">
-                                                                        <label>Purchase Status</label>
-                                                                        <p class="form-control"><?= ($purchase_row['purchaseStatus'] === 1) ? 'Completed' : (($purchase_row['purchaseStatus'] === 2) ? 'Cancelled' : 'Pending'); ?>
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            </div> -->
-                                                            <!-- /Tracking Details -->
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Close</button>
+                                                            <a href="viewpurchase.php?purchaseNumber=<?= $purchase_number; ?>&purchaseStatus=<?= $purchase_row['purchaseStatus']; ?>" class="btn btn-outline-primary">View Purchase Details</a>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
+                                            <!-- /Delete Reason Modal -->
+
                                     <?php
                                         }
                                     }
@@ -589,23 +495,72 @@ $current_time = $time->format("Y-m-d H:i:s");
 
     <script>
         // Function to confirm purchase deletion 
+        // function confirmDelete(purchaseUId) {
+        //     Swal.fire({
+        //         icon: 'warning',
+        //         title: 'Are you sure?',
+        //         text: "This action cannot be undone.",
+        //         showCancelButton: true,
+        //         confirmButtonColor: '#3085d6',
+        //         cancelButtonColor: '#d33',
+        //         confirmButtonText: 'Yes, delete!',
+        //         cancelButtonText: 'Cancel'
+        //     }).then((result) => {
+        //         if (result.isConfirmed) {
+        //             window.location.href = 'deletepurchase.php?id=' + purchaseUId;
+        //         }
+        //     });
+        // }
         function confirmDelete(purchaseUId) {
             Swal.fire({
-                icon: 'warning',
-                title: 'Are you sure?',
-                text: "This action cannot be undone.",
+                // icon: 'warning',
+                title: 'Delete Purchase',
+                html: `
+                        <label for="deleteReason" style="display:block; margin-bottom:8px;">Please provide a reason for deleting this purchase:</label>
+                        <textarea id="deleteReason" class="swal2-textarea" placeholder="Enter reason..." rows="6" style="width:100%; resize:vertical;"></textarea>
+                    `,
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
                 cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete!',
-                cancelButtonText: 'Cancel'
+                confirmButtonText: 'Delete',
+                cancelButtonText: 'Cancel',
+                customClass: {
+                    popup: 'swal-wide',
+                    title: 'swal-title-lg',
+                    confirmButton: 'swal-btn-lg',
+                    cancelButton: 'swal-btn-lg'
+                },
+                preConfirm: () => {
+                    const reason = document.getElementById('deleteReason').value.trim();
+                    if (!reason) {
+                        Swal.showValidationMessage('Reason is required');
+                    }
+                    return reason;
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    window.location.href = 'deletepurchase.php?id=' + purchaseUId;
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = 'deletepurchase.php';
+
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'purchaseUId';
+                    idInput.value = purchaseUId;
+
+                    const reasonInput = document.createElement('input');
+                    reasonInput.type = 'hidden';
+                    reasonInput.name = 'deleteReason';
+                    reasonInput.value = result.value;
+
+                    form.appendChild(idInput);
+                    form.appendChild(reasonInput);
+                    document.body.appendChild(form);
+                    form.submit();
                 }
             });
-        }
 
+        };
         // Function to confirm purchase completion
         function confirmCompletePurchase(purchaseUId) {
             Swal.fire({

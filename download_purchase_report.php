@@ -2,6 +2,10 @@
 require('assets/fpdf/fpdf.php');
 require('includes/db_connection.php');
 
+// Set timezone
+$time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
+$current_time = $time->format("Y-m-d H:i:s");
+
 // Initialize PDF
 $pdf = new FPDF();
 $pdf->AddPage('P', 'A4');
@@ -58,7 +62,7 @@ if (empty($_GET['from_date']) && empty($_GET['to_date']) && empty($_GET['supplie
 // Generated time
 $pdf->Ln(3);
 $pdf->SetFont('Times', 'I', 9);
-$pdf->Cell(0, 6, 'Generated on: ' . date('d-M-Y H:i:s'), 0, 1, 'L');
+$pdf->Cell(0, 6, 'Generated on: ' . $current_time, 0, 1, 'L');
 $pdf->Ln(5);
 
 //Horizontal Line
@@ -136,6 +140,11 @@ $sn = 0;
 $fill = false;
 
 if ($result->num_rows > 0) {
+    // Initialize totals
+    $totalPurchasedQty = 0;
+    $totalInstockQty = 0;
+    $totalPurchasedAmount = 0;
+
     while ($row = $result->fetch_assoc()) {
         $sn++;
         $pdf->Cell(10, 10, $sn, 1, 0, 'C', $fill);
@@ -145,11 +154,26 @@ if ($result->num_rows > 0) {
         $pdf->Cell(50, 10, number_format($row['Purchased Amount'], 2), 1, 0, 'C', $fill);
         $pdf->Ln();
         $fill = !$fill;
+
+        // Accumulate totals
+        $totalPurchasedQty += $row['Purchased QTY'];
+        $totalInstockQty += $row['Instock QTY'];
+        $totalPurchasedAmount += $row['Purchased Amount'];
     }
 } else {
-    $pdf->Cell(170, 10, 'No records found.', 1, 0, 'C');
+    $pdf->Cell(190, 10, 'No records found.', 1, 0, 'C');
     $pdf->Ln();
 }
+
+// Total
+$pdf->SetFont('Times', 'B', 10);
+$pdf->SetFillColor(220, 230, 240);
+$pdf->Cell(10, 10, '', 1, 0, 'C', true);
+$pdf->Cell(60, 10, 'TOTAL', 1, 0, 'C', true);
+$pdf->Cell(35, 10, number_format($totalPurchasedQty, 0), 1, 0, 'C', true);
+$pdf->Cell(35, 10, number_format($totalInstockQty, 0), 1, 0, 'C', true);
+$pdf->Cell(50, 10, number_format($totalPurchasedAmount, 2), 1, 0, 'C', true);
+$pdf->Ln();
 
 $stmt->close();
 $conn->close();
@@ -162,14 +186,14 @@ $pdf->Line(10, $pdf->GetY(), 200, $pdf->GetY());
 $pdf->Ln(1.5);
 
 // Footer Content
-$pdf->SetFont('Times', 'B', 10);
+$pdf->SetFont('Times', 'B', 7);
 $pdf->SetTextColor(0, 102, 204);
-$pdf->Cell(0, 5, 'THANK YOU FOR YOUR BUSINESS!', 0, 1, 'C');
+$pdf->Cell(0, 5, 'SONAK COMPANY LIMITED', 0, 1, 'C');
 
 $pdf->SetFont('Times', '', 8);
 $pdf->SetTextColor(60, 60, 60);
-$pdf->Cell(0, 4, 'If you have any questions, please contact us.', 0, 1, 'C');
-$pdf->Cell(0, 4, 'SONAK Company Ltd | Riverside St, Dar es Salaam | +255 123 456 789 | info@sonak.com', 0, 1, 'C');
+$pdf->Cell(0, 4, 'P.O. Box 78530 DAR ES SALAAM, TANZANIA', 0, 1, 'C');
+$pdf->Cell(0, 4, 'Riverside St, Dar es Salaam', 0, 1, 'C');
 
 // Output PDF
 $pdf->Output('D', 'Purchases_Report_' . date('Ymd_His') . '.pdf');

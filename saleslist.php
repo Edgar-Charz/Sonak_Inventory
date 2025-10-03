@@ -14,6 +14,7 @@ if (isset($_POST['paymentBTN'])) {
     $invoiceNumber = $_POST['invoiceNumber'] ?? '';
     $payingAmount = isset($_POST['payingAmount']) ? floatval(str_replace(',', '', $_POST['payingAmount'])) : 0;
     $paymentType = $_POST['paymentType'] ?? '';
+    $transactionAccountUId = $_POST['transaction_account_id'] ?? null;
 
     $updatedBy = $user_id;
 
@@ -32,7 +33,7 @@ if (isset($_POST['paymentBTN'])) {
         </script>";
         exit();
     }
-    if ($payingAmount <= 0.00) {
+    if ($payingAmount <= 0) {
         echo "<script>
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
@@ -103,14 +104,16 @@ if (isset($_POST['paymentBTN'])) {
 
         // Insert into transactions table
         $insert_transaction_stmt = $conn->prepare("INSERT INTO transactions 
-            (transactionCustomerId, transactionInvoiceNumber, transactionPaymentType, 
+            (transactionCreatedBy, transactionCustomerId, transactionInvoiceNumber, transactionAccountUId, transactionPaymentType, 
              transactionPaidAmount, transactionDueAmount, transactionDate, 
              transactionCreatedAt, transactionUpdatedAt) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $insert_transaction_stmt->bind_param(
-            "issddsss",
+            "iisisddsss",
+            $user_id,
             $customerId,
             $invoiceNumber,
+            $transactionAccountUId,
             $paymentType,
             $payingAmount,
             $newDue,
@@ -158,7 +161,6 @@ if (isset($_POST['paymentBTN'])) {
                     title: 'Error!',
                     text: '" . addslashes($e->getMessage()) . "',
                     icon: 'error',
-                    timer: 5000,
                     timerProgressBar: true
                 });
             });
@@ -216,6 +218,185 @@ if (isset($_POST['paymentBTN'])) {
     <div id="global-loader">
         <div class="whirly-loader"> </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // For each payment modal, use unique IDs by invoice number
+            document.querySelectorAll('[id^="paymentForm"]').forEach(function(form) {
+                const modal = form.closest('.modal');
+                const invoice = form.id.replace('paymentForm', '');
+                const paymentType = modal.querySelector('#paymentType');
+                const bankField = modal.querySelector('#bank_field');
+                const bankNameSelect = modal.querySelector('#bank_name_select');
+                const accountNumberSelect = modal.querySelector('#account_number_select');
+                const accountHolderInput = modal.querySelector('#account_holder_input');
+                const mobileField = modal.querySelector('#mobile_field');
+                const networkSelect = modal.querySelector('#network_name_select');
+                const numberSelect = modal.querySelector('#network_number_select');
+                const holderInput = modal.querySelector('#network_holder_input');
+
+                function clearBankFields(from) {
+                    if (from <= 1 && bankNameSelect) {
+                        bankNameSelect.innerHTML = '<option value="" selected>Select Bank</option>';
+                    }
+                    if (from <= 2 && accountNumberSelect) {
+                        accountNumberSelect.innerHTML = '<option value="" selected>Select Account</option>';
+                        accountNumberSelect.disabled = true;
+                    }
+                    if (from <= 3 && accountHolderInput) {
+                        accountHolderInput.value = '';
+                        accountHolderInput.placeholder = 'No account selected';
+                    }
+                }
+
+                function clearMobileFields(from) {
+                    if (networkSelect) {
+                        if (from <= 1) networkSelect.innerHTML = '<option value="" selected>Select Network</option>';
+                    }
+                    if (numberSelect) {
+                        if (from <= 2) {
+                            numberSelect.innerHTML = '<option value="" selected>Select Number</option>';
+                            numberSelect.disabled = true;
+                        }
+                    }
+                    if (holderInput) {
+                        if (from <= 3) {
+                            holderInput.value = '';
+                            holderInput.placeholder = 'No account selected';
+                        }
+                    }
+                }
+
+                function loadBanks() {
+                    fetch('get_payment_data.php?action=providers&type=Bank')
+                        .then(response => response.json())
+                        .then(providers => {
+                            clearBankFields(1);
+                            providers.forEach(provider => {
+                                const option = document.createElement('option');
+                                option.value = provider.provider_name;
+                                option.textContent = provider.provider_name;
+                                bankNameSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                function loadNetworks() {
+                    fetch('get_payment_data.php?action=providers&type=Mobile Money')
+                        .then(response => response.json())
+                        .then(providers => {
+                            clearMobileFields(1);
+                            providers.forEach(provider => {
+                                const option = document.createElement('option');
+                                option.value = provider.provider_name;
+                                option.textContent = provider.provider_name;
+                                networkSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                if (paymentType) {
+                    paymentType.addEventListener('change', function() {
+                        if (bankField && mobileField) {
+                            if (paymentType.value === 'Bank') {
+                                bankField.style.display = 'flex';
+                                mobileField.style.display = 'none';
+                                loadBanks();
+                                clearMobileFields(1);
+                            } else if (paymentType.value === 'Mobile Money') {
+                                mobileField.style.display = 'flex';
+                                bankField.style.display = 'none';
+                                loadNetworks();
+                                clearBankFields(1);
+                            } else {
+                                bankField.style.display = 'none';
+                                mobileField.style.display = 'none';
+                                clearBankFields(1);
+                                clearMobileFields(1);
+                            }
+                        }
+                    });
+                }
+
+                if (bankNameSelect) {
+                    bankNameSelect.addEventListener('change', function() {
+                        const selectedBank = this.value;
+                        clearBankFields(2);
+                        if (selectedBank) {
+                            fetch('get_payment_data.php?action=accounts&type=Bank&provider=' + encodeURIComponent(selectedBank))
+                                .then(response => response.json())
+                                .then(accounts => {
+                                    accountNumberSelect.innerHTML = '<option value="" selected>Select Account</option>';
+                                    if (accounts.length > 0) {
+                                        accounts.forEach(account => {
+                                            const option = document.createElement('option');
+                                            option.value = account.id;
+                                            option.textContent = account.account_number;
+                                            option.dataset.holder = account.account_holder;
+                                            accountNumberSelect.appendChild(option);
+                                        });
+                                        accountNumberSelect.disabled = false;
+                                    } else {
+                                        accountNumberSelect.disabled = true;
+                                    }
+                                });
+                        }
+                    });
+                }
+
+                if (accountNumberSelect) {
+                    accountNumberSelect.addEventListener('change', function() {
+                        clearBankFields(3);
+                        const selectedOption = this.options[this.selectedIndex];
+                        if (selectedOption && selectedOption.value) {
+                            accountHolderInput.value = selectedOption.dataset.holder || '';
+                        } else {
+                            accountHolderInput.value = '';
+                            accountHolderInput.placeholder = 'No account selected';
+                        }
+                    });
+                }
+
+                if (networkSelect) {
+                    networkSelect.addEventListener('change', function() {
+                        const selectedNetwork = this.value;
+                        clearMobileFields(2);
+                        if (selectedNetwork) {
+                            fetch('get_payment_data.php?action=accounts&type=Mobile Money&provider=' + encodeURIComponent(selectedNetwork))
+                                .then(response => response.json())
+                                .then(accounts => {
+                                    numberSelect.innerHTML = '<option value="" selected>Select Number</option>';
+                                    if (accounts.length > 0) {
+                                        accounts.forEach(account => {
+                                            const option = document.createElement('option');
+                                            option.value = account.id;
+                                            option.textContent = account.account_number;
+                                            option.dataset.holder = account.account_holder;
+                                            numberSelect.appendChild(option);
+                                        });
+                                        numberSelect.disabled = false;
+                                    } else {
+                                        numberSelect.disabled = true;
+                                    }
+                                });
+                        }
+                    });
+                }
+
+                if (numberSelect) {
+                    numberSelect.addEventListener('change', function() {
+                        clearMobileFields(3);
+                        const selectedOption = this.options[this.selectedIndex];
+                        if (selectedOption && selectedOption.value) {
+                            holderInput.value = selectedOption.dataset.holder || '';
+                        } else {
+                            holderInput.value = '';
+                            holderInput.placeholder = 'No account selected';
+                        }
+                    });
+                }
+            });
+        });
+    </script>
 
     <div class="main-wrapper">
 
@@ -432,7 +613,7 @@ if (isset($_POST['paymentBTN'])) {
                                         <th>Invoice No.</th>
                                         <th>Customer Name</th>
                                         <th>Order Date</th>
-                                        <th>Created By</th>
+                                        <th>Approved By</th>
                                         <!-- <th>UpdatedBy</th> -->
                                         <!-- <th>PaymentType</th> -->
                                         <th>VAT(%)</th>
@@ -600,17 +781,6 @@ if (isset($_POST['paymentBTN'])) {
                                                         </div>
                                                         <div class="modal-body">
                                                             <div class="row">
-                                                                <!-- <div class="col-lg-6 col-sm-12 mb-3">
-                                                                    <div class="form-group">
-                                                                        <label>Date</label>
-                                                                        <div class="input-groupicon">
-                                                                            <p class="form-control"><?= $order_row["orderDate"]; ?></p>
-                                                                            <div class="addonset">
-                                                                                <img src="assets/img/icons/calendars.svg" alt="calendar">
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                </div> -->
 
                                                                 <div class="col-lg-6 col-sm-12 mb-3">
                                                                     <div class="form-group">
@@ -644,7 +814,21 @@ if (isset($_POST['paymentBTN'])) {
                                                                     <div class="form-group">
                                                                         <label style="text-align: center; font-size: large;">Transactions</label>
                                                                         <?php
-                                                                        $transactions_stmt = $conn->prepare("SELECT * FROM transactions WHERE transactionInvoiceNumber = ?");
+                                                                        $transactions_stmt = $conn->prepare("SELECT 
+                                                                                                                        transactions.*, 
+                                                                                                                        users.username,
+                                                                                                                        company_payment_accounts.paymentAccountType,
+                                                                                                                        company_payment_accounts.paymentAccountProviderName,
+                                                                                                                        company_payment_accounts.paymentAccountNumber,
+                                                                                                                        company_payment_accounts.paymentAccountHolderName
+                                                                                                                    FROM 
+                                                                                                                        transactions 
+                                                                                                                    JOIN 
+                                                                                                                        users ON users.userId = transactions.transactionCreatedBy
+                                                                                                                    LEFT JOIN 
+                                                                                                                        company_payment_accounts ON company_payment_accounts.paymentAccountUId = transactions.transactionAccountUId
+                                                                                                                    WHERE 
+                                                                                                                        transactions.transactionInvoiceNumber = ?");
                                                                         $transactions_stmt->bind_param("s", $invoice_number);
                                                                         $transactions_stmt->execute();
                                                                         $transactions_result = $transactions_stmt->get_result();
@@ -654,20 +838,49 @@ if (isset($_POST['paymentBTN'])) {
                                                                             echo '<div class="row border p-2 mb-2">';
                                                                             echo '<div class="col-1"><strong>#</strong></div>';
                                                                             echo '<div class="col-3"><strong>Paid Amount</strong></div>';
-                                                                            echo '<div class="col-3"><strong>Due Amount</strong></div>';
-                                                                            echo '<div class="col-3"><strong>Payment Type</strong></div>';
+                                                                            echo '<div class="col-2"><strong>Due Amount</strong></div>';
+                                                                            echo '<div class="col-2"><strong>Payment Type</strong></div>';
+                                                                            echo '<div class="col-2"><strong>Approved By</strong></div>';
                                                                             echo '<div class="col-2"><strong>Payment Date</strong></div>';
                                                                             echo '</div>';
 
                                                                             while ($transaction = $transactions_result->fetch_assoc()) {
-
                                                                                 echo '<div class="row border p-2 mb-1">';
                                                                                 echo "<div class='col-1'>{$i}</div>";
                                                                                 echo "<div class='col-3'>" . number_format($transaction['transactionPaidAmount'], 2) . "</div>";
-                                                                                echo "<div class='col-3'>" . number_format($transaction['transactionDueAmount'], 2) . "</div>";
-                                                                                echo "<div class='col-3'>{$transaction['transactionPaymentType']}</div>";
+                                                                                echo "<div class='col-2'>" . number_format($transaction['transactionDueAmount'], 2) . "</div>";
+
+                                                                                // Payment type 
+                                                                                echo "<div class='col-2'>";
+                                                                                echo "{$transaction['transactionPaymentType']}";
+
+                                                                                if ($transaction['transactionPaymentType'] === 'Bank' || $transaction['transactionPaymentType'] === 'Mobile Money') {
+                                                                                    $detailsId = "details-" . $transaction['transactionUId'];
+                                                                                    echo " <button class='btn btn-sm btn-outline-primary ms-2' 
+                                                                                                    type='button' 
+                                                                                                    data-bs-toggle='collapse' 
+                                                                                                    data-bs-target='#{$detailsId}' 
+                                                                                                    aria-expanded='false' 
+                                                                                                    aria-controls='{$detailsId}'>
+                                                                                                    <i class='fa fa-eye'></i>
+                                                                                            </button>";
+
+                                                                                    // Hidden details
+                                                                                    echo "<div class='collapse mt-2' id='{$detailsId}'>
+                                                                                            <div class='card card-body p-2'>
+                                                                                                <strong>Provider:</strong> {$transaction['paymentAccountProviderName']} <br>
+                                                                                                <strong>Account/Number:</strong> {$transaction['paymentAccountNumber']} <br>
+                                                                                                <strong>Holder:</strong> {$transaction['paymentAccountHolderName']}
+                                                                                            </div>
+                                                                                        </div>";
+                                                                                }
+
+                                                                                echo "</div>"; 
+
+                                                                                echo "<div class='col-2'>{$transaction['username']}</div>";
                                                                                 echo "<div class='col-2'>" . date('d-m-Y', strtotime($transaction['transactionDate'])) . "</div>";
                                                                                 echo '</div>';
+
                                                                                 $i++;
                                                                             }
                                                                         } else {
@@ -737,11 +950,60 @@ if (isset($_POST['paymentBTN'])) {
                                                                     <div class="col-lg-6 col-sm-12 col-12">
                                                                         <div class="form-group">
                                                                             <label>Payment Type</label>
-                                                                            <select class="form-control" name="paymentType" required>
+                                                                            <select class="form-control" name="paymentType" id="paymentType" required>
                                                                                 <option value="" selected disabled>Payment Type</option>
-                                                                                <option>Cash</option>
-                                                                                <option>Credit Card</option>
+                                                                                <option value="Cash">Cash</option>
+                                                                                <option value="Bank">Bank</option>
+                                                                                <option value="Mobile Money">Mobile Money</option>
                                                                             </select>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div id="bank_field" class="row" style="display: none;">
+                                                                        <div class="col-lg-4 col-sm-6 col-12">
+                                                                            <div class="form-group">
+                                                                                <label>Bank Name</label>
+                                                                                <select class="form-control" id="bank_name_select">
+                                                                                    <option value="" selected>Select Bank</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-lg-4 col-sm-6 col-12">
+                                                                            <div class="form-group">
+                                                                                <label>Account Number</label>
+                                                                                <select class="form-control" name="transaction_account_id" id="account_number_select" disabled>
+                                                                                    <option value="" selected>Select Account</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-lg-4 col-sm-6 col-12">
+                                                                            <div class="form-group">
+                                                                                <label>Account Holder</label>
+                                                                                <input type="text" class="form-control" id="account_holder_input" readonly placeholder="No account selected">
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div id="mobile_field" class="row" style="display: none;">
+                                                                        <div class="col-lg-4 col-sm-6 col-12">
+                                                                            <div class="form-group">
+                                                                                <label>Network Name</label>
+                                                                                <select class="form-control" id="network_name_select">
+                                                                                    <option value="" selected>Select Network</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-lg-4 col-sm-6 col-12">
+                                                                            <div class="form-group">
+                                                                                <label>Phone Number</label>
+                                                                                <select class="form-control" name="transaction_account_id" id="network_number_select" disabled>
+                                                                                    <option value="" selected>Select Number</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="col-lg-4 col-sm-6 col-12">
+                                                                            <div class="form-group">
+                                                                                <label>Account Holder</label>
+                                                                                <input type="text" class="form-control" id="network_holder_input" readonly placeholder="No account selected">
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -839,69 +1101,6 @@ if (isset($_POST['paymentBTN'])) {
     </div>
 
 
-    <div class="modal fade" id="editpayment" tabindex="-1" aria-labelledby="editpayment" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Edit Payment</h5>
-                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Customer</label>
-                                <div class="input-groupicon">
-                                    <input type="text" value="2022-03-07" class="datetimepicker">
-                                    <div class="addonset">
-                                        <img src="assets/img/icons/datepicker.svg" alt="img">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Reference</label>
-                                <input type="text" value="INV/SL0101">
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Received Amount</label>
-                                <input type="text" value="0.00">
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Paying Amount</label>
-                                <input type="text" value="0.00">
-                            </div>
-                        </div>
-                        <div class="col-lg-6 col-sm-12 col-12">
-                            <div class="form-group">
-                                <label>Payment type</label>
-                                <select class="select">
-                                    <option>Cash</option>
-                                    <option>Online</option>
-                                    <option>Inprogress</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-lg-12">
-                            <div class="form-group mb-0">
-                                <label>Note</label>
-                                <textarea class="form-control"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-submit">Submit</button>
-                    <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script>
         // Function to confirm order deletion

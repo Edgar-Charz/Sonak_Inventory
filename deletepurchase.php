@@ -2,13 +2,18 @@
 include("includes/db_connection.php");
 include("includes/session.php");
 
+// Get user id from session
 $user_id = $_SESSION['id'];
+
+// Time zone setting
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
 
-if (isset($_GET["id"])) {
-    $purchase_uid = $_GET["id"];
+if (isset($_POST["purchaseUId"]) && isset($_POST["deleteReason"])) {
+    $purchase_uid = $_POST["purchaseUId"];
+    $delete_reason = trim($_POST["deleteReason"]);
 
+    // Begin transaction
     $conn->begin_transaction();
 
     try {
@@ -26,10 +31,10 @@ if (isset($_GET["id"])) {
         $purchase_query->close();
 
         // Update purchases table
-        $update_purchase_query = $conn->prepare("UPDATE purchases SET purchaseStatus = 3, purchaseUpdatedBy = ?, updated_at = ? WHERE purchaseUId = ?");
-        $update_purchase_query->bind_param("isi", $user_id, $current_time, $purchase_uid);
+        $update_purchase_query = $conn->prepare("UPDATE purchases SET purchaseStatus = 3, purchaseDescription = ?, purchaseUpdatedBy = ?, updated_at = ? WHERE purchaseUId = ?");
+        $update_purchase_query->bind_param("sisi", $delete_reason, $user_id, $current_time, $purchase_uid);
         if (!$update_purchase_query->execute()) {
-            throw new Exception("Failed to update purchase status");
+            throw new Exception("Failed to update purchase status"); 
         }
         $update_purchase_query->close();
 

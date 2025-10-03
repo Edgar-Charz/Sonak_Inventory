@@ -69,6 +69,84 @@ if (isset($_POST['addUserBTN'])) {
         $insert_stmt->bind_param("ssssssss", $username, $phone, $email, $password, $role, $userPhoto, $current_time, $current_time);
         $insert_stmt->execute();
 
+        // // Get the newly created user ID
+        // $userId = $conn->insert_id;
+
+        // // Ensure certs directory exists
+        // $certDir = __DIR__ . '/assets/certs/users/';
+        // if (!is_dir($certDir)) {
+        //     if (!mkdir($certDir, 0777, true)) {
+        //         throw new Exception("Failed to create certificate directory: $certDir");
+        //     }
+        // }
+
+        // // Generate key pair
+        // $privkey = openssl_pkey_new([
+        //     "private_key_bits" => 2048,
+        //     "private_key_type" => OPENSSL_KEYTYPE_RSA,
+        // ]);
+        // if (!$privkey) {
+        //     throw new Exception("Failed to generate private key: " . openssl_error_string());
+        // }
+
+        // // Generate CSR
+        // $dn = [
+        //     "countryName" => "TZ",
+        //     "stateOrProvinceName" => "Dar es Salaam",
+        //     "localityName" => "Riverside",
+        //     "organizationName" => "Sonak Co. Ltd",
+        //     "commonName" => "User $userId",
+        //     "emailAddress" => "$email"
+        // ];
+        // $csr = openssl_csr_new($dn, $privkey);
+        // if (!$csr) {
+        //     throw new Exception("Failed to generate CSR: " . openssl_error_string());
+        // }
+
+        // $sscert = openssl_csr_sign($csr, null, $privkey, 365);
+        // if (!$sscert) {
+        //     throw new Exception("Failed to sign certificate: " . openssl_error_string());
+        // }
+
+        // // Generate password and paths
+        // $userCertKeyPassword = bin2hex(random_bytes(8));
+        // $userCertSerial = strtoupper(uniqid("CERT"));
+        // $userCertIssued = date("Y-m-d");
+        // $userCertExpiry = date("Y-m-d", strtotime("+1 year"));
+        // $userCertPath = "assets/certs/users/user_{$userId}_cert.pem";
+        // $userCertKey = "assets/certs/users/user_{$userId}_key.pem";
+
+        // // Save key and cert to files
+        // $privkeyFullPath = __DIR__ . '/' . $userCertKey;
+        // $certFullPath = __DIR__ . '/' . $userCertPath;
+        // if (!openssl_pkey_export_to_file($privkey, $privkeyFullPath, $userCertKeyPassword)) {
+        //     throw new Exception("Failed to export private key: " . openssl_error_string());
+        // }
+        // if (!openssl_x509_export_to_file($sscert, $certFullPath)) {
+        //     throw new Exception("Failed to export certificate: " . openssl_error_string());
+        // }
+
+        // // Insert into user_certificates table
+        // $cert_stmt = $conn->prepare("INSERT INTO user_certificates (userCertId, userCertPath, userCertKey, userCertKeyPassword, userCertSerial, userCertIssued, userCertExpiry, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        // if (!$cert_stmt) {
+        //     throw new Exception("Failed to prepare certificate insert statement: " . $conn->error);
+        // }
+        // $cert_stmt->bind_param(
+        //     "issssssss",
+        //     $userId,
+        //     $userCertPath,
+        //     $userCertKey,
+        //     $userCertKeyPassword,
+        //     $userCertSerial,
+        //     $userCertIssued,
+        //     $userCertExpiry,
+        //     $current_time,
+        //     $current_time
+        // );
+        // if (!$cert_stmt->execute()) {
+        //     throw new Exception("Failed to insert certificate info: " . $cert_stmt->error);
+        // }
+
         // Commit transaction
         $conn->commit();
 
@@ -76,6 +154,7 @@ if (isset($_POST['addUserBTN'])) {
             document.addEventListener('DOMContentLoaded', function () {
                 Swal.fire({
                     icon: 'success',
+                    title: 'Success!',
                     text: 'User added successfully!'
                 }).then(function(){
                     window.location.href = 'userlist.php';
@@ -664,13 +743,13 @@ if (isset($_POST['updateUserBTN'])) {
                                                 <div class="col-lg-4 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>First Name</label>
-                                                        <input type="text" name="first_name" oninput="capitalizeFirstLetter(this)" required>
+                                                        <input type="text" name="first_name" oninput="capitalizeWords(this)" required>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-4 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Last Name</label>
-                                                        <input type="text" name="last_name" oninput="capitalizeFirstLetter(this)" required>
+                                                        <input type="text" name="last_name" oninput="capitalizeWords(this)" required>
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-4 col-sm-6 col-12">
@@ -737,9 +816,11 @@ if (isset($_POST['updateUserBTN'])) {
 
     <script>
         // Function to capitalize
-        function capitalizeFirstLetter(input) {
+        function capitalizeWords(input) {
             if (typeof input.value !== 'string' || input.value.length === 0) return;
-            input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1).toLowerCase();
+            input.value = input.value.replace(/\b\w/g, function(char) {
+                return char.toUpperCase();
+            });
         }
 
         // Form Validation

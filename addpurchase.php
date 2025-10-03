@@ -72,7 +72,7 @@ if (isset($_POST['addPurchaseBTN'])) {
                                                             SET 
                                                                 purchaseDetailQuantity = ?, purchaseDetailTotalCost = ?, updated_at = ? 
                                                             WHERE
-                                                                 quotationDetailUId= ?");
+                                                                 purchaseDetailUId= ?");
                 $update_stmt->bind_param("idsi", $newQty, $newTotal, $current_time, $row['purchaseDetailUId']);
                 $update_stmt->execute();
                 $update_stmt->close();

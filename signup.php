@@ -55,7 +55,7 @@ if (isset($_POST['signupBTN'])) {
                             icon: 'success',
                             text: 'Account created successfully! Redirecting to login...',
                             timer: 1500,
-                            showConfirmButton: false
+                            showConfirmButton: true
                         }).then(function() {
                             window.location.href = 'signin.php';
                         });
@@ -252,14 +252,15 @@ if (isset($_POST['signupBTN'])) {
 
             if (name === 'password') {
                 const isValid = (
-                    value.length >= 8 &&
-                    /[A-Z]/.test(value) &&
-                    /[a-z]/.test(value) &&
-                    /[0-9]/.test(value)
+                    value.length >= 4
+                    // &&
+                    // /[A-Z]/.test(value) &&
+                    // /[a-z]/.test(value) &&
+                    // /[0-9]/.test(value)
                     // && /[!@#$%^&*(),.?":{}|<>]/.test(value) 
                 );
                 if (!isValid) {
-                    return 'Password must be at least 8 characters long and include uppercase, lowercase letters, and numbers.';
+                    return 'Password must be at least 4 characters long.';
                 }
             }
 

@@ -727,10 +727,6 @@ if (isset($_POST['updateSupplierBTN'])) {
                 return 'Please fill in all fields.';
             }
 
-            if ((name === 'customer_address') && !/^[A-Za-z\s,]+$/.test(value)) {
-                return 'Name fields should contain letters, spaces and commas only.';
-            }
-
             if (name === 'customer_phone' && !/^[0-9]{7,15}$/.test(value)) {
                 return 'Please enter a valid Phone number.';
             }

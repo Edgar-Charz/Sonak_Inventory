@@ -590,7 +590,7 @@ if (isset($_POST['addSupplierBTN'])) {
                                                 <div class="col-lg-4 col-sm-6 col-12">
                                                     <div class="form-group">
                                                         <label>Shop Name</label>
-                                                        <input type="text" name="supplier_shop" oninput="capitalizeFirstLetter(this)" required>
+                                                        <input type="text" name="supplier_shop" oninput="capitalizeFirstLetter(this)">
                                                     </div>
                                                 </div>
                                                 <div class="col-lg-4 col-sm-6 col-12">
@@ -735,9 +735,9 @@ if (isset($_POST['addSupplierBTN'])) {
                 return 'Please fill in all fields.';
             }
 
-            if ((name === 'supplier_address' || name === 'supplier_account_holder' || name === 'supplier_type') &&
+            if ((name === 'supplier_account_holder' || name === 'supplier_type') &&
                 !/^[A-Za-z\s,]+$/.test(value)) {
-                return 'Name fields should contain letters, spaces, and commas only.';
+                return 'Invalid input.';
             }
 
             if (name === 'supplier_phone' && !/^[0-9]{7,15}$/.test(value)) {

@@ -16,7 +16,7 @@ try {
         exit;
     }
  
-    $supplierId = $_GET['supplierId'];
+    $supplierId = $_GET['supplierId']; 
 
     // If bankName is provided, fetch account numbers and holder names
     if (isset($_GET['bankName']) && !empty($_GET['bankName'])) {

@@ -274,51 +274,51 @@ $current_time = $time->format("Y-m-d H:i:s");
 
                         <!-- Order Statistics Table -->
                         <div class="col-lg-6">
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title">Order Statistics</h5>
-        </div>
-        <div class="card-body">
-            <div class="row text-center">
-                <!-- Total Orders -->
-                <div class="col-6 col-md-4 col-lg-3 mb-3">
-                    <div class="p-2 border rounded bg-light">
-                        <h6 class="mb-1">Total Orders</h6>
-                        <span class="badge bg-primary" style="font-size: 14px;"><?= htmlspecialchars($customer['total_orders']); ?></span>
-                    </div>
-                </div>
-                <!-- Completed Orders -->
-                <div class="col-6 col-md-4 col-lg-3 mb-3">
-                    <div class="p-2 border rounded bg-light">
-                        <h6 class="mb-1">Completed</h6>
-                        <span class="badge bg-success" style="font-size: 14px;"><?= htmlspecialchars($customer['completed_orders']); ?></span>
-                    </div>
-                </div>
-                <!-- Pending Orders -->
-                <div class="col-6 col-md-4 col-lg-3 mb-3">
-                    <div class="p-2 border rounded bg-light">
-                        <h6 class="mb-1">Pending</h6>
-                        <span class="badge bg-warning" style="font-size: 14px;"><?= htmlspecialchars($customer['pending_orders']); ?></span>
-                    </div>
-                </div>
-                <!-- Cancelled Orders -->
-                <div class="col-6 col-md-4 col-lg-3 mb-3">
-                    <div class="p-2 border rounded bg-light">
-                        <h6 class="mb-1">Cancelled</h6>
-                        <span class="badge bg-secondary" style="font-size: 14px;"><?= htmlspecialchars($customer['cancelled_orders']); ?></span>
-                    </div>
-                </div>
-                <!-- Deleted Orders -->
-                <div class="col-6 col-md-4 col-lg-3 mb-3">
-                    <div class="p-2 border rounded bg-light">
-                        <h6 class="mb-1">Deleted</h6>
-                        <span class="badge bg-danger" style="font-size: 14px;"><?= htmlspecialchars($customer['deleted_orders']); ?></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title">Order Statistics</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center">
+                                        <!-- Total Orders -->
+                                        <div class="col-6 col-md-4 col-lg-3 mb-3">
+                                            <div class="p-2 border rounded bg-light">
+                                                <h6 class="mb-1">Total Orders</h6>
+                                                <span class="badge bg-primary" style="font-size: 14px;"><?= number_format($customer['total_orders']); ?></span>
+                                            </div>
+                                        </div>
+                                        <!-- Completed Orders -->
+                                        <div class="col-6 col-md-4 col-lg-3 mb-3">
+                                            <div class="p-2 border rounded bg-light">
+                                                <h6 class="mb-1">Completed</h6>
+                                                <span class="badge bg-success" style="font-size: 14px;"><?= number_format($customer['completed_orders']); ?></span>
+                                            </div>
+                                        </div>
+                                        <!-- Pending Orders -->
+                                        <div class="col-6 col-md-4 col-lg-3 mb-3">
+                                            <div class="p-2 border rounded bg-light">
+                                                <h6 class="mb-1">Pending</h6>
+                                                <span class="badge bg-warning" style="font-size: 14px;"><?= number_format($customer['pending_orders']); ?></span>
+                                            </div>
+                                        </div>
+                                        <!-- Cancelled Orders -->
+                                        <div class="col-6 col-md-4 col-lg-3 mb-3">
+                                            <div class="p-2 border rounded bg-light">
+                                                <h6 class="mb-1">Cancelled</h6>
+                                                <span class="badge bg-secondary" style="font-size: 14px;"><?= number_format($customer['cancelled_orders']); ?></span>
+                                            </div>
+                                        </div>
+                                        <!-- Deleted Orders -->
+                                        <div class="col-6 col-md-4 col-lg-3 mb-3">
+                                            <div class="p-2 border rounded bg-light">
+                                                <h6 class="mb-1">Deleted</h6>
+                                                <span class="badge bg-danger" style="font-size: 14px;"><?= number_format($customer['deleted_orders']); ?></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Financial Summary Table -->

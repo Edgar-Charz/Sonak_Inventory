@@ -16,12 +16,15 @@ if (isset($_GET['referenceNumber'])) {
     // Fetch quotation data
     $quotation_query = $conn->prepare("SELECT 
                                                     quotations.*, 
-                                                    customers.customerId, customers.customerName, customers.customerPhone, customers.customerEmail, customers.customerAddress
+                                                    customers.customerId, customers.customerName, customers.customerPhone, customers.customerEmail, customers.customerAddress,
+                                                    users.username
                                                 FROM 
-                                                    quotations 
-                                                LEFT JOIN 
-                                                    customers ON quotations.quotationCustomerId = customers.customerId 
+                                                    quotations, customers, users 
                                                 WHERE 
+                                                    quotations.quotationCustomerId = customers.customerId 
+                                                AND 
+                                                    quotations.quotationCreatedBy = users.userId 
+                                                AND 
                                                     quotations.quotationReferenceNumber = ? LIMIT 1");
     $quotation_query->bind_param("s", $referenceNumber);
     $quotation_query->execute();
@@ -286,10 +289,6 @@ if (isset($_GET['referenceNumber'])) {
                                                 <table class="table table-striped mb-0">
                                                     <tbody>
                                                         <tr>
-                                                            <td><strong>Reference Number:</strong></td>
-                                                            <td><?= $quotation['quotationReferenceNumber']; ?></td>
-                                                        </tr>
-                                                        <tr>
                                                             <td><strong>Total Amount:</strong></td>
                                                             <td><?= number_format($quotation['quotationTotalAmount'], 2); ?></td>
                                                         </tr>
@@ -301,6 +300,16 @@ if (isset($_GET['referenceNumber'])) {
                                                             <td><strong>Status:</strong></td>
                                                             <td><?= $quotation['quotationStatus'] == 0 ? 'Sent' : ($quotation['quotationStatus'] == 1 ? 'Approved' : ($quotation['quotationStatus'] == 2 ? 'Cancelled' : 'Deleted')); ?></td>
                                                         </tr>
+                                                        <?php if ($quotation['quotationStatus'] == 1) : ?>
+                                                            <tr>
+                                                                <td><strong>Approved By:</strong></td>
+                                                                <td><?= $quotation['username']; ?></td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td><strong>Approved Date:</strong></td>
+                                                                <td><?= date('d/m/Y', strtotime($quotation['updated_at'])); ?></td>
+                                                            </tr>
+                                                        <?php endif; ?>
                                                     </tbody>
                                                 </table>
                                             </div>

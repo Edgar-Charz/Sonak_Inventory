@@ -360,9 +360,16 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                 Quotation Details
                                                             </a>
                                                         </li>
- 
+
                                                         <li>
-                                                            <a href="download_invoice.php?referenceNumber=<?= $reference_number; ?>" class="dropdown-item">
+                                                            <a href="download_invoice.php?
+                                                                <?php if ($quotation_row['quotationStatus'] == '1') { ?>
+                                                                    referenceNumber=<?= $reference_number; ?>&
+                                                                    approverId=<?= $quotation_row['quotationUpdatedBy']; ?>
+                                                                <?php } else { ?>
+                                                                    referenceNumber=<?= $reference_number; ?>
+                                                                <?php } ?>
+                                                                " class="dropdown-item">
                                                                 <img src="assets/img/icons/download.svg" class="me-2" alt="Download">
                                                                 Download PDF
                                                             </a>
@@ -503,22 +510,7 @@ $current_time = $time->format("Y-m-d H:i:s");
         </div>
     </div>
     <script>
-        // Function to confirm deletion
-        // function confirmDelete(quotationUId) {
-        //     Swal.fire({
-        //         title: 'Are you sure?',
-        //         text: "You won't be able to revert this!",
-        //         showCancelButton: true,
-        //         confirmButtonColor: '#3085d6',
-        //         cancelButtonColor: '#d33',
-        //         confirmButtonText: 'Yes, delete it!'
-        //     }).then((result) => {
-        //         if (result.isConfirmed) {
-        //             window.location.href = 'deletequotation.php?id=' + quotationUId;
-        //         }
-        //     });
-        // };
-
+        // Confirm delete quotation with reason input
         function confirmDelete(quotationUId) {
             Swal.fire({
                 // icon: 'warning',
@@ -694,7 +686,22 @@ $current_time = $time->format("Y-m-d H:i:s");
                     showConfirmButton: true
                 }).then(() => clearParam('message'));
             }
-
+            if (message === 'accessdenied') {
+                Swal.fire({
+                    title: 'Access Denied!',
+                    text: 'Only administrators can approve quotations.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => clearParam('message'));
+            }
+            if (message === 'missingcert') {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Cannot approve quotation. Approver signature is missing.',
+                    icon: 'error',
+                    showConfirmButton: true
+                }).then(() => clearParam('message'));
+            }
             // Reactivate   
             if (response === 'reactivated') {
                 Swal.fire({

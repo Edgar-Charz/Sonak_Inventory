@@ -609,57 +609,59 @@ if (isset($_POST['addAgentBTN'])) {
                                 <div class="modal-body">
                                     <div class="card">
                                         <div class="card-body">
-                                            <div class="col-lg-6 col-sm-6 col-12">
-                                                <div class="form-group">
-                                                    <label>Agent Name</label>
-                                                    <input type="text" name="agent_name" oninput="capitalizeFirstLetter(this)" required>
+                                            <div class="row">
+                                                <div class="col-lg-6 col-sm-6 col-12">
+                                                    <div class="form-group">
+                                                        <label>Agent Name</label>
+                                                        <input type="text" name="agent_name" oninput="capitalizeFirstLetter(this)" required>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div class="col-lg-6 col-sm-6 col-12">
-                                                <div class="form-group">
-                                                    <label>Email</label>
-                                                    <input type="text" name="agent_email" required>
+                                                <div class="col-lg-6 col-sm-6 col-12">
+                                                    <div class="form-group">
+                                                        <label>Email</label>
+                                                        <input type="text" name="agent_email" required>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div class="col-lg-6 col-sm-6 col-12">
-                                                <div class="form-group">
-                                                    <label>Mobile</label>
-                                                    <input type="text" name="agent_phone" required>
+                                                <div class="col-lg-6 col-sm-6 col-12">
+                                                    <div class="form-group">
+                                                        <label>Mobile</label>
+                                                        <input type="text" name="agent_phone" required>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div class="col-12">
-                                                <label>Bank Accounts</label>
-                                                <div id="accounts-wrapper">
-                                                    <div class="row account-row mb-2">
-                                                        <div class="col-lg-4 col-sm-6 col-12">
-                                                            <div class="form-group">
-                                                                <input type="text" name="agent_account_holder[]" class="form-control"
-                                                                    placeholder="Account Holder Name" required
-                                                                    oninput="capitalizeFirstLetter(this)">
+                                                <div class="col-12">
+                                                    <label>Bank Accounts</label>
+                                                    <div id="accounts-wrapper">
+                                                        <div class="row account-row mb-2">
+                                                            <div class="col-lg-4 col-sm-6 col-12">
+                                                                <div class="form-group">
+                                                                    <input type="text" name="agent_account_holder[]" class="form-control"
+                                                                        placeholder="Account Holder Name" required
+                                                                        oninput="capitalizeFirstLetter(this)">
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        <div class="col-lg-4 col-sm-6 col-12">
-                                                            <div class="form-group">
-                                                                <input type="text" name="agent_account_number[]" class="form-control"
-                                                                    placeholder="Account Number" required>
+                                                            <div class="col-lg-4 col-sm-6 col-12">
+                                                                <div class="form-group">
+                                                                    <input type="text" name="agent_account_number[]" class="form-control"
+                                                                        placeholder="Account Number" required>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        <div class="col-lg-3 col-sm-6 col-12">
-                                                            <select name="agent_bank_name[]" class="form-control" required>
-                                                                <option value="" selected disabled>Choose Bank</option>
-                                                                <option>NMB</option>
-                                                                <option>CRDB</option>
-                                                                <option>NBC</option>
-                                                            </select>
-                                                        </div>
-                                                        <div class="col-lg-1 col-sm-6 col-12 d-flex align-items-center">
-                                                            <div class="form-group">
-                                                                <button type="button" class="btn btn-danger btn-sm remove-account">&times;</button>
+                                                            <div class="col-lg-3 col-sm-6 col-12">
+                                                                <select name="agent_bank_name[]" class="form-control" required>
+                                                                    <option value="" selected disabled>Choose Bank</option>
+                                                                    <option>NMB</option>
+                                                                    <option>CRDB</option>
+                                                                    <option>NBC</option>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-lg-1 col-sm-6 col-12 d-flex align-items-center">
+                                                                <div class="form-group">
+                                                                    <button type="button" class="btn btn-danger btn-sm remove-account">&times;</button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
+                                                    <button type="button" class="btn btn-success btn-sm mt-2" id="add-account">+ Add Account</button>
                                                 </div>
-                                                <button type="button" class="btn btn-success btn-sm mt-2" id="add-account">+ Add Account</button>
                                             </div>
                                         </div>
                                     </div>

@@ -24,7 +24,7 @@ if (isset($_POST['restPasswordBTN'])) {
                 echo "<script>
                 document.addEventListener('DOMContentLoaded', function () { 
                     Swal.fire({
-                        // icon: 'success',
+                        icon: 'success',
                         title: 'Success!',
                         text: 'Your password has been successfully set to 1234.',
                         timer: 5000

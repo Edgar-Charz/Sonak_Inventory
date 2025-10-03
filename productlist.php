@@ -30,17 +30,9 @@ try {
 
         if ($check_product_stmt->num_rows > 0) {
             $conn->rollback();
-            echo "<script>
-                document.addEventListener('DOMContentLoaded', function () {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: 'Product with this name already exists!'
-                    }).then(function(){
-                        window.location.href = 'productlist.php';
-                   });
-                });
-            </script>";
+            $_SESSION['product_exists_error'] = true;
+            header("Location: productlist.php");
+            exit;
         } else {
             // Insert new product
             $insert_product_stmt = $conn->prepare("INSERT INTO `products`
@@ -66,17 +58,9 @@ try {
 
             if ($insert_product_stmt->execute()) {
                 $conn->commit();
-                echo "<script>
-                    document.addEventListener('DOMContentLoaded', function () {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success',
-                            text: 'Product added successfully!'
-                        }).then(function(){
-                            window.location.href = 'productlist.php';
-                       });
-                    });
-                </script>";
+                $_SESSION['product_add_success'] = true;
+                header("Location: productlist.php");
+                exit;
             } else {
                 $conn->rollback();
                 echo "<script>
@@ -194,19 +178,9 @@ try {
 
                 if ($update_product_stmt->execute()) {
                     $conn->commit();
-                    echo "<script>
-                        document.addEventListener('DOMContentLoaded', function() {
-                            Swal.fire({
-                                icon: 'success',
-                                text: 'Product updated successfully.',
-                                title: 'Success',
-                                timer: 5000,
-                                timerProgressBar: true
-                            }).then(function() {
-                                window.location.href = 'productlist.php';
-                            });
-                        });
-                      </script>";
+                    $_SESSION['product_update_success'] = true;
+                    header("Location: productlist.php");
+                    exit;
                 } else {
                     $conn->rollback();
                     echo "<script>
@@ -237,6 +211,52 @@ try {
            });
         });
     </script>";
+}
+
+// Show SweetAlert after redirect if addition was successful
+if (isset($_SESSION['product_add_success'])) {
+    echo "<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: 'Product added successfully!',
+            timer: 5000,
+            timerProgressBar: true
+        });
+    });
+</script>";
+    unset($_SESSION['product_add_success']);
+}
+
+// Show SweetAlert after redirect if update was successful
+if (isset($_SESSION['product_update_success'])) {
+    echo "<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: 'Product updated successfully!',
+            timer: 5000,
+            timerProgressBar: true
+        });
+    });
+</script>";
+    unset($_SESSION['product_update_success']);
+}
+
+// Show SweetAlert after redirect if product exists error
+if (isset($_SESSION['product_exists_error'])) {
+    echo "<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error!',
+            text: 'Product with this name already exists!'
+        });
+    });
+</script>";
+    unset($_SESSION['product_exists_error']);
 }
 ?>
 

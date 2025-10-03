@@ -293,7 +293,7 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                     if (isset($order_row)) {
                                                     ?>
                                                         <tr>
-                                                            <td><strong>Biller:</strong></td>
+                                                            <td><strong>Approved By:</strong></td>
                                                             <td><?= $order_row['biller']; ?></td>
                                                         </tr>
                                                         <tr>

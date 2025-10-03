@@ -180,9 +180,9 @@ if (isset($_POST['addUnitBTN'])) {
             </script>";
     } else {
         // Insert the new unit
-        $insert_unit_query = "INSERT INTO units (unitName, unitShortCode) VALUES (?, ?)";
+        $insert_unit_query = "INSERT INTO units (unitName, unitShortCode, created_at, updated_at) VALUES (?, ?, ?, ?)";
         $insert_unit_stmt = $conn->prepare($insert_unit_query);
-        $insert_unit_stmt->bind_param("ss", $unit_name, $unit_short_code);
+        $insert_unit_stmt->bind_param("ssss", $unit_name, $unit_short_code, $current_time, $current_time);
 
         if ($insert_unit_stmt->execute()) {
             echo "<script>

@@ -167,6 +167,7 @@ if (isset($_POST['updateSupplierBTN'])) {
             document.addEventListener('DOMContentLoaded', function() {
                 Swal.fire({
                     icon: 'success',
+                    title: 'Success',
                     text: 'Supplier updated successfully!'
                 }).then(function() {
                     window.location.href='supplierlist.php';
@@ -180,6 +181,7 @@ if (isset($_POST['updateSupplierBTN'])) {
             document.addEventListener('DOMContentLoaded', function() {
                 Swal.fire({
                     icon: 'error',
+                    title: 'Error',
                     text: '" . addslashes($e->getMessage()) . "',
                 }).then(function() {
                     window.location.href='editsupplier.php?id=" . $supplierId . "';

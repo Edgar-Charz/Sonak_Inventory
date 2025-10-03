@@ -2,44 +2,91 @@
 session_start();
 include 'includes/db_connection.php';
 
-if (isset($_GET['reason']) && $_GET['reason'] === 'timeout') {
-    echo "<script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const alertBox = document.createElement('div');
-            alertBox.innerText = 'You have been logged out due to inactivity!';
-            alertBox.style.position = 'fixed';
-            alertBox.style.top = '20px';
-            alertBox.style.right = '20px';
-            alertBox.style.background = '#f44336';
-            alertBox.style.color = '#fff';
-            alertBox.style.padding = '10px 20px';
-            alertBox.style.borderRadius = '5px';
-            alertBox.style.boxShadow = '0 0 10px rgba(0,0,0,0.3)';
-            alertBox.style.zIndex = '9999';
-            document.body.appendChild(alertBox);
+// Prevent cache
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+header("Expires: 0");
 
-            setTimeout(() => alertBox.remove(), 4000);
-        });
-    </script>";
+// Check if the user is logged in
+if (isset($_GET['reason'])) {
+    if ($_GET['reason'] === 'timeout') {
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Session Expired',
+                    text: 'You were logged out due to inactivity.',
+                    confirmButtonText: 'Login Again'
+                }).then(() => {
+                    const url = new URL(window.location);
+                    url.searchParams.delete('reason');
+                    window.history.replaceState({}, document.title, url);
+                });
+            });
+        </script>";
+    } elseif ($_GET['reason'] === 'signout') {
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Signed Out',
+                    text: 'You have successfully logged out.',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    const url = new URL(window.location);
+                    url.searchParams.delete('reason');
+                    window.history.replaceState({}, document.title, url);
+                });
+            });
+        </script>";
+    } elseif ($_GET['reason'] === 'notloggedin') {
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Access Denied',
+                    text: 'You have not logged in.',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    const url = new URL(window.location);
+                    url.searchParams.delete('reason');
+                    window.history.replaceState({}, document.title, url);
+                });
+            });
+        </script>";
+    }
 }
 
 // Check if the login buttton was clicked
 if (isset($_POST["loginBTN"])) {
-    $email = trim($_POST['email']);
+    // $email = trim($_POST['email']);
+    $username = trim($_POST['username']);
     $password = trim($_POST['password']);
 
-    $login_stmt = $conn->prepare("SELECT * FROM users WHERE userEmail = ?");
-    $login_stmt->bind_param("s", $email);
-    $login_stmt->execute();
-    $result = $login_stmt->get_result();
+    // Check email
+    $email_stmt = $conn->prepare("SELECT * FROM users WHERE userEmail = ?");
+    $email_stmt->bind_param("s", $email);
+    $email_stmt->execute();
+    $email_result = $email_stmt->get_result();
+
+    // Check username
+    $username_stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
+    $username_stmt->bind_param("s", $username);
+    $username_stmt->execute();
+    $username_result = $username_stmt->get_result();
 
     //  Check if the email exists
-    if ($result->num_rows === 1) {
-        $user = $result->fetch_assoc();
+    if ($username_result->num_rows === 1) {
+        $user = $username_result->fetch_assoc();
+
         // Check if the user is active
         if ($user['userStatus'] == 1) {
+
             // Verify the password
             if (password_verify($password, $user['userPassword'])) {
+
+                // Set session variables
                 $_SESSION['id'] = $user['userId'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['userRole'] = $user['userRole'];
@@ -56,7 +103,7 @@ if (isset($_POST["loginBTN"])) {
 
                             setTimeout(function() {
                                 window.location.href = 'index.php';
-                            }, 100); 
+                            }, 50); 
                         });
                     </script>";
             } else {
@@ -107,7 +154,6 @@ if (isset($_POST["loginBTN"])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0">
-    <meta name="robots" content="noindex, nofollow">
     <title>Login - Sonak Inventory</title>
 
     <link rel="shortcut icon" type="image/x-icon" href="assets/img/favicon.jpg">
@@ -137,11 +183,18 @@ if (isset($_POST["loginBTN"])) {
                                 <h3>Sign In</h3>
                             </div>
                             <form action="" method="POST">
-                                <div class="form-login">
+                                <!-- <div class="form-login">
                                     <label>Email</label>
                                     <div class="form-addons">
                                         <input type="email" name="email" placeholder="Enter your email address" required>
                                         <img src="assets/img/icons/mail.svg" alt="img">
+                                    </div>
+                                </div> -->
+                                <div class="form-login">
+                                    <label>UserName</label>
+                                    <div class="form-addons">
+                                        <input type="text" name="username" placeholder="Enter your username" required>
+                                        <img src="assets/img/icons/users1.svg" alt="img">
                                     </div>
                                 </div>
                                 <div class="form-login">
@@ -159,9 +212,9 @@ if (isset($_POST["loginBTN"])) {
                                 <div class="form-login">
                                     <button type="submit" class="btn btn-login" name="loginBTN">Sign In</button>
                                 </div>
-                                <div class="signinform text-center">
+                                <!-- <div class="signinform text-center">
                                     <h4>Don’t have an account? <a href="signup.php" class="hover-a">Sign Up</a></h4>
-                                </div>
+                                </div> -->
                             </form>
                         </div>
                     </div>
@@ -169,6 +222,16 @@ if (isset($_POST["loginBTN"])) {
             </div>
         </div>
     </div>
+    <script>
+        <?php if (!isset($_SESSION['username'])): ?>
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+                    // Page was loaded from cache (back button)
+                    window.location.href = 'signin.php?reason=notloggedin';
+                }
+            });
+        <?php endif; ?>
+    </script>
 
     <script src="assets/js/jquery-3.6.0.min.js"></script>
     <script src="assets/js/feather.min.js"></script>

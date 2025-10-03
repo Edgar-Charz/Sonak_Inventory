@@ -14,6 +14,14 @@ $user_id = $_SESSION["id"];
 $purchase_number = $_GET['purchaseNumber'];
 $purchase_status = $_GET['purchaseStatus'];
 
+// Get purchase UID
+$purchase_uid_query = $conn->prepare("SELECT purchaseUId FROM purchases WHERE purchaseNumber = ?");
+$purchase_uid_query->bind_param("s", $purchase_number);
+$purchase_uid_query->execute();
+$purchase_uid_result = $purchase_uid_query->get_result();
+$purchase_uid = $purchase_uid_result->fetch_assoc()['purchaseUId'];
+$purchase_uid_query->close();
+
 // Set timezone
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 $current_time = $time->format("Y-m-d H:i:s");
@@ -132,6 +140,9 @@ if (isset($_POST['editPurchaseProductBTN'])) {
         $agent_tanzania_date = !empty($_POST['agent_tanzania_date']) ? DateTime::createFromFormat('Y-m-d', $_POST['agent_tanzania_date'])->format('Y-m-d') : null;
         $at_sonak_date = !empty($_POST['at_sonak_date']) ? DateTime::createFromFormat('Y-m-d', $_POST['at_sonak_date'])->format('Y-m-d') : null;
 
+        $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
+        $current_time = $time->format("Y-m-d H:i:s");
+
         // Validate agent bank account number
         if ($agent_bank_account_number && $agent_id) {
             $validate_bank_stmt = $conn->prepare("SELECT bankAccountNumber FROM bank_accounts WHERE bankAccountNumber = ? AND bankAccountAgentId = ?");
@@ -144,24 +155,25 @@ if (isset($_POST['editPurchaseProductBTN'])) {
             $validate_bank_stmt->close();
         }
 
+        // Update purchase detail first
         $update_query = $conn->prepare("UPDATE 
-                                                    purchase_details 
-                                                    SET 
-                                                        purchaseDetailQuantity = ?, 
-                                                        purchaseDetailUnitCost = ?, 
-                                                        purchaseDetailRate = ?, 
-                                                        purchaseDetailTotalCost = ?, 
-                                                        purchaseDetailProductSize = ?, 
-                                                        purchaseDetailAgentId = ?, 
-                                                        purchaseAgentBankAccountNumber = ?,
-                                                        purchaseDetailTrackingNumber = ?, 
-                                                        agentTransportationCost = ?, 
-                                                        dateToAgentAbroadWarehouse = ?, 
-                                                        dateReceivedByAgentInCountryWarehouse = ?, 
-                                                        dateReceivedByCompany = ?,
-                                                        updated_at = ?
-                                                    WHERE 
-                                                        purchaseDetailUId= ?");
+                                            purchase_details 
+                                        SET 
+                                            purchaseDetailQuantity = ?, 
+                                            purchaseDetailUnitCost = ?, 
+                                            purchaseDetailRate = ?, 
+                                            purchaseDetailTotalCost = ?, 
+                                            purchaseDetailProductSize = ?, 
+                                            purchaseDetailAgentId = ?, 
+                                            purchaseAgentBankAccountNumber = ?,
+                                            purchaseDetailTrackingNumber = ?, 
+                                            agentTransportationCost = ?, 
+                                            dateToAgentAbroadWarehouse = ?, 
+                                            dateReceivedByAgentInCountryWarehouse = ?, 
+                                            dateReceivedByCompany = ?,
+                                            updated_at = ?
+                                        WHERE 
+                                            purchaseDetailUId= ?");
         $update_query->bind_param(
             "ididsissdssssi",
             $quantity,
@@ -179,25 +191,61 @@ if (isset($_POST['editPurchaseProductBTN'])) {
             $current_time,
             $purchaseDetailUId
         );
+        $update_query->execute();
 
-        if ($update_query->execute()) {
-            $conn->commit();
-            echo "<script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    Swal.fire({
-                        title: 'Success!',
-                        text: 'Purchase product updated successfully!',
-                        icon: 'success',
-                        timer: 3000,
-                        timerProgressBar: true
-                    }).then(() => {
-                        window.location.href='viewpurchase.php?purchaseNumber={$purchaseNumber}&purchaseStatus=0';
-                    });
-                });
-            </script>";
-        } else {
-            throw new Exception("Failed to update purchase product.");
+        // If Date Received by Company is filled, update stock + mark as completed
+        if (!empty($at_sonak_date)) {
+            // Get product id + quantity
+            $get_product = $conn->prepare("SELECT purchaseDetailProductId, purchaseDetailQuantity 
+                                           FROM purchase_details 
+                                           WHERE purchaseDetailUId = ?");
+            $get_product->bind_param("i", $purchaseDetailUId);
+            $get_product->execute();
+            $prod = $get_product->get_result()->fetch_assoc();
+            $product_id = $prod['purchaseDetailProductId'];
+            $qty = $prod['purchaseDetailQuantity'];
+
+            // Update stock
+            $update_stock = $conn->prepare("UPDATE products 
+                                            SET productQuantity = productQuantity + ?, updated_at = ? 
+                                            WHERE productId = ?");
+            $update_stock->bind_param("isi", $qty, $current_time, $product_id);
+            $update_stock->execute();
+
+            // Mark detail as completed
+            $update_status = $conn->prepare("UPDATE purchase_details 
+                                             SET purchaseDetailStatus = 1, updated_at = ? 
+                                             WHERE purchaseDetailUId = ?");
+            $update_status->bind_param("si", $current_time, $purchaseDetailUId);
+            $update_status->execute();
+            $update_status->close();
+
+            // Check if all details are completed, then mark purchase as completed
+            $check_all_completed = $conn->prepare("SELECT COUNT(*) AS incomplete_count 
+                                                  FROM purchase_details 
+                                                  WHERE purchaseDetailPurchaseNumber = ? 
+                                                  AND purchaseDetailStatus = 0");
+            $check_all_completed->bind_param("s", $purchase_number);
+            $check_all_completed->execute();
+            $count = $check_all_completed->get_result()->fetch_assoc()['incomplete_count'];
+            if ($count == 0) {
+                $complete_stmt = $conn->prepare("UPDATE 
+                                                    purchases 
+                                                SET 
+                                                    purchaseStatus = 1, purchaseUpdatedBy = ?, updated_at = ? 
+                                                WHERE 
+                                                    purchaseUId = ?");
+                $complete_stmt->bind_param("isi", $user_id, $current_time, $purchase_uid);
+                $complete_stmt->execute();
+                $complete_stmt->close();
+            }
         }
+
+        // Commit everything
+        $conn->commit();
+        $_SESSION['purchase_update_success'] = true;
+        header("Location: viewpurchase.php?purchaseNumber=$purchaseNumber&purchaseStatus=$purchase_status");
+        exit;
     } catch (Exception $e) {
         $conn->rollback();
         echo "<script>
@@ -205,16 +253,28 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                 Swal.fire({
                     title: 'Error!',
                     text: 'Failed to update purchase product: " . addslashes($e->getMessage()) . "',
-                    icon: 'error',
-                    timer: 3000,
-                    timerProgressBar: true
-                }).then(() => {
-                    window.location.href='viewpurchase.php?purchaseNumber={$purchaseNumber}';
+                    icon: 'error'
                 });
             });
         </script>";
     }
-} ?>
+}
+
+if (isset($_SESSION['purchase_update_success'])) {
+    echo "<script>
+        document.addEventListener('DOMContentLoaded', function() {
+            Swal.fire({
+                title: 'Success!',
+                text: 'Purchase product updated successfully!',
+                icon: 'success',
+                timer: 3000,
+                timerProgressBar: true
+            });
+        });
+    </script>";
+    unset($_SESSION['purchase_update_success']);
+}
+?>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -406,18 +466,18 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                                         </a>
                                     </li>
                                 <?php } ?> -->
-                                <?php if ($purchase_status == 0) { ?>
+                                <!-- <?php if ($purchase_status == 0) { ?>
                                     <li>
                                         <button type="button"
                                             class="btn btn-sm btn-outline-primary"
                                             data-bs-toggle="modal"
                                             data-bs-target="#editPurchaseModal"
-                                            data-purchase-number="<?= htmlspecialchars($purchase_number) ?>"
+                                            data-purchase-number="<?= ($purchase_number) ?>"
                                             title="Edit Purchase">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                     </li>
-                                <?php } ?>
+                                <?php } ?> -->
 
                             </ul>
                         </div>
@@ -694,7 +754,7 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                                                                         <?= number_format($detail['purchaseDetailTotalCost'], 2); ?>
                                                                     </td>
                                                                     <td style="padding: 10px;vertical-align: top; text-align: center;">
-                                                                        <?= !empty($detail['agentTransportationCost']) ? number_format($detail['agentTransportationCost'], 2) : 'N/A'; ?>
+                                                                        <?= !empty($detail['agentTransportationCost']) ? number_format($detail['agentTransportationCost']) : 'N/A'; ?>
                                                                     </td>
                                                                     <td style="padding: 4px; vertical-align: middle;">
                                                                         <div class="d-flex gap-1">
@@ -802,7 +862,7 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                                                                                     <div class="col-lg-4 col-sm-12 mb-3">
                                                                                         <div class="form-group">
                                                                                             <label>Agent Transportation Cost</label>
-                                                                                            <p class="form-control"><?= !empty($detail['agentTransportationCost']) ? number_format($detail['agentTransportationCost'], 2) : 'N/A'; ?></p>
+                                                                                            <p class="form-control"><?= !empty($detail['agentTransportationCost']) ? number_format($detail['agentTransportationCost']) : 'N/A'; ?></p>
                                                                                         </div>
                                                                                     </div>
                                                                                     <div class="col-lg-4 col-sm-6 col-12">
@@ -840,6 +900,8 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                                                                             <div class="modal-content">
                                                                                 <div class="modal-header">
                                                                                     <h5 class="modal-title">Edit Purchase Product</h5>
+                                                                                    <button type="button" class="btn btn-sm btn-info me-2 show-all-btn" onclick="toggleFields(this, true)" style="margin-left: 40px;"><i class="fas fa-chevron-down"></i></button>
+                                                                                    <button type="button" class="btn btn-sm btn-warning me-2 hide-filled-btn" onclick="toggleFields(this, false)" style="display: none; margin-left: 40px;"><i class="fas fa-chevron-up"></i></button>
                                                                                     <button type="button" class="btn-close" data-bs-dismiss="modal">x</button>
                                                                                 </div>
                                                                                 <div class="modal-body">
@@ -931,7 +993,7 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                                                                                         <div class="col-lg-4 col-sm-12 mb-3">
                                                                                             <div class="form-group">
                                                                                                 <label>Agent Transportation Cost</label>
-                                                                                                <input type="text" name="agent_transport_cost" value="<?= !empty($detail['agentTransportationCost']) ? number_format($detail['agentTransportationCost'], 2) : ''; ?>" class="form-control">
+                                                                                                <input type="text" name="agent_transport_cost" value="<?= !empty($detail['agentTransportationCost']) ? number_format($detail['agentTransportationCost']) : ''; ?>" class="form-control quantity">
                                                                                             </div>
                                                                                         </div>
                                                                                         <div class="col-lg-4 col-sm-6 col-12">
@@ -996,7 +1058,7 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
-                                            <input type="hidden" name="purchase_number" value="<?= htmlspecialchars($purchase_number) ?>">
+                                            <input type="hidden" name="purchase_number" value="<?= ($purchase_number) ?>">
 
                                             <div class="row">
                                                 <div class="col-lg-4 col-sm-6 col-12">
@@ -1030,7 +1092,7 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                                                     <div class="form-group">
                                                         <label>Bank Name</label>
                                                         <select class="form-control" name="bank_name" id="bank_name" disabled>
-                                                            <option value="<?= htmlspecialchars($purchase_row['supplierBankName'] ?? '') ?>" selected>
+                                                            <option value="<?= ($purchase_row['supplierBankName'] ?? '') ?>" selected>
                                                                 <?= !empty($purchase_row['supplierBankName']) ? $purchase_row['supplierBankName'] : ($purchase_row['supplierId'] ? 'Choose Bank' : 'No supplier selected') ?>
                                                             </option>
                                                         </select>
@@ -1040,7 +1102,7 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                                                     <div class="form-group">
                                                         <label>Bank Account Number</label>
                                                         <select class="form-control" name="bank_account_number" id="bank_account_number" disabled>
-                                                            <option value="<?= htmlspecialchars($purchase_row['supplierBankAccountNumber'] ?? '') ?>" selected>
+                                                            <option value="<?= ($purchase_row['supplierBankAccountNumber'] ?? '') ?>" selected>
                                                                 <?= !empty($purchase_row['supplierBankAccountNumber']) ? $purchase_row['supplierBankAccountNumber'] : ($purchase_row['supplierBankName'] ? 'Choose Account Number' : 'No bank selected') ?>
                                                             </option>
                                                         </select>
@@ -1070,6 +1132,68 @@ if (isset($_POST['editPurchaseProductBTN'])) {
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // On modal show, hide filled fields by default
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('show.bs.modal', function() {
+                    modal.querySelectorAll('input, select, textarea').forEach(field => {
+                        let col = field.closest('.col-lg-4');
+                        if (!col) return;
+
+                        // hide if already has value
+                        if (field.value && field.value.trim() !== '') {
+                            col.style.display = 'none';
+                        } else {
+                            col.style.display = 'block';
+                        }
+                    });
+
+                    // Ensure show button visible, hide button hidden
+                    let showBtn = modal.querySelector('.show-all-btn');
+                    let hideBtn = modal.querySelector('.hide-filled-btn');
+                    if (showBtn) showBtn.style.display = 'inline-block';
+                    if (hideBtn) hideBtn.style.display = 'none';
+                });
+            });
+        });
+
+        // Toggle function
+        function toggleFields(btn, showAll) {
+            let modal = btn.closest('.modal');
+            if (showAll) {
+                // Show all columns
+                modal.querySelectorAll('.col-lg-4').forEach(col => {
+                    col.style.display = 'block';
+                    // Set fields that were previously filled to readonly/disabled
+                    let field = col.querySelector('input, select, textarea');
+                    if (field && field.value && field.value.trim() !== '') {
+                        if (field.tagName === 'SELECT') {
+                            field.disabled = false;
+                        } else {
+                            field.readOnly = true;
+                        }
+                    }
+                });
+                btn.style.display = 'none';
+                modal.querySelector('.hide-filled-btn').style.display = 'inline-block';
+            } else {
+                // Hide filled fields again
+                modal.querySelectorAll('input, select, textarea').forEach(field => {
+                    let col = field.closest('.col-lg-4');
+                    if (!col) return;
+
+                    if (field.value && field.value.trim() !== '') {
+                        col.style.display = 'none';
+                    } else {
+                        col.style.display = 'block';
+                    }
+                });
+                btn.style.display = 'none';
+                modal.querySelector('.show-all-btn').style.display = 'inline-block';
+            }
+        }
+    </script>
 
     <script>
         // Format numbers with commas
@@ -1130,7 +1254,11 @@ if (isset($_POST['editPurchaseProductBTN'])) {
 
             input.addEventListener('blur', () => {
                 const raw = input.value.replace(/,/g, '');
-                input.value = numberFormatter(raw, 2);
+                if (input.classList.contains('quantity')) {
+                    input.value = numberFormatter(raw, 0);
+                } else {
+                    input.value = numberFormatter(raw, 2);
+                }
             });
         });
 
@@ -1145,35 +1273,51 @@ if (isset($_POST['editPurchaseProductBTN'])) {
                 const companyDate = modal.querySelector(`#at_sonak_date_${purchaseDetailUId}`);
 
                 const today = new Date().toISOString().split("T")[0];
-                if (companyDate) {
-                    companyDate.setAttribute("max", today); // Company date cannot be in the future
-                }
 
                 if (abroadDate) {
-                    abroadDate.addEventListener("change", function() {
-                        if (abroadDate.value) {
-                            let nextDay = new Date(abroadDate.value);
-                            nextDay.setDate(nextDay.getDate() + 1);
-                            const minTanzania = nextDay.toISOString().split("T")[0];
-                            tanzaniaDate.setAttribute("min", minTanzania);
+                    abroadDate.setAttribute("min", today);
+                    abroadDate.setAttribute("max", today);
+                }
 
-                            if (tanzaniaDate.value && tanzaniaDate.value < minTanzania) {
-                                tanzaniaDate.value = "";
-                            }
-                            if (companyDate.value && companyDate.value <= abroadDate.value) {
-                                companyDate.value = "";
-                            }
+                if (tanzaniaDate) {
+                    tanzaniaDate.setAttribute("min", today);
+                    tanzaniaDate.setAttribute("max", today);
+                    tanzaniaDate.addEventListener("change", function() {
+                        if (tanzaniaDate.value && tanzaniaDate.value > today) {
+                            tanzaniaDate.value = today;
+                        }
+                        if (companyDate) {
+                            companyDate.setAttribute("min", tanzaniaDate.value);
                         }
                     });
                 }
 
-                if (tanzaniaDate) {
-                    tanzaniaDate.addEventListener("change", function() {
-                        if (tanzaniaDate.value) {
-                            companyDate.setAttribute("min", tanzaniaDate.value);
-
-                            if (companyDate.value && companyDate.value < tanzaniaDate.value) {
-                                companyDate.value = "";
+                if (companyDate) {
+                    companyDate.setAttribute("max", today);
+                    if (tanzaniaDate && tanzaniaDate.value) {
+                        companyDate.setAttribute("min", tanzaniaDate.value);
+                    } else {
+                        companyDate.setAttribute("min", today);
+                    }
+                    if (tanzaniaDate) {
+                        tanzaniaDate.addEventListener("change", function() {
+                            if (tanzaniaDate.value) {
+                                companyDate.setAttribute("min", tanzaniaDate.value);
+                                if (companyDate.value && companyDate.value < tanzaniaDate.value) {
+                                    companyDate.value = "";
+                                }
+                            } else {
+                                companyDate.setAttribute("min", today);
+                            }
+                        });
+                    }
+                    companyDate.addEventListener("change", function() {
+                        if (companyDate.value) {
+                            if (companyDate.value > today) {
+                                companyDate.value = today;
+                            }
+                            if (tanzaniaDate && tanzaniaDate.value && companyDate.value < tanzaniaDate.value) {
+                                companyDate.value = tanzaniaDate.value;
                             }
                         }
                     });

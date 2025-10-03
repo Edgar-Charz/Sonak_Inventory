@@ -2,12 +2,30 @@
 include 'includes/db_connection.php';
 include 'includes/session.php';
 
-// Get user id from session
-$user_id = $_SESSION['id'] ?? null;
-if (!$user_id) {
-    header("Location: signin.php?timeout=true");
+// Check if user is logged in
+$user_id = $_SESSION['id'];
+
+// Get user role 
+$user_role = $_SESSION['userRole'];
+if ($user_role !== 'Admin') {
+    header("Location: quotationList.php?message=accessdenied");
     exit();
 }
+
+// Check if the current user has valid certificate info
+$cert_check_stmt = $conn->prepare("SELECT userCertPath, userCertKey FROM user_certificates WHERE userCertId = ?");
+$cert_check_stmt->bind_param("i", $user_id);
+$cert_check_stmt->execute();
+$cert_result = $cert_check_stmt->get_result();
+$cert_info = $cert_result->fetch_assoc();
+$cert_check_stmt->close();
+if (!$cert_info || empty($cert_info['userCertPath']) || empty($cert_info['userCertKey'])) {
+    header("Location: quotationList.php?message=missingcert");
+    exit();
+}
+
+// Get user id from session
+$user_id = $_SESSION['id'];
 
 // Time zone setting
 $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
@@ -73,6 +91,7 @@ if (isset($_POST['createOrderBTN'])) {
     $due            = str_replace(',', '', $_POST['due']);
     $totalProducts  = str_replace(',', '', $_POST['total_products']);
     $products       = $_POST['products'];
+    $transactionAccountUId = $_POST['transaction_account_id'] ?? null;
 
     // Begin transaction
     $conn->begin_transaction();
@@ -179,12 +198,14 @@ if (isset($_POST['createOrderBTN'])) {
     $details_stmt->close();
 
     // Insert into transactions table
-    $insert_transaction_stmt = $conn->prepare("INSERT INTO transactions (transactionCustomerId, 	transactionInvoiceNumber, transactionPaymentType, transactionPaidAmount, transactionDueAmount, transactionDate, transactionCreatedAt, transactionUpdatedAt) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $insert_transaction_stmt = $conn->prepare("INSERT INTO transactions (transactionCreatedBy, transactionCustomerId, 	transactionInvoiceNumber, transactionAccountUId, transactionPaymentType, transactionPaidAmount, transactionDueAmount, transactionDate, transactionCreatedAt, transactionUpdatedAt) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $insert_transaction_stmt->bind_param(
-        "issddsss",
+        "iisisddsss",
+        $user_id,
         $customerId,
         $invoiceNumber,
+        $transactionAccountUId,
         $paymentType,
         $pay,
         $due,
@@ -461,11 +482,60 @@ function generateInvoiceNumber($conn)
                                     <div class="col-lg-6 col-sm-6 col-12">
                                         <div class="form-group">
                                             <label>Payment Type</label>
-                                            <select name="payment_type" class="select">
+                                            <select name="payment_type" id="paymentType" class="form-control">
                                                 <option value="" disabled>Select Payment Type</option>
-                                                <option>Cash</option>
-                                                <option>Credit Card</option>
+                                                <option value="Cash">Cash</option>
+                                                <option value="Bank">Bank</option>
+                                                <option value="Mobile Money">Mobile Money</option>
                                             </select>
+                                        </div>
+                                    </div>
+                                    <div id="bank_field" class="row" style="display: none;">
+                                        <div class="col-lg-4 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <label>Bank Name</label>
+                                                <select class="form-control" id="bank_name_select">
+                                                    <option value="" selected>Select Bank</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-4 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <label>Account Number</label>
+                                                <select class="form-control" name="transaction_account_id" id="account_number_select" disabled>
+                                                    <option value="" selected>Select Account</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-4 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <label>Account Holder</label>
+                                                <input type="text" class="form-control" id="account_holder_input" readonly placeholder="No account selected">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="mobile_field" class="row" style="display: none;">
+                                        <div class="col-lg-4 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <label>Network Name</label>
+                                                <select class="form-control" id="network_name_select">
+                                                    <option value="" selected>Select Network</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-4 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <label>Phone Number</label>
+                                                <select class="form-control" name="transaction_account_id" id="network_number_select" disabled>
+                                                    <option value="" selected>Select Number</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-4 col-sm-6 col-12">
+                                            <div class="form-group">
+                                                <label>Account Holder</label>
+                                                <input type="text" class="form-control" id="network_holder_input" readonly placeholder="No account selected">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -543,6 +613,18 @@ function generateInvoiceNumber($conn)
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
                                         <div class="form-group">
+                                            <label>Discount (%)</label>
+                                            <input type="number" name="discount" id="discount" class="form-control" value="<?= ($quotation['quotationDiscountPercentage']) ?>">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Discount Amount</label>
+                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" value="<?= ($quotation['quotationDiscountAmount']) ?>" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 col-sm-6 col-12">
+                                        <div class="form-group">
                                             <label>Subtotal</label>
                                             <input type="text" name="sub_total" id="subTotal" class="form-control" value="<?= ($quotation['quotationSubTotal']) ?>" readonly>
                                         </div>
@@ -557,18 +639,6 @@ function generateInvoiceNumber($conn)
                                         <div class="form-group">
                                             <label>VAT Amount</label>
                                             <input type="text" name="vat_amount" id="vatAmount" class="form-control" value="<?= ($quotation['quotationTaxAmount']) ?>" readonly>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Discount (%)</label>
-                                            <input type="number" name="discount" id="discount" class="form-control" value="<?= ($quotation['quotationDiscountPercentage']) ?>">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-3 col-sm-6 col-12">
-                                        <div class="form-group">
-                                            <label>Discount Amount</label>
-                                            <input type="text" name="discount_amount" id="discountAmount" class="form-control" value="<?= ($quotation['quotationDiscountAmount']) ?>" readonly>
                                         </div>
                                     </div>
                                     <div class="col-lg-3 col-sm-6 col-12">
@@ -607,7 +677,7 @@ function generateInvoiceNumber($conn)
                                 <!-- /Summary Table -->
                                 <div class="d-flex justify-content-end mt-3">
                                     <button type="button" class="btn btn-secondary me-2" id="backStep2">Back</button>
-                                    <button type="submit" name="createOrderBTN" class="btn btn-success">Create Order</button>
+                                    <button type="submit" name="createOrderBTN" class="btn btn-success">Submit</button>
                                 </div>
                             </div>
                         </form>
@@ -615,7 +685,191 @@ function generateInvoiceNumber($conn)
                 </div>
             </div>
         </div>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const paymentType = document.getElementById('paymentType');
+                const bankField = document.getElementById('bank_field');
+                const bankNameSelect = document.getElementById('bank_name_select');
+                const accountNumberSelect = document.getElementById('account_number_select');
+                const accountHolderInput = document.getElementById('account_holder_input');
+                const mobileField = document.getElementById('mobile_field');
+                const networkNameInput = mobileField ? mobileField.querySelector('input[placeholder="Network Name"], input.form-control') : null;
+                const phoneNumberInput = mobileField ? mobileField.querySelector('input[placeholder="Phone Number"], input.form-control') : null;
+                const mobileHolderInput = mobileField ? mobileField.querySelectorAll('input.form-control')[2] : null;
+                // For selects, we will replace the mobile money fields with selects for dynamic population
+                // If you want to use selects for network/number, update the HTML accordingly
 
+                function clearBankFields(from) {
+                    if (from <= 1 && bankNameSelect) {
+                        bankNameSelect.innerHTML = '<option value="" selected>Select Bank</option>';
+                    }
+                    if (from <= 2 && accountNumberSelect) {
+                        accountNumberSelect.innerHTML = '<option value="" selected>Select Account</option>';
+                        accountNumberSelect.disabled = true;
+                    }
+                    if (from <= 3 && accountHolderInput) {
+                        accountHolderInput.value = '';
+                        accountHolderInput.placeholder = 'No account selected';
+                    }
+                }
+
+                function clearMobileFields(from) {
+                    if (mobileField) {
+                        const networkSelect = document.getElementById('network_name_select');
+                        const numberSelect = document.getElementById('network_number_select');
+                        const holderInput = document.getElementById('network_holder_input');
+                        if (from <= 1 && networkSelect) {
+                            networkSelect.innerHTML = '<option value="" selected>Select Network</option>';
+                        }
+                        if (from <= 2 && numberSelect) {
+                            numberSelect.innerHTML = '<option value="" selected>Select Number</option>';
+                            numberSelect.disabled = true;
+                        }
+                        if (from <= 3 && holderInput) {
+                            holderInput.value = '';
+                            holderInput.placeholder = 'No account selected';
+                        }
+                    }
+                }
+
+                function loadBanks() {
+                    fetch('get_payment_data.php?action=providers&type=Bank')
+                        .then(response => response.json())
+                        .then(providers => {
+                            clearBankFields(1);
+                            providers.forEach(provider => {
+                                const option = document.createElement('option');
+                                option.value = provider.provider_name;
+                                option.textContent = provider.provider_name;
+                                bankNameSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                function loadNetworks() {
+                    const networkSelect = document.getElementById('network_name_select');
+                    if (!networkSelect) return;
+                    fetch('get_payment_data.php?action=providers&type=Mobile Money')
+                        .then(response => response.json())
+                        .then(providers => {
+                            clearMobileFields(1);
+                            providers.forEach(provider => {
+                                const option = document.createElement('option');
+                                option.value = provider.provider_name;
+                                option.textContent = provider.provider_name;
+                                networkSelect.appendChild(option);
+                            });
+                        });
+                }
+
+                if (paymentType) {
+                    paymentType.addEventListener('change', function() {
+                        if (bankField && mobileField) {
+                            if (paymentType.value === 'Bank') {
+                                bankField.style.display = 'flex';
+                                mobileField.style.display = 'none';
+                                loadBanks();
+                                clearMobileFields(1);
+                            } else if (paymentType.value === 'Mobile Money') {
+                                mobileField.style.display = 'flex';
+                                bankField.style.display = 'none';
+                                loadNetworks();
+                                clearBankFields(1);
+                            } else {
+                                bankField.style.display = 'none';
+                                mobileField.style.display = 'none';
+                                clearBankFields(1);
+                                clearMobileFields(1);
+                            }
+                        }
+                    });
+                }
+
+                // Bank logic (unchanged)
+                if (bankNameSelect) {
+                    bankNameSelect.addEventListener('change', function() {
+                        const selectedBank = this.value;
+                        clearBankFields(2);
+                        if (selectedBank) {
+                            fetch('get_payment_data.php?action=accounts&type=Bank&provider=' + encodeURIComponent(selectedBank))
+                                .then(response => response.json())
+                                .then(accounts => {
+                                    accountNumberSelect.innerHTML = '<option value="" selected>Select Account</option>';
+                                    if (accounts.length > 0) {
+                                        accounts.forEach(account => {
+                                            const option = document.createElement('option');
+                                            option.value = account.id;
+                                            option.textContent = account.account_number;
+                                            option.dataset.holder = account.account_holder;
+                                            accountNumberSelect.appendChild(option);
+                                        });
+                                        accountNumberSelect.disabled = false;
+                                    } else {
+                                        accountNumberSelect.disabled = true;
+                                    }
+                                });
+                        }
+                    });
+                }
+
+                if (accountNumberSelect) {
+                    accountNumberSelect.addEventListener('change', function() {
+                        clearBankFields(3);
+                        const selectedOption = this.options[this.selectedIndex];
+                        if (selectedOption && selectedOption.value) {
+                            accountHolderInput.value = selectedOption.dataset.holder || '';
+                        } else {
+                            accountHolderInput.value = '';
+                            accountHolderInput.placeholder = 'No account selected';
+                        }
+                    });
+                }
+
+                // Mobile Money logic (using selects, so update HTML accordingly)
+                const networkSelect = document.getElementById('network_name_select');
+                const numberSelect = document.getElementById('network_number_select');
+                const holderInput = document.getElementById('network_holder_input');
+
+                if (networkSelect) {
+                    networkSelect.addEventListener('change', function() {
+                        const selectedNetwork = this.value;
+                        clearMobileFields(2);
+                        if (selectedNetwork) {
+                            fetch('get_payment_data.php?action=accounts&type=Mobile Money&provider=' + encodeURIComponent(selectedNetwork))
+                                .then(response => response.json())
+                                .then(accounts => {
+                                    numberSelect.innerHTML = '<option value="" selected>Select Number</option>';
+                                    if (accounts.length > 0) {
+                                        accounts.forEach(account => {
+                                            const option = document.createElement('option');
+                                            option.value = account.id;
+                                            option.textContent = account.account_number;
+                                            option.dataset.holder = account.account_holder;
+                                            numberSelect.appendChild(option);
+                                        });
+                                        numberSelect.disabled = false;
+                                    } else {
+                                        numberSelect.disabled = true;
+                                    }
+                                });
+                        }
+                    });
+                }
+
+                if (numberSelect) {
+                    numberSelect.addEventListener('change', function() {
+                        clearMobileFields(3);
+                        const selectedOption = this.options[this.selectedIndex];
+                        if (selectedOption && selectedOption.value) {
+                            holderInput.value = selectedOption.dataset.holder || '';
+                        } else {
+                            holderInput.value = '';
+                            holderInput.placeholder = 'No account selected';
+                        }
+                    });
+                }
+            });
+        </script>
         <script src="assets/js/jquery-3.6.0.min.js"></script>
         <script src="assets/js/feather.min.js"></script>
         <script src="assets/js/jquery.slimscroll.min.js"></script>
@@ -725,9 +979,9 @@ function generateInvoiceNumber($conn)
                             updateAvailableQuantities();
                             calculateSummary();
                         });
-                        return false; 
+                        return false;
                     }
-                    return true; 
+                    return true;
                 }
 
                 // Step navigation event listeners
@@ -770,42 +1024,42 @@ function generateInvoiceNumber($conn)
                     row.classList.add("row", "product-row", "align-items-end", "gy-2", "mb-3");
 
                     row.innerHTML = `
-                <div class="col-lg-3">
-                    <label class="form-label">Product</label>
-                    <select name="products[${index}][product_id]" class="form-control productSelect" required>
-                        <option value="" disabled selected>Select Product</option>
-                        <?php
-                        $products_query = $conn->query("SELECT * FROM products");
-                        while ($p = $products_query->fetch_assoc()) {
-                            echo '<option value="' . $p['productId'] . '" 
-                                data-price="' . $p['productSellingPrice'] . '"
-                                data-quantity="' . $p['productQuantity'] . '">'
-                                . $p['productName'] . '</option>';
-                        }
-                        ?>
-                    </select>
-                </div>
-                <div class="col-lg-2">
-                    <label class="form-label">Unit Cost</label>
-                    <input type="text" name="products[${index}][unit_cost]" class="form-control unitCost" readonly>
-                </div>
-                <div class="col-lg-2">
-                    <label class="form-label">Available</label>
-                    <input type="text" name="products[${index}][available_quantity]" class="form-control availableQuantity" readonly>
-                </div>
-                <div class="col-lg-2">
-                    <label class="form-label">Quantity</label>
-                    <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="0" min="1">
-                </div>
-                <div class="col-lg-2">
-                    <label class="form-label">Total Cost</label>
-                    <input type="text" name="products[${index}][total_cost]" class="form-control totalCost" readonly>
-                </div>
-                <div class="col-lg-1 text-end">
-                    <label class="form-label d-block">&nbsp;</label>
-                    <button type="button" class="btn btn-danger removeProduct">X</button>
-                </div>
-            `;
+                                <div class="col-lg-3">
+                                    <label class="form-label">Product</label>
+                                    <select name="products[${index}][product_id]" class="form-control productSelect" required>
+                                        <option value="" disabled selected>Select Product</option>
+                                        <?php
+                                        $products_query = $conn->query("SELECT * FROM products");
+                                        while ($p = $products_query->fetch_assoc()) {
+                                            echo '<option value="' . $p['productId'] . '" 
+                                                data-price="' . $p['productSellingPrice'] . '"
+                                                data-quantity="' . $p['productQuantity'] . '">'
+                                                . $p['productName'] . '</option>';
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
+                                <div class="col-lg-2">
+                                    <label class="form-label">Unit Cost</label>
+                                    <input type="text" name="products[${index}][unit_cost]" class="form-control unitCost" readonly>
+                                </div>
+                                <div class="col-lg-2">
+                                    <label class="form-label">Available</label>
+                                    <input type="text" name="products[${index}][available_quantity]" class="form-control availableQuantity" readonly>
+                                </div>
+                                <div class="col-lg-2">
+                                    <label class="form-label">Quantity</label>
+                                    <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="0" min="1">
+                                </div>
+                                <div class="col-lg-2">
+                                    <label class="form-label">Total Cost</label>
+                                    <input type="text" name="products[${index}][total_cost]" class="form-control totalCost" readonly>
+                                </div>
+                                <div class="col-lg-1 text-end">
+                                    <label class="form-label d-block">&nbsp;</label>
+                                    <button type="button" class="btn btn-danger removeProduct">X</button>
+                                </div>
+                            `;
                     productsContainer.appendChild(row);
                     attachRowEvents(row);
                 };
@@ -884,18 +1138,23 @@ function generateInvoiceNumber($conn)
                     let shippingAmount = parseFloat(document.getElementById("shippingAmount").value.replace(/,/g, '')) || 0;
                     subTotal += shippingAmount;
 
+                    // Discount
+                    let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
+                    let discountAmount = subTotal * discountPercent / 100;
+                    document.getElementById("discountAmount").value = numberFormatter(discountAmount, 2);
+                    subTotal -= discountAmount;
+
+                    // Sub totals
                     document.getElementById("subTotal").value = numberFormatter(subTotal, 2);
                     document.getElementById("totalProducts").value = numberFormatter(totalProducts, 0);
 
+                    // VAT
                     let vatPercent = parseFloat(document.getElementById("vat").value) || 0;
-                    let discountPercent = parseFloat(document.getElementById("discount").value) || 0;
-
                     let vatAmount = subTotal * vatPercent / 100;
-                    let discountAmount = subTotal * discountPercent / 100;
-                    let grandTotal = subTotal + vatAmount - discountAmount;
-
                     document.getElementById("vatAmount").value = numberFormatter(vatAmount, 2);
-                    document.getElementById("discountAmount").value = numberFormatter(discountAmount, 2);
+
+                    // Grand total
+                    let grandTotal = subTotal + vatAmount;
                     document.getElementById("grandTotal").value = numberFormatter(grandTotal, 2);
 
                     let pay = parseFloat(document.getElementById("pay").value.replace(/,/g, '')) || 0;

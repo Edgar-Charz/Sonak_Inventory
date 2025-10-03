@@ -207,15 +207,15 @@ if (!empty($_GET['customer_id'])) {
                             </div>
                             <ul class="mb-0 ps-0" style="list-style: none;">
                                 <?php if (!empty($_GET['from_date'])): ?>
-                                    <li><strong>From:</strong> <?= htmlspecialchars($_GET['from_date']); ?></li>
+                                    <li><strong>From:</strong> <?= $_GET['from_date']; ?></li>
                                 <?php endif; ?>
 
                                 <?php if (!empty($_GET['to_date'])): ?>
-                                    <li><strong>To:</strong> <?= htmlspecialchars($_GET['to_date']); ?></li>
+                                    <li><strong>To:</strong> <?= $_GET['to_date']; ?></li>
                                 <?php endif; ?>
 
                                 <?php if (!empty($customerName)): ?>
-                                    <li><strong>Customer:</strong> <?= htmlspecialchars($customerName); ?></li>
+                                    <li><strong>Customer:</strong> <?= $customerName; ?></li>
                                 <?php endif; ?>
                             </ul>
                         </div>
