@@ -96,6 +96,7 @@ if (isset($_POST['addQuotationBTN'])) {
             $unitPrice   = str_replace(',', '', $p['unit_cost']);
             $quantity    = str_replace(',', '', $p['quantity']);
             $totalCost   = str_replace(',', '', $p['total_cost']);
+            $description = $p['description'];
 
             $checkDetail = $conn->prepare("SELECT quotationDetailUId, quotationDetailQuantity, quotationDetailSubTotal 
                 FROM quotation_details 
@@ -110,16 +111,16 @@ if (isset($_POST['addQuotationBTN'])) {
                 $newTotal    = $row['quotationDetailSubTotal'] + $totalCost;
 
                 $updateDetail = $conn->prepare("UPDATE quotation_details 
-                    SET quotationDetailQuantity = ?, quotationDetailSubTotal = ?, updated_at = ? 
+                    SET quotationDetailQuantity = ?, quotationDetailSubTotal = ?, quotationDetailDescription = ?, updated_at = ? 
                     WHERE quotationDetailUId = ?");
-                $updateDetail->bind_param("idsi", $newQuantity, $newTotal, $current_time, $row['quotationDetailUId']);
+                $updateDetail->bind_param("idssi", $newQuantity, $newTotal, $description, $current_time, $row['quotationDetailUId']);
                 $updateDetail->execute();
                 $updateDetail->close();
             } else {
                 $insertDetail = $conn->prepare("INSERT INTO quotation_details 
-                    (quotationDetailReferenceNumber, quotationDetailProductId, quotationDetailQuantity, quotationDetailUnitPrice, quotationDetailSubTotal, created_at, updated_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $insertDetail->bind_param("siiddss", $referenceNumber, $productId, $quantity, $unitPrice, $totalCost, $current_time, $current_time);
+                    (quotationDetailReferenceNumber, quotationDetailProductId, quotationDetailQuantity, quotationDetailUnitPrice, quotationDetailSubTotal, quotationDetailDescription, created_at, updated_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                $insertDetail->bind_param("siiddsss", $referenceNumber, $productId, $quantity, $unitPrice, $totalCost, $description, $current_time, $current_time);
                 $insertDetail->execute();
                 $insertDetail->close();
             }
@@ -508,6 +509,7 @@ function generateReferenceNumber($conn)
                                         <thead>
                                             <tr>
                                                 <th>Product</th>
+                                                <th>Description</th>
                                                 <th>Quantity</th>
                                                 <th>Unit Cost</th>
                                                 <th>Total Cost</th>
@@ -591,6 +593,8 @@ function generateReferenceNumber($conn)
                         const productSelect = row.querySelector('.productSelect');
                         const quantity = row.querySelector('.quantity');
                         const unitCost = row.querySelector('.unitCost');
+                        const description = row.querySelector('.description');
+
                         if (!productSelect.value) {
                             valid = false;
                             errorMsg += `Product row ${idx+1}: Select a product.<br>`;
@@ -624,6 +628,7 @@ function generateReferenceNumber($conn)
                     let productSelect = row.querySelector(".productSelect");
                     let productName = productSelect.options[productSelect.selectedIndex]?.text || "N/A";
 
+                    let description = row.querySelector(".description").value || "N/A";
                     let qty = parseFloat(row.querySelector(".quantity").value) || 0;
                     let unitCost = parseFloat(row.querySelector(".unitCost").value) || 0;
                     let total = parseFloat(row.querySelector(".totalCost").value) || 0;
@@ -631,6 +636,7 @@ function generateReferenceNumber($conn)
                     let tr = document.createElement("tr");
                     tr.innerHTML = `
                                 <td>${productName}</td>
+                                <td>${description}</td>
                                 <td>${qty}</td>
                                 <td>${unitCost.toFixed(2)}</td>
                                 <td>${total.toFixed(2)}</td>
@@ -696,6 +702,7 @@ function generateReferenceNumber($conn)
                     let productSelect = row.querySelector(".productSelect");
                     let productName = productSelect.options[productSelect.selectedIndex]?.text || "N/A";
 
+                    let description = row.querySelector(".description").value || "N/A";
                     let qty = parseFloat(row.querySelector(".quantity").value.replace(/,/g, '')) || 0;
                     let unitCost = parseFloat(row.querySelector(".unitCost").value.replace(/,/g, '')) || 0;
                     let total = parseFloat(row.querySelector(".totalCost").value.replace(/,/g, '')) || 0;
@@ -703,6 +710,7 @@ function generateReferenceNumber($conn)
                     let tr = document.createElement("tr");
                     tr.innerHTML = `
                                     <td>${productName}</td>
+                                    <td>${description}</td>
                                     <td>${numberFormatter(qty, 0)}</td>
                                     <td>${numberFormatter(unitCost, 2)}</td>
                                     <td>${numberFormatter(total, 2)}</td>
@@ -726,7 +734,7 @@ function generateReferenceNumber($conn)
                 row.classList.add("row", "product-row", "align-items-end", "gy-2", "mb-3");
 
                 row.innerHTML = `
-                    <div class="col-lg-3">
+                    <div class="col-lg-2">
                         <label class="form-label">Product</label>
                         <select name="products[${index}][product_id]" class="form-control productSelect" required>
                             <option value="" disabled selected>Select Product</option>
@@ -742,6 +750,10 @@ function generateReferenceNumber($conn)
                         </select>
                     </div>
                     <div class="col-lg-2">
+                        <label class="form-label">Description</label>
+                        <input type="text" name="products[${index}][description]" placeholder="Enter product description" class="form-control description">
+                    </div>
+                    <div class="col-lg-2">
                         <label class="form-label">Unit Cost</label>
                         <input type="text" name="products[${index}][unit_cost]" class="form-control unitCost" readonly>
                     </div>
@@ -749,7 +761,7 @@ function generateReferenceNumber($conn)
                         <label class="form-label">Available</label>
                         <input type="text" name="products[${index}][available_quantity]" class="form-control availableQuantity" readonly>
                     </div>
-                    <div class="col-lg-2">
+                    <div class="col-lg-1">
                         <label class="form-label">Quantity</label>
                         <input type="number" name="products[${index}][quantity]" class="form-control quantity" value="0" min="1">
                     </div>

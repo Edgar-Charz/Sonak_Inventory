@@ -322,14 +322,16 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         quotations.quotationReferenceNumber
                                                     ORDER BY 
                                                         quotations.quotationUId DESC;");
+                                    $sn = 0;
                                     if ($quotations_query->num_rows > 0) {
                                         while ($quotation_row = $quotations_query->fetch_assoc()) {
+                                            $sn++;
                                             $quotation_uid = $quotation_row["quotationUId"];
                                             $reference_number = $quotation_row["quotationReferenceNumber"];
                                     ?>
 
                                             <tr>
-                                                <td> <?= $quotation_uid; ?> </td>
+                                                <td> <?= $sn; ?> </td>
                                                 <td> <?= $reference_number; ?> </td>
                                                 <td> <?= $quotation_row["customerName"]; ?> </td>
                                                 <td> <?= $quotation_row["biller"]; ?> </td>

@@ -311,22 +311,31 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                                                 products.productName, 
                                                                                 u1.username AS creater,
                                                                                 u2.username AS updater
-                                                                            FROM purchases
-                                                                            JOIN purchase_details ON purchases.purchaseNumber = purchase_details.purchaseDetailPurchaseNumber
-                                                                            JOIN suppliers ON suppliers.supplierId = purchases.purchaseSupplierId
-                                                                            LEFT JOIN agents ON agents.agentId = purchase_details.purchaseDetailAgentId
-                                                                            JOIN products ON products.productId = purchase_details.purchaseDetailProductId
-                                                                            JOIN users AS u1 ON purchases.purchaseCreatedBy = u1.userId
-                                                                            JOIN users AS u2 ON purchases.purchaseUpdatedBy = u2.userId
-                                                                            GROUP BY purchases.purchaseNumber
-                                                                            ORDER BY purchases.purchaseDate DESC;");
+                                                                            FROM 
+                                                                                purchases
+                                                                            JOIN
+                                                                                 purchase_details ON purchases.purchaseNumber = purchase_details.purchaseDetailPurchaseNumber
+                                                                            JOIN
+                                                                                 suppliers ON suppliers.supplierId = purchases.purchaseSupplierId
+                                                                            JOIN 
+                                                                                products ON products.productId = purchase_details.purchaseDetailProductId
+                                                                            JOIN
+                                                                                 users AS u1 ON purchases.purchaseCreatedBy = u1.userId
+                                                                            JOIN 
+                                                                                users AS u2 ON purchases.purchaseUpdatedBy = u2.userId
+                                                                            GROUP BY 
+                                                                                purchases.purchaseNumber
+                                                                            ORDER BY 
+                                                                                purchases.purchaseUId DESC;");
+                                    $sn = 0;
                                     if ($purchases_query->num_rows > 0) {
                                         while ($purchase_row = $purchases_query->fetch_assoc()) {
+                                            $sn++;
                                             $purchase_number = $purchase_row['purchaseNumber'];
                                             $purchase_uid = $purchase_row['purchaseUId'];
                                     ?>
                                             <tr>
-                                                <td> <?= $purchase_row['purchaseUId']; ?> </td>
+                                                <td> <?= $sn; ?> </td>
                                                 <td> <?= $purchase_row['purchaseNumber']; ?> </td>
                                                 <td> <?= date('d- m - Y', strtotime($purchase_row['purchaseDate'])); ?> </td>
                                                 <td> <?= $purchase_row['supplierName']; ?> </td>

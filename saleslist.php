@@ -13,6 +13,7 @@ $current_time = $time->format("Y-m-d H:i:s");
 if (isset($_POST['paymentBTN'])) {
     $invoiceNumber = $_POST['invoiceNumber'] ?? '';
     $payingAmount = isset($_POST['payingAmount']) ? floatval(str_replace(',', '', $_POST['payingAmount'])) : 0;
+    $remainingDueAmount = isset($_POST['remainingDueAmount']) ? floatval(str_replace(',', '', $_POST['remainingDueAmount'])) : 0;
     $paymentType = $_POST['paymentType'] ?? '';
     $transactionAccountUId = $_POST['transaction_account_id'] ?? null;
 
@@ -66,8 +67,8 @@ if (isset($_POST['paymentBTN'])) {
     $conn->begin_transaction();
 
     try {
-        // Fetch current paid & due
-        $stmt = $conn->prepare("SELECT orderPaidAmount, orderDueAmount, orderCustomerId FROM orders WHERE orderInvoiceNumber = ?");
+        // Fetch order
+        $stmt = $conn->prepare("SELECT orderCustomerId FROM orders WHERE orderInvoiceNumber = ?");
         $stmt->bind_param("s", $invoiceNumber);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -78,29 +79,7 @@ if (isset($_POST['paymentBTN'])) {
             throw new Exception("Order not found for invoice number: $invoiceNumber");
         }
 
-        $currentPay = floatval($order['orderPaidAmount']);
-        $currentDue = floatval($order['orderDueAmount']);
-        $customerId = intval($order['orderCustomerId']);
-
-        // Prevent overpayment
-        if ($payingAmount > $currentDue) {
-            $payingAmount = $currentDue;
-        }
-
-        // Calculate new values
-        $newPay = $currentPay + $payingAmount;
-        $newDue = $currentDue - $payingAmount;
-
-        // Update order payment
-        $update = $conn->prepare("UPDATE orders 
-                                  SET orderPaidAmount = ?, orderDueAmount = ?, orderUpdatedBy = ?, updated_at = ?
-                                  WHERE orderInvoiceNumber = ?");
-        $update->bind_param("ddiss", $newPay, $newDue, $updatedBy, $current_time, $invoiceNumber);
-
-        if (!$update->execute()) {
-            throw new Exception("Failed to update payment: " . $conn->error);
-        }
-        $update->close();
+        $customerId = $order['orderCustomerId'];
 
         // Insert into transactions table
         $insert_transaction_stmt = $conn->prepare("INSERT INTO transactions 
@@ -116,7 +95,7 @@ if (isset($_POST['paymentBTN'])) {
             $transactionAccountUId,
             $paymentType,
             $payingAmount,
-            $newDue,
+            $remainingDueAmount,
             $current_time,
             $current_time,
             $current_time
@@ -126,6 +105,24 @@ if (isset($_POST['paymentBTN'])) {
             throw new Exception("Failed to record transaction: " . $conn->error);
         }
         $insert_transaction_stmt->close();
+
+        // Compare order total amount and transactions total paid amount
+        $totalPaidStmt = $conn->prepare("SELECT 
+                                                    orders.orderTotalAmount, 
+                                                    SUM(transactions.transactionPaidAmount) AS total_paid 
+                                                FROM 
+                                                    orders, transactions 
+                                                WHERE 
+                                                    orders.orderInvoiceNumber = transactions.transactionInvoiceNumber
+                                                AND 
+                                                    orders.orderInvoiceNumber = ?");
+        $totalPaidStmt->bind_param("s", $invoiceNumber);
+        $totalPaidStmt->execute();
+        $totalPaidResult = $totalPaidStmt->get_result();
+        $totalPaid = $totalPaidResult->fetch_assoc();
+        $totalPaidStmt->close();
+
+        $newDue = $totalPaid['orderTotalAmount'] - $totalPaid['total_paid'];
 
         // If fully paid, update order_details status
         if ($newDue == 0) {
@@ -139,20 +136,9 @@ if (isset($_POST['paymentBTN'])) {
 
         // Commit transaction
         $conn->commit();
-
-        echo "<script>
-            document.addEventListener('DOMContentLoaded', function () {
-                Swal.fire({
-                    title: 'Success',
-                    text: 'Payment updated and transaction recorded successfully',
-                    icon: 'success',
-                    timer: 5000,
-                    timerProgressBar: true
-                }).then(function() {
-                    window.location.href = 'saleslist.php';
-                });
-            });
-        </script>";
+        $_SESSION['payment_success'] = true;
+        header("Location: saleslist.php");
+        exit();
     } catch (Exception $e) {
         $conn->rollback();
         echo "<script>
@@ -166,6 +152,22 @@ if (isset($_POST['paymentBTN'])) {
             });
         </script>";
     }
+}
+
+// Show success message if payment was successful
+if (isset($_SESSION['payment_success'])) {
+    echo "<script>
+        document.addEventListener('DOMContentLoaded', function () {
+            Swal.fire({
+                title: 'Success',
+                text: 'Payment updated and transaction recorded successfully',
+                icon: 'success',
+                timer: 5000,
+                timerProgressBar: true
+            });
+        });
+    </script>";
+    unset($_SESSION['payment_success']);
 }
 ?>
 <!DOCTYPE html>
@@ -630,6 +632,9 @@ if (isset($_POST['paymentBTN'])) {
                                     $orders_query = $conn->query("SELECT 
                                                                         orders.*, 
                                                                         order_details.*, 
+                                                                        transactions.*,
+                                                                        SUM(transactionPaidAmount) AS total_paid_amount,
+                                                                        (orders.orderTotalAmount - SUM(transactionPaidAmount)) AS due_amount,
                                                                         customers.customerName, 
                                                                         products.productName,
                                                                         u1.username AS biller,
@@ -637,12 +642,14 @@ if (isset($_POST['paymentBTN'])) {
                                                                     FROM 
                                                                         orders, 
                                                                         order_details, 
+                                                                        transactions,
                                                                         customers, 
                                                                         products, 
                                                                         users AS u1, 
                                                                         users AS u2
                                                                     WHERE 
                                                                         orders.orderInvoiceNumber = order_details.orderDetailInvoiceNumber
+                                                                        AND orders.orderInvoiceNumber = transactions.transactionInvoiceNumber
                                                                         AND orders.orderCustomerId = customers.customerId
                                                                         AND order_details.orderDetailProductId = products.productId
                                                                         AND orders.orderCreatedBy = u1.userId
@@ -650,13 +657,15 @@ if (isset($_POST['paymentBTN'])) {
                                                                     GROUP BY 
                                                                         orders.orderInvoiceNumber
                                                                     ORDER BY 
-                                                                        orders.orderUId DESC;");
+                                                                        orders.orderUId DESC");
+                                    $sn = 0;
                                     if ($orders_query->num_rows > 0) {
                                         while ($order_row = $orders_query->fetch_assoc()) {
+                                            $sn++;
                                             $order_uid = $order_row["orderUId"];
                                             $invoice_number = $order_row["orderInvoiceNumber"];
                                             $currentStatus = $order_row["orderStatus"];
-                                            $due_amount = $order_row["orderDueAmount"];
+                                            $due_amount = $order_row['orderTotalAmount'] - $order_row['total_paid_amount'];
 
                                             if ($currentStatus != 2 && $currentStatus != 3) {
                                                 $newStatus = $currentStatus;
@@ -678,7 +687,7 @@ if (isset($_POST['paymentBTN'])) {
                                             }
                                     ?>
                                             <tr>
-                                                <td> <?= $order_row["orderUId"]; ?> </td>
+                                                <td> <?= $sn; ?> </td>
                                                 <td> <?= $order_row["orderInvoiceNumber"]; ?> </td>
                                                 <td> <?= $order_row["customerName"]; ?> </td>
                                                 <td> <?= date('d-m-Y', strtotime($order_row["orderDate"])); ?> </td>
@@ -687,8 +696,8 @@ if (isset($_POST['paymentBTN'])) {
                                                 <!-- <td> <?= $order_row["paymentType"]; ?> </td> -->
                                                 <td> <?= $order_row["orderVat"]; ?>% </td>
                                                 <td> <?= number_format($order_row["orderTotalAmount"], 2); ?> </td>
-                                                <td class="text-success"> <?= number_format($order_row["orderPaidAmount"], 2); ?> </td>
-                                                <td class="text-danger"> <?= number_format($order_row["orderDueAmount"], 2); ?> </td>
+                                                <td class="text-success"> <?= number_format($order_row["total_paid_amount"], 2); ?> </td>
+                                                <td class="text-danger"> <?= number_format($order_row["due_amount"], 2); ?> </td>
                                                 <td class="text-center">
                                                     <?php if ($order_row["orderStatus"] == "0") : ?>
                                                         <span class="badges bg-lightyellow">Pending</span>
@@ -799,14 +808,14 @@ if (isset($_POST['paymentBTN'])) {
                                                                 <div class="col-lg-6 col-sm-12 mb-3">
                                                                     <div class="form-group">
                                                                         <label>Paid Amount</label>
-                                                                        <p class="form-control"><?= number_format($order_row["orderPaidAmount"], 2); ?></p>
+                                                                        <p class="form-control"><?= number_format($order_row["total_paid_amount"], 2); ?></p>
                                                                     </div>
                                                                 </div>
 
                                                                 <div class="col-lg-6 col-sm-12 mb-3">
                                                                     <div class="form-group">
                                                                         <label>Due Amount</label>
-                                                                        <p class="form-control"><?= number_format($order_row["orderDueAmount"], 2); ?></p>
+                                                                        <p class="form-control"><?= number_format($order_row["due_amount"], 2); ?></p>
                                                                     </div>
                                                                 </div>
 
@@ -875,7 +884,7 @@ if (isset($_POST['paymentBTN'])) {
                                                                                         </div>";
                                                                                 }
 
-                                                                                echo "</div>"; 
+                                                                                echo "</div>";
 
                                                                                 echo "<div class='col-2'>{$transaction['username']}</div>";
                                                                                 echo "<div class='col-2'>" . date('d-m-Y', strtotime($transaction['transactionDate'])) . "</div>";
@@ -932,19 +941,19 @@ if (isset($_POST['paymentBTN'])) {
                                                                     <div class="col-lg-4 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Already Paid</label>
-                                                                            <input type="text" class="form-control" id="alreadyPaid<?= $order_row['orderInvoiceNumber']; ?>" value="<?= number_format($order_row['orderPaidAmount'], 2); ?>" readonly>
+                                                                            <input type="text" class="form-control" id="alreadyPaid<?= $order_row['orderInvoiceNumber']; ?>" value="<?= number_format($order_row['total_paid_amount'], 2); ?>" readonly>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-lg-4 col-sm-6 col-12">
                                                                         <div class="form-group">
                                                                             <label>Remaining (Due)</label>
-                                                                            <input type="text" class="form-control" id="remainingDue<?= $order_row['orderInvoiceNumber']; ?>" value="<?= number_format($order_row['orderDueAmount'], 2); ?>" readonly>
+                                                                            <input type="text" class="form-control" id="remainingDue<?= $order_row['orderInvoiceNumber']; ?>" name="remainingDueAmount" value="<?= number_format($order_row['due_amount'], 2); ?>" readonly>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-lg-6 col-sm-12 col-12">
                                                                         <div class="form-group">
                                                                             <label>Paying Amount</label>
-                                                                            <input type="number" step="0.01" min="0" max="<?= $order_row['orderDueAmount']; ?>" class="form-control" name="payingAmount" id="payingAmount<?= $order_row['orderInvoiceNumber']; ?>" value="" required>
+                                                                            <input type="number" step="0.01" min="0" max="<?= $order_row['due_amount']; ?>" class="form-control" name="payingAmount" id="payingAmount<?= $order_row['orderInvoiceNumber']; ?>" value="" required>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-lg-6 col-sm-12 col-12">
@@ -1316,6 +1325,15 @@ if (isset($_POST['paymentBTN'])) {
                 let initialPaid = parseFloat(alreadyPaidEl.value.replace(/,/g, "")) || 0;
                 let initialDue = parseFloat(remainingEl.value.replace(/,/g, "")) || 0;
 
+
+                // Helper to format numbers with commas
+                function formatWithCommas(num) {
+                    return num.toLocaleString('en-US', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    });
+                }
+
                 payingInput.addEventListener("input", function() {
                     let payingAmount = parseFloat(payingInput.value) || 0;
 
@@ -1343,15 +1361,15 @@ if (isset($_POST['paymentBTN'])) {
                     let newPaid = initialPaid + payingAmount;
                     let newDue = initialDue - payingAmount;
 
-                    // Update fields (formatted to 2 decimals)
-                    alreadyPaidEl.value = newPaid.toFixed(2);
-                    remainingEl.value = newDue.toFixed(2);
+                    // Update fields (formatted to 2 decimals with commas)
+                    alreadyPaidEl.value = formatWithCommas(newPaid);
+                    remainingEl.value = formatWithCommas(newDue);
                 });
 
                 // Reset values if form is closed
                 form.addEventListener("reset", function() {
-                    alreadyPaidEl.value = initialPaid.toFixed(2);
-                    remainingEl.value = initialDue.toFixed(2);
+                    alreadyPaidEl.value = formatWithCommas(initialPaid);
+                    remainingEl.value = formatWithCommas(initialDue);
                 });
             });
         });

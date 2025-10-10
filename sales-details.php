@@ -230,10 +230,13 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                     // Get order 
                                                     $order_query = $conn->prepare("SELECT 
                                                                 orders.*, 
+                                                                SUM(transactionPaidAmount) AS total_paid_amount,
+                                                                (orders.orderTotalAmount - SUM(transactionPaidAmount)) AS due_amount,                                                                        
                                                                 customers.customerId, customers.customerName, customers.customerEmail, customers.customerPhone, customers.customerAddress,
                                                                 u1.username AS biller,
                                                                 u2.username AS updater
                                                             FROM orders
+                                                            LEFT JOIN transactions ON orders.orderInvoiceNumber = transactions.transactionInvoiceNumber
                                                             JOIN customers ON orders.orderCustomerId = customers.customerId
                                                             JOIN users AS u1 ON orders.orderCreatedBy = u1.userId
                                                             JOIN users AS u2 ON orders.orderUpdatedBy = u2.userId
@@ -368,8 +371,8 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <td><?= number_format($order_row['orderVatAmount'], 2); ?></td>
                                                         <td><?= number_format($order_row['orderDiscountAmount'], 2); ?></td>
                                                         <td class="text-primary"><strong><?= number_format($order_row['orderTotalAmount'], 2); ?></strong></td>
-                                                        <td class="text-success"><strong><?= number_format($order_row['orderPaidAmount'], 2); ?></strong></td>
-                                                        <td class="text-danger"><strong><?= number_format($order_row['orderDueAmount'], 2); ?></strong></td>
+                                                        <td class="text-success"><strong><?= number_format($order_row['total_paid_amount'], 2); ?></strong></td>
+                                                        <td class="text-danger"><strong><?= number_format($order_row['due_amount'], 2); ?></strong></td>
                                                         <td> <?= $order_row['orderStatus'] == 1 ? 'Completed' : ($order_row['orderStatus'] == 0 ? 'Pending' : ($order_row['orderStatus'] == 2 ? 'Cancelled' : 'Deleted')); ?> </td>
                                                     </tr>
                                                 <?php

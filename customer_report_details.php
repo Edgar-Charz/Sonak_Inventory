@@ -209,22 +209,30 @@ $current_time = $time->format("Y-m-d H:i:s");
 
                 // Get customer information and order statistics
                 $customer_query = $conn->query("SELECT 
-                                    customers.*,
-                                    COUNT(orders.orderInvoiceNumber) AS total_orders,
-                                    SUM(CASE WHEN orders.orderStatus = 1 THEN 1 ELSE 0 END) AS completed_orders,
-                                    SUM(CASE WHEN orders.orderStatus = 0 THEN 1 ELSE 0 END) AS pending_orders,
-                                    SUM(CASE WHEN orders.orderStatus = 2 THEN 1 ELSE 0 END) AS cancelled_orders,
-                                    SUM(CASE WHEN orders.orderStatus = 3 THEN 1 ELSE 0 END) AS deleted_orders,
+                                                        customers.*,
+                                                        COUNT(orders.orderInvoiceNumber) AS total_orders,
+                                                        SUM(CASE WHEN orders.orderStatus = 1 THEN 1 ELSE 0 END) AS completed_orders,
+                                                        SUM(CASE WHEN orders.orderStatus = 0 THEN 1 ELSE 0 END) AS pending_orders,
+                                                        SUM(CASE WHEN orders.orderStatus = 2 THEN 1 ELSE 0 END) AS cancelled_orders,
+                                                        SUM(CASE WHEN orders.orderStatus = 3 THEN 1 ELSE 0 END) AS deleted_orders,
 
-                                    SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderTotalAmount ELSE 0 END) AS total_amount,
-                                    SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderPaidAmount ELSE 0 END) AS total_paid,
-                                    SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderDueAmount ELSE 0 END) AS total_due
+                                                        SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderTotalAmount ELSE 0 END) AS total_amount,
+                                                        SUM(CASE WHEN orders.orderStatus IN (0,1) THEN IFNULL(transactions_sum.total_paid,0) ELSE 0 END) AS total_paid,
+                                                        SUM(CASE WHEN orders.orderStatus IN (0,1) THEN (orders.orderTotalAmount - IFNULL(transactions_sum.total_paid,0)) ELSE 0 END) AS total_due
 
-
-                                FROM customers 
-                                LEFT JOIN orders ON customers.customerId = orders.orderCustomerId
-                                WHERE $whereClause
-                                GROUP BY customers.customerId");
+                                                        FROM 
+                                                            customers 
+                                                        LEFT JOIN 
+                                                            orders ON customers.customerId = orders.orderCustomerId
+                                                        LEFT JOIN (
+                                                            SELECT transactionInvoiceNumber, SUM(transactionPaidAmount) AS total_paid
+                                                            FROM transactions
+                                                            GROUP BY transactionInvoiceNumber
+                                                        ) AS transactions_sum ON transactions_sum.transactionInvoiceNumber = orders.orderInvoiceNumber
+                                                        WHERE 
+                                                            $whereClause
+                                                        GROUP BY 
+                                                            customers.customerId");
 
                 if ($customer_query->num_rows > 0) {
                     $customer = $customer_query->fetch_assoc();
@@ -459,8 +467,16 @@ $current_time = $time->format("Y-m-d H:i:s");
                                                         <td class="text-center"><?= date('M d, Y', strtotime($detail['orderDate'])); ?></td>
                                                         <td class="text-center"><?= number_format($detail['orderTotalProducts']); ?></td>
                                                         <td class="text-center"><strong><?= number_format($detail['orderTotalAmount'], 2); ?></strong></td>
-                                                        <td class="text-success"><strong><?= number_format($detail['orderPaidAmount'], 2); ?></strong></td>
-                                                        <td class="text-danger"><strong><?= number_format($detail['orderDueAmount'], 2); ?></strong></td>
+                                                        <?php
+                                                        // Calculate paid and due for this order
+                                                        $invoiceNum = $detail['orderInvoiceNumber'];
+                                                        $paidQ = $conn->query("SELECT SUM(transactionPaidAmount) AS paid FROM transactions WHERE transactionInvoiceNumber = '".$conn->real_escape_string($invoiceNum)."'");
+                                                        $paidRow = $paidQ ? $paidQ->fetch_assoc() : ['paid' => 0];
+                                                        $paidAmt = floatval($paidRow['paid']);
+                                                        $dueAmt = floatval($detail['orderTotalAmount']) - $paidAmt;
+                                                        ?>
+                                                        <td class="text-success"><strong><?= number_format($paidAmt, 2); ?></strong></td>
+                                                        <td class="text-danger"><strong><?= number_format($dueAmt, 2); ?></strong></td>
                                                         <td class="text-center"><?= $statusBadge; ?></td>
                                                         <td class="text-center">
                                                             <div class="btn-group btn-group-sm">

@@ -162,6 +162,7 @@ if (isset($_GET['referenceNumber'])) {
                                             quotation_details.quotationDetailQuantity, 
                                             quotation_details.quotationDetailUnitPrice, 
                                             quotation_details.quotationDetailSubTotal,
+                                            quotation_details.quotationDetailDescription,
                                             products.productName,
                                             products.productNotes
                                         FROM 
@@ -177,7 +178,7 @@ if (isset($_GET['referenceNumber'])) {
         $pdf->SetFont('times', '', 10);
         while ($detail = $details_result->fetch_assoc()) {
             $pdf->Cell(45, 5, $detail['productName'], 1, 0, 'L');
-            $pdf->Cell(50, 5, $detail['productNotes'], 1, 0, 'L');
+            $pdf->Cell(50, 5, $detail['quotationDetailDescription'], 1, 0, 'L');
             $pdf->Cell(10, 5, 'TZS', 1, 0, 'L');
             $pdf->Cell(20, 5, number_format($detail['quotationDetailUnitPrice']), 1, 0, 'R');
             $pdf->Cell(20, 5, $detail['quotationDetailQuantity'], 1, 0, 'C');

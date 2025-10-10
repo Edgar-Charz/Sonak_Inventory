@@ -548,7 +548,7 @@ if (isset($_POST['updateUserBTN'])) {
                                                 <td><?= $sn; ?></td>
                                                 <td class="productimgname">
                                                     <a href="javascript:void(0);" class="product-img">
-                                                        <img src="assets/img/profiles/<?= $user_row['userPhoto'] ?>" alt="product">
+                                                        <img src="assets/img/profiles/<?= $user_row['userPhoto'] ?>" alt="profile">
                                                     </a>
                                                 </td>
                                                 <td><?= $user_row['username']; ?></td>

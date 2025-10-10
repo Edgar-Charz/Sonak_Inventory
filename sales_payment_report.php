@@ -268,15 +268,20 @@
                     $whereClause = !empty($conditions) ? implode(" AND ", $conditions) : "1=1";
                     $query = "SELECT
                                     orders.*,
-                                    customers.customerName
+                                    customers.customerName,
+                                    SUM(transactions.transactionPaidAmount) AS totalPaidAmount
                                 FROM
                                     orders
                                 JOIN
                                     customers ON orders.orderCustomerId = customers.customerId
+                                JOIN
+                                    transactions ON orders.orderInvoiceNumber = transactions.transactionInvoiceNumber
                                 WHERE 
                                     $whereClause
+                                GROUP BY
+                                    orders.orderInvoiceNumber   
                                 ORDER BY
-                                        orders.orderUId DESC";
+                                    orders.orderInvoiceNumber DESC";
                     $stmt = $conn->prepare($query);
                     if (!empty($params)) {
                         $stmt->bind_param($types, ...$params);
@@ -423,30 +428,30 @@
                                      <?php
                                         if ($result->num_rows > 0) {
                                             while ($row = $result->fetch_assoc()) {
-                                                $dueDate = date('Y-m-d', strtotime($row['orderDate'] . ' +30 days'));
+                                                $dueDate = date('Y-m-d', strtotime($row['orderDueDate']));
                                                 $amount = number_format($row['orderTotalAmount'], 2);
-                                                $paid = number_format($row['orderPaidAmount'], 2);
-                                                $amountDue = number_format($row['orderDueAmount'], 2);
+                                                $paid = number_format($row['totalPaidAmount'], 2);
+                                                $amountDue = number_format(($row['orderTotalAmount'] - $row['totalPaidAmount']), 2);
                                                 $today = date('Y-m-d');
 
                                                 if ($row['orderStatus'] == 3) {
                                                     $status = 'Deleted';
-                                                    $statusClass = 'bg-lightred';
+                                                    $statusClass = 'bg-danger text-white';
                                                 } else if ($row['orderStatus'] == 2) {
                                                     $status = 'Cancelled';
                                                     $statusClass = 'bg-lightgrey';
-                                                } else if ($row['orderStatus'] == 1 && $row['orderDueAmount'] == 0) {
+                                                } else if ($row['orderStatus'] == 1 && $amountDue == 0) {
                                                     $status = 'Fully Paid';
                                                     $statusClass = 'bg-lightgreen';
-                                                } elseif ($row['orderDueAmount'] > 0 && $row['orderPaidAmount'] == 0) {
+                                                } elseif ($amountDue > 0 && $row['totalPaidAmount'] == 0) {
                                                     $status = 'UnPaid';
-                                                    $statusClass = 'bg-lightgrey';
-                                                } elseif ($row['orderDueAmount'] > 0 && $row['orderPaidAmount'] > 0 && $today <= $dueDate) {
+                                                    $statusClass = 'bg-info text-dark';
+                                                } elseif ($amountDue > 0 && $row['totalPaidAmount'] > 0 && $today <= $dueDate) {
                                                     $status = 'Partially Paid';
                                                     $statusClass = 'bg-lightyellow';
-                                                } elseif ($row['orderDueAmount'] > 0 && $today > $dueDate) {
+                                                } elseif ($amountDue > 0 && $today > $dueDate) {
                                                     $status = 'Overdue';
-                                                    $statusClass = 'bg-lightorange';
+                                                    $statusClass = 'bg-danger text-white';
                                                 } else {
                                                     $status = 'Unknown';
                                                     $statusClass = 'bg-lightgrey';

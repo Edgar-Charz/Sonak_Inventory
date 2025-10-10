@@ -79,6 +79,7 @@ if (isset($_POST['createOrderBTN'])) {
     $invoiceNumber  = $_POST['invoice_number'];
     $customerId     = $_POST['customer_name'];
     $orderDate      = !empty($_POST['order_date']) ? date("Y-m-d", strtotime($_POST['order_date'])) : null;
+    $orderDueDate   = !empty($_POST['order_due_date']) ? date("Y-m-d", strtotime($_POST['order_due_date'])) : null;
     $subTotal       = str_replace(',', '', $_POST['sub_total']);
     $vat            = $_POST['vat'];
     $vatAmount      = str_replace(',', '', $_POST['vat_amount']);
@@ -98,15 +99,16 @@ if (isset($_POST['createOrderBTN'])) {
 
     // Insert new order
     $insert_order_stmt = $conn->prepare("INSERT INTO orders 
-        (orderInvoiceNumber, orderCustomerId, orderCreatedBy, orderUpdatedBy, orderDate, orderTotalProducts, orderSubTotal, orderVat, orderVatAmount, orderDiscount, orderDiscountAmount, orderShippingAmount, orderTotalAmount, orderPaidAmount, orderDueAmount, created_at, updated_at) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        (orderInvoiceNumber, orderCustomerId, orderCreatedBy, orderUpdatedBy, orderDate, orderDueDate, orderTotalProducts, orderSubTotal, orderVat, orderVatAmount, orderDiscount, orderDiscountAmount, orderShippingAmount, orderTotalAmount, created_at, updated_at) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $insert_order_stmt->bind_param(
-        "siiisidididddddss",
+        "siiissidididddss",
         $invoiceNumber,
         $customerId,
         $user_id,
         $user_id,
         $orderDate,
+        $orderDueDate,
         $totalProducts,
         $subTotal,
         $vat,
@@ -115,8 +117,6 @@ if (isset($_POST['createOrderBTN'])) {
         $discountAmount,
         $shippingAmount,
         $grandTotal,
-        $pay,
-        $due,
         $current_time,
         $current_time
     );
@@ -488,6 +488,12 @@ function generateInvoiceNumber($conn)
                                                 <option value="Bank">Bank</option>
                                                 <option value="Mobile Money">Mobile Money</option>
                                             </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-6 col-sm-6 col-12">
+                                        <div class="form-group">
+                                            <label>Due Date</label>
+                                            <input type="text" name="order_due_date" class="form-control datetimepicker" placeholder="DD-MM-YYYY" required>
                                         </div>
                                     </div>
                                     <div id="bank_field" class="row" style="display: none;">
@@ -883,6 +889,32 @@ function generateInvoiceNumber($conn)
         <script src="assets/js/script.js"></script>
         <script>
             document.addEventListener("DOMContentLoaded", function() {
+                // Step 1 validation on Next
+                document.getElementById('goStep2').addEventListener('click', function(e) {
+                    let valid = true;
+                    let errorMsg = "";
+                    const requiredFields = [
+                        'customer_name',
+                        'order_date',
+                        'order_due_date'
+                    ];
+                    requiredFields.forEach(function(name) {
+                        const field = document.getElementsByName(name)[0];
+                        if (field && (field.value === '' || field.value === null)) {
+                            valid = false;
+                            errorMsg += `Please fill the ${name.replace(/_/g, ' ')} field.<br>`;
+                        }
+                    });
+                    if (!valid) {
+                        Swal.fire({
+                            title: 'Error!',
+                            html: errorMsg,
+                            confirmButtonText: 'OK'
+                        });
+                        return;
+                    }
+                    showStep(2);
+                });
                 // Step navigation
                 function showStep(stepNumber) {
                     document.getElementById('step1').style.display = 'none';

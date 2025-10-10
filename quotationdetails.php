@@ -332,6 +332,7 @@ if (isset($_GET['referenceNumber'])) {
                                                         <tr>
                                                             <th>S/N</th>
                                                             <th>Product Name</th>
+                                                            <th>Description</th>
                                                             <th class="text-center">Quantity</th>
                                                             <th class="text-center">Unit Price</th>
                                                             <th class="text-center">Total Cost</th>
@@ -346,6 +347,9 @@ if (isset($_GET['referenceNumber'])) {
                                                                 <td style="padding: 10px;vertical-align: top;"><?= $sn++; ?></td>
                                                                 <td style="padding: 10px;vertical-align: top;">
                                                                     <?= $detail['productName']; ?>
+                                                                </td>
+                                                                <td style="padding: 10px;vertical-align: top;">
+                                                                    <?= $detail['quotationDetailDescription']; ?>
                                                                 </td>
                                                                 <td style="padding: 10px;vertical-align: top;" class="text-center">
                                                                     <?= $detail['quotationDetailQuantity']; ?>

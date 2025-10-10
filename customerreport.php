@@ -263,31 +263,38 @@ $time = new DateTime("now", new DateTimeZone("Africa/Dar_es_Salaam"));
 
                         // Query
                         $customer_report_stmt = $conn->prepare("SELECT 
-                                                                customers.customerId AS `customer_id`,
-                                                                customers.customerName AS `customer_name`,
-                                                                SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderTotalAmount ELSE 0 END) AS `Amount`,
-                                                                SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderPaidAmount ELSE 0 END) AS `Paid`,
-                                                                SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderDueAmount ELSE 0 END) AS `due_amount`,
+                                                                            customers.customerId AS `customer_id`,
+                                                                            customers.customerName AS `customer_name`,
+                                                                            SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderTotalAmount ELSE 0 END) AS `Amount`,
+                                                                            SUM(CASE WHEN orders.orderStatus IN (0,1) THEN transactions_sum.total_paid ELSE 0 END) AS `Paid`,
+                                                                            SUM(CASE WHEN orders.orderStatus IN (0,1) THEN (orders.orderTotalAmount - IFNULL(transactions_sum.total_paid,0)) ELSE 0 END) AS `due_amount`,
 
-                                                                -- Separate counts for each order status
-                                                                SUM(CASE WHEN orders.orderStatus = 0 THEN 1 ELSE 0 END) AS `Pending Orders`,
-                                                                SUM(CASE WHEN orders.orderStatus = 1 THEN 1 ELSE 0 END) AS `Completed Orders`,
-                                                                SUM(CASE WHEN orders.orderStatus = 2 THEN 1 ELSE 0 END) AS `Cancelled Orders`,
-                                                                SUM(CASE WHEN orders.orderStatus = 3 THEN 1 ELSE 0 END) AS `Deleted Orders`,
+                                                                            -- Separate counts for each order status
+                                                                            SUM(CASE WHEN orders.orderStatus = 0 THEN 1 ELSE 0 END) AS `Pending Orders`,
+                                                                            SUM(CASE WHEN orders.orderStatus = 1 THEN 1 ELSE 0 END) AS `Completed Orders`,
+                                                                            SUM(CASE WHEN orders.orderStatus = 2 THEN 1 ELSE 0 END) AS `Cancelled Orders`,
+                                                                            SUM(CASE WHEN orders.orderStatus = 3 THEN 1 ELSE 0 END) AS `Deleted Orders`,
 
-                                                                CASE  
-                                                                    WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN 1 ELSE 0 END) = 0 THEN 'No Orders'
-                                                                    WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderDueAmount ELSE 0 END) = 0 
-                                                                        AND SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderPaidAmount ELSE 0 END) > 0 THEN 'Fully Paid'
-                                                                    WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN orders.orderPaidAmount ELSE 0 END) = 0 THEN 'Unpaid'
-                                                                    ELSE 'Partially Paid'
-                                                                END AS `Payment Status`
- 
-                                                            FROM customers 
-                                                            LEFT JOIN orders ON orders.orderCustomerId = customers.customerId
-                                                            WHERE $whereClause
-                                                            GROUP BY customers.customerId, customers.customerName;
-                                                ");
+                                                                            CASE  
+                                                                                WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN 1 ELSE 0 END) = 0 THEN 'No Orders'
+                                                                                WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN (orders.orderTotalAmount - IFNULL(transactions_sum.total_paid,0)) ELSE 0 END) = 0 
+                                                                                    AND SUM(CASE WHEN orders.orderStatus IN (0,1) THEN transactions_sum.total_paid ELSE 0 END) > 0 THEN 'Fully Paid'
+                                                                                WHEN SUM(CASE WHEN orders.orderStatus IN (0,1) THEN transactions_sum.total_paid ELSE 0 END) = 0 THEN 'Unpaid'
+                                                                                ELSE 'Partially Paid'
+                                                                            END AS `Payment Status`
+                                                                        FROM 
+                                                                            customers 
+                                                                        LEFT JOIN 
+                                                                            orders ON orders.orderCustomerId = customers.customerId
+                                                                        LEFT JOIN (
+                                                                            SELECT transactionInvoiceNumber, SUM(transactionPaidAmount) AS total_paid
+                                                                            FROM transactions
+                                                                            GROUP BY transactionInvoiceNumber
+                                                                        ) AS transactions_sum ON transactions_sum.transactionInvoiceNumber = orders.orderInvoiceNumber
+                                                                        WHERE 
+                                                                            $whereClause
+                                                                        GROUP BY 
+                                                                            customers.customerId, customers.customerName;");
                         if (!empty($params)) {
                             $customer_report_stmt->bind_param($types, ...$params);
                         }

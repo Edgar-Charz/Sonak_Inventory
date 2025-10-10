@@ -410,30 +410,7 @@ if ($total_quotations_result->num_rows > 0) {
                                             while ($row = $recently_added_orders->fetch_assoc()) {
                                                 $order_uid = $row["orderUId"];
                                                 $invoice_number = $row["orderInvoiceNumber"];
-                                                $currentStatus = $row["orderStatus"];
-                                                $due_amount = $row["orderDueAmount"];
-                                                $sn++;
-
-                                                if ($currentStatus != 2 && $currentStatus != 3) {
-                                                    $newStatus = $currentStatus;
-
-                                                    if ($due_amount == 0) {
-                                                        $newStatus = 1;
-                                                    } else {
-                                                        $newStatus = 0;
-                                                    }
-
-                                                    if ($newStatus != $currentStatus) {
-                                                        $update_query = $conn->prepare("UPDATE orders SET orderStatus = ? WHERE orderInvoiceNumber = ?");
-                                                        $update_query->bind_param("is", $newStatus, $invoice_number);
-                                                        $update_query->execute();
-                                                        $update_query->close();
-
-                                                        $row["orderStatus"] = $newStatus;
-                                                    }
-                                                }
-
-                                            ?>
+                                                ?>
                                                 <tr>
                                                     <td><?= $sn; ?></td>
                                                     <td><?= $row['orderInvoiceNumber']; ?></td>
@@ -501,6 +478,8 @@ if ($total_quotations_result->num_rows > 0) {
                                                                                             quotations.quotationCustomerId = customers.customerId 
                                                                                             AND 
                                                                                             quotationStatus = 0
+                                                                                        ORDER BY
+                                                                                            quotations.quotationUId DESC
                                                                                         LIMIT 5");
                                             $pending_quotations_stmt->execute();
                                             $pending_quotations = $pending_quotations_stmt->get_result();
@@ -567,7 +546,7 @@ if ($total_quotations_result->num_rows > 0) {
                                                                                 WHERE 
                                                                                     purchases.purchaseSupplierId = suppliers.supplierId
                                                                                 ORDER BY 
-                                                                                    purchases.purchaseDate DESC
+                                                                                    purchases.purchaseUId DESC
                                                                                 LIMIT 5");
                                             $stmt->execute();
                                             $result = $stmt->get_result();
